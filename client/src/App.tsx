@@ -7,6 +7,7 @@ import Home from "@/pages/home";
 import Agenda from "@/pages/agenda";
 import Messages from "@/pages/messages";
 import Profile from "@/pages/profile";
+import ProfessionalDetail from "@/pages/professional-detail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/agenda" component={Agenda} />
       <Route path="/messages" component={Messages} />
       <Route path="/profile" component={Profile} />
+      <Route path="/professional/:id" component={ProfessionalDetail} />
       <Route component={NotFound} />
     </Switch>
   );

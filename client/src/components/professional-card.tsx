@@ -1,6 +1,7 @@
 import { MapPin, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useLocation } from "wouter";
 import type { Professional } from "@shared/schema";
 
 interface ProfessionalCardProps {
@@ -8,8 +9,10 @@ interface ProfessionalCardProps {
 }
 
 export function ProfessionalCard({ professional }: ProfessionalCardProps) {
+  const [, setLocation] = useLocation();
+  
   const handleCardClick = () => {
-    console.log("Opening professional profile:", professional.id);
+    setLocation(`/professional/${professional.id}`);
   };
 
   return (

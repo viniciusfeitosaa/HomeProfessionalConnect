@@ -1,4 +1,4 @@
-import { StatusBar } from "@/components/status-bar";
+
 import { User, MapPin, Phone, Mail, Star, Settings, CreditCard, Shield, HelpCircle, LogOut, Edit, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,7 +48,6 @@ export default function Profile() {
 
   return (
     <div className="max-w-sm mx-auto bg-white min-h-screen relative">
-      <StatusBar />
       
       <div className="px-4 py-6">
         {/* Profile Header */}
