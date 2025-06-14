@@ -35,8 +35,8 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
   };
 
   return (
-    <div className="px-4 mb-6">
-      <div className="bg-gradient-to-br from-primary via-purple-600 to-secondary rounded-2xl p-6 text-white relative overflow-hidden shadow-xl">
+    <div className="px-4 sm:px-6 lg:px-8 mb-6">
+      <div className="bg-gradient-to-br from-primary via-purple-600 to-secondary rounded-2xl p-4 sm:p-6 text-white relative overflow-hidden shadow-xl">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-full -translate-y-16 translate-x-16"></div>
@@ -44,11 +44,11 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
         </div>
         
         <div className="relative">
-          <div className="flex items-start justify-between mb-5">
-            <div className="flex-1">
-              <div className="flex items-center mb-3">
-                <h3 className="text-xl font-bold mr-3">{appointment.professionalName}</h3>
-                <Badge className="bg-white/25 backdrop-blur-sm text-white border-0 text-xs px-3 py-1 rounded-full flex items-center">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex-1 mb-4 lg:mb-0">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3">
+                <h3 className="text-lg sm:text-xl font-bold mb-2 sm:mb-0 sm:mr-3">{appointment.professionalName}</h3>
+                <Badge className="bg-white/25 backdrop-blur-sm text-white border-0 text-xs px-3 py-1 rounded-full flex items-center w-fit">
                   <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
                   Confirmado
                 </Badge>
@@ -58,10 +58,10 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
                 {appointment.description}
               </p>
               
-              <div className="mb-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-lg px-3 py-2">
-                    <Clock className="h-4 w-4 mr-2 text-white/90" />
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-lg px-3 py-2 w-full sm:w-auto">
+                    <Clock className="h-4 w-4 mr-2 text-white/90 flex-shrink-0" />
                     <span className="text-sm font-medium">
                       {format(new Date(appointment.scheduledFor), "dd/MM 'às' HH:mm", { locale: ptBR })}
                     </span>
@@ -70,26 +70,28 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
                     variant="secondary"
                     size="sm"
                     onClick={handleViewDetails}
-                    className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-0 rounded-lg py-2 px-3 text-xs font-medium transition-all duration-200 hover:scale-[1.02]"
+                    className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-0 rounded-lg py-2 px-3 text-xs font-medium transition-all duration-200 hover:scale-[1.02] w-full sm:w-auto"
                   >
                     Ver detalhes
                   </Button>
                 </div>
                 {professional && (
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-lg px-3 py-1.5">
-                      <Star className="h-3 w-3 mr-1.5 text-yellow-300" />
-                      <span className="text-sm font-medium">{professional.rating}</span>
-                    </div>
-                    <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-lg px-3 py-1.5">
-                      <MapPin className="h-3 w-3 mr-1.5 text-white/90" />
-                      <span className="text-sm font-medium">{professional.distance} km</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center justify-between sm:justify-start gap-3">
+                      <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-lg px-3 py-1.5">
+                        <Star className="h-3 w-3 mr-1.5 text-yellow-300" />
+                        <span className="text-sm font-medium">{professional.rating}</span>
+                      </div>
+                      <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-lg px-3 py-1.5">
+                        <MapPin className="h-3 w-3 mr-1.5 text-white/90" />
+                        <span className="text-sm font-medium">{professional.distance} km</span>
+                      </div>
                     </div>
                     <Button 
                       variant="secondary"
                       size="sm"
                       onClick={handleContact}
-                      className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-0 rounded-lg py-1.5 px-3 transition-all duration-200 hover:scale-[1.02]"
+                      className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-0 rounded-lg py-1.5 px-3 transition-all duration-200 hover:scale-[1.02] w-full sm:w-auto"
                     >
                       <Phone className="h-3 w-3 mr-1" />
                       <span className="text-xs">Contato</span>
@@ -97,10 +99,9 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
                   </div>
                 )}
               </div>
-
             </div>
             
-            <div className="ml-6 flex flex-col items-center justify-center">
+            <div className="flex justify-center lg:ml-6 lg:flex-col lg:items-center lg:justify-center">
               <div 
                 className="cursor-pointer group"
                 onClick={handleViewProfessional}
@@ -109,7 +110,7 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
                   <img
                     src={professional?.imageUrl || "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"}
                     alt={`${appointment.professionalName} - Profissional`}
-                    className="w-20 h-20 rounded-full object-cover border-3 border-white/40 shadow-2xl group-hover:scale-105 transition-all duration-300"
+                    className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full object-cover border-3 border-white/40 shadow-2xl group-hover:scale-105 transition-all duration-300"
                   />
                   <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 rounded-full transition-all duration-300"></div>
                 </div>
