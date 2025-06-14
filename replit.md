@@ -80,9 +80,18 @@ The build process:
 2. esbuild bundles the Express server to `dist/index.js`
 3. Production server serves static files and API routes
 
+## Recent Changes
+
+- June 14, 2025 - Removed status bar component from all pages per user request
+- June 14, 2025 - Enhanced appointment card with detailed professional information, ratings, distance, and contact options
+- June 14, 2025 - Added professional detail page with comprehensive profile, services, reviews, and booking options
+- June 14, 2025 - Created agenda, messages, and profile sections with full functionality
+- June 14, 2025 - Implemented working navigation between all sections
+- June 14, 2025 - Added sample appointment and notification data for realistic testing
+
 ## Changelog
 
-- June 14, 2025. Initial setup
+- June 14, 2025. Initial setup and full app development
 
 ## User Preferences
 
