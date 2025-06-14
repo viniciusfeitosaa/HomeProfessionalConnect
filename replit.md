@@ -82,6 +82,10 @@ The build process:
 
 ## Recent Changes
 
+- June 14, 2025 - Created complete login/registration screen with gradient background, logo, form validation, and social login options
+- June 14, 2025 - Enhanced interface with more fluid design, improved appointment cards with better spacing and organization
+- June 14, 2025 - Reorganized information areas (schedules, ratings, distance) with smaller, properly spaced containers
+- June 14, 2025 - Added logout functionality that redirects to login screen
 - June 14, 2025 - Removed status bar component from all pages per user request
 - June 14, 2025 - Enhanced appointment card with detailed professional information, ratings, distance, and contact options
 - June 14, 2025 - Added professional detail page with comprehensive profile, services, reviews, and booking options
