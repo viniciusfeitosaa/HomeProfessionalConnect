@@ -1,0 +1,326 @@
+import { StatusBar } from "@/components/status-bar";
+import { Send, Search, Phone, Video, MoreVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { BottomNavigation } from "@/components/bottom-navigation";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import type { Professional } from "@shared/schema";
+
+interface Message {
+  id: number;
+  senderId: number;
+  receiverId: number;
+  content: string;
+  timestamp: Date;
+  isRead: boolean;
+  senderName: string;
+  senderAvatar: string;
+}
+
+interface Conversation {
+  id: number;
+  professionalId: number;
+  professionalName: string;
+  professionalAvatar: string;
+  lastMessage: string;
+  lastMessageTime: Date;
+  unreadCount: number;
+  isOnline: boolean;
+}
+
+export default function Messages() {
+  const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
+  const [messageText, setMessageText] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Mock data for conversations
+  const conversations: Conversation[] = [
+    {
+      id: 1,
+      professionalId: 1,
+      professionalName: "Pedro Afonso",
+      professionalAvatar: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80",
+      lastMessage: "Oi! Posso chegar um pouco mais cedo hoje, tudo bem?",
+      lastMessageTime: new Date("2025-06-14T14:30:00"),
+      unreadCount: 2,
+      isOnline: true
+    },
+    {
+      id: 2,
+      professionalId: 2,
+      professionalName: "Lucas Abreu",
+      professionalAvatar: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80",
+      lastMessage: "Obrigado pela avaliação! Foi um prazer atendê-lo.",
+      lastMessageTime: new Date("2025-06-13T16:45:00"),
+      unreadCount: 0,
+      isOnline: false
+    },
+    {
+      id: 3,
+      professionalId: 3,
+      professionalName: "Carlos Silva",
+      professionalAvatar: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80",
+      lastMessage: "Preciso reagendar para amanhã, pode ser?",
+      lastMessageTime: new Date("2025-06-12T09:15:00"),
+      unreadCount: 1,
+      isOnline: true
+    }
+  ];
+
+  // Mock data for messages
+  const messages: Message[] = [
+    {
+      id: 1,
+      senderId: 1,
+      receiverId: 1, // Current user
+      content: "Olá! Confirmo o agendamento para hoje às 19:30.",
+      timestamp: new Date("2025-06-14T13:00:00"),
+      isRead: true,
+      senderName: "Pedro Afonso",
+      senderAvatar: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+    },
+    {
+      id: 2,
+      senderId: 1, // Current user
+      receiverId: 1,
+      content: "Perfeito! Estarei esperando.",
+      timestamp: new Date("2025-06-14T13:15:00"),
+      isRead: true,
+      senderName: "Você",
+      senderAvatar: ""
+    },
+    {
+      id: 3,
+      senderId: 1,
+      receiverId: 1,
+      content: "Oi! Posso chegar um pouco mais cedo hoje, tudo bem?",
+      timestamp: new Date("2025-06-14T14:30:00"),
+      isRead: false,
+      senderName: "Pedro Afonso",
+      senderAvatar: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+    },
+    {
+      id: 4,
+      senderId: 1,
+      receiverId: 1,
+      content: "Estou chegando em 10 minutos!",
+      timestamp: new Date("2025-06-14T14:45:00"),
+      isRead: false,
+      senderName: "Pedro Afonso",
+      senderAvatar: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+    }
+  ];
+
+  const filteredConversations = conversations.filter(conv =>
+    conv.professionalName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const selectedConv = conversations.find(conv => conv.id === selectedConversation);
+  const conversationMessages = messages.filter(msg => 
+    selectedConversation === 1 // Simplified for demo
+  );
+
+  const handleSendMessage = () => {
+    if (messageText.trim()) {
+      console.log("Sending message:", messageText);
+      setMessageText("");
+    }
+  };
+
+  const handleCall = () => {
+    console.log("Starting voice call with", selectedConv?.professionalName);
+  };
+
+  const handleVideoCall = () => {
+    console.log("Starting video call with", selectedConv?.professionalName);
+  };
+
+  const formatTime = (date: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    
+    if (hours < 1) {
+      const minutes = Math.floor(diff / (1000 * 60));
+      return minutes < 1 ? "agora" : `${minutes}m`;
+    } else if (hours < 24) {
+      return `${hours}h`;
+    } else {
+      return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    }
+  };
+
+  // Chat view
+  if (selectedConversation) {
+    return (
+      <div className="max-w-sm mx-auto bg-white min-h-screen relative flex flex-col">
+        <StatusBar />
+        
+        {/* Chat Header */}
+        <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
+          <div className="flex items-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedConversation(null)}
+              className="mr-2 p-1"
+            >
+              ←
+            </Button>
+            <Avatar className="w-10 h-10 mr-3">
+              <AvatarImage src={selectedConv?.professionalAvatar} />
+              <AvatarFallback>{selectedConv?.professionalName?.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div>
+              <h3 className="font-semibold text-gray-900">{selectedConv?.professionalName}</h3>
+              <p className="text-xs text-gray-500">
+                {selectedConv?.isOnline ? "Online" : "Visto por último hoje"}
+              </p>
+            </div>
+          </div>
+          <div className="flex space-x-2">
+            <Button variant="ghost" size="sm" onClick={handleCall}>
+              <Phone className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleVideoCall}>
+              <Video className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="sm">
+              <MoreVertical className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {conversationMessages.map((message) => (
+            <div
+              key={message.id}
+              className={`flex ${message.senderName === "Você" ? "justify-end" : "justify-start"}`}
+            >
+              <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
+                message.senderName === "Você"
+                  ? "bg-primary text-white"
+                  : "bg-gray-100 text-gray-900"
+              }`}>
+                <p className="text-sm">{message.content}</p>
+                <p className={`text-xs mt-1 ${
+                  message.senderName === "Você" ? "text-white/70" : "text-gray-500"
+                }`}>
+                  {formatTime(message.timestamp)}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Message Input */}
+        <div className="p-4 bg-white border-t border-gray-200">
+          <div className="flex items-center space-x-2">
+            <Input
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              placeholder="Digite sua mensagem..."
+              className="flex-1 rounded-full"
+              onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={!messageText.trim()}
+              className="rounded-full w-10 h-10 p-0"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Conversations list view
+  return (
+    <div className="max-w-sm mx-auto bg-white min-h-screen relative">
+      <StatusBar />
+      
+      <div className="px-4 py-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">Mensagens</h1>
+
+        {/* Search */}
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              type="text"
+              placeholder="Buscar conversas..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-gray-100 rounded-xl border-0"
+            />
+          </div>
+        </div>
+
+        {/* Conversations */}
+        <div className="space-y-2 mb-20">
+          {filteredConversations.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Nenhuma conversa encontrada</p>
+            </div>
+          ) : (
+            filteredConversations.map((conversation) => (
+              <Card
+                key={conversation.id}
+                className="cursor-pointer hover:shadow-md transition-shadow border border-gray-100"
+                onClick={() => setSelectedConversation(conversation.id)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start space-x-3">
+                    <div className="relative">
+                      <Avatar className="w-12 h-12">
+                        <AvatarImage src={conversation.professionalAvatar} />
+                        <AvatarFallback>
+                          {conversation.professionalName.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {conversation.isOnline && (
+                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="font-semibold text-gray-900 truncate">
+                          {conversation.professionalName}
+                        </h3>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-500">
+                            {formatTime(conversation.lastMessageTime)}
+                          </span>
+                          {conversation.unreadCount > 0 && (
+                            <Badge className="bg-primary text-white text-xs min-w-[1.25rem] h-5 flex items-center justify-center rounded-full">
+                              {conversation.unreadCount}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <p className={`text-sm truncate ${
+                        conversation.unreadCount > 0 ? "font-medium text-gray-900" : "text-gray-600"
+                      }`}>
+                        {conversation.lastMessage}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      </div>
+      
+      <BottomNavigation />
+    </div>
+  );
+}
