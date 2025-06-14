@@ -14,7 +14,7 @@ const categories = [
 
 export function CategoryFilters({ selectedCategory, onCategoryChange }: CategoryFiltersProps) {
   return (
-    <div className="px-4 mb-6">
+    <div className="px-6 mb-6">
       <div className="flex space-x-3 overflow-x-auto scrollbar-hide">
         {categories.map((category) => (
           <Button
@@ -23,10 +23,10 @@ export function CategoryFilters({ selectedCategory, onCategoryChange }: Category
             size="sm"
             onClick={() => onCategoryChange(category.id)}
             className={`
-              px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors
+              px-5 py-3 rounded-2xl text-sm font-semibold whitespace-nowrap transition-all duration-300 border-0 shadow-md hover:shadow-lg hover:scale-105
               ${selectedCategory === category.id
-                ? "bg-primary text-white hover:bg-primary/90"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                ? "bg-gradient-to-r from-primary to-secondary text-white hover:shadow-xl"
+                : "bg-white/80 backdrop-blur-sm text-gray-700 hover:bg-white"
               }
             `}
           >
