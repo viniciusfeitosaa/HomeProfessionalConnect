@@ -17,55 +17,54 @@ export function ProfessionalCard({ professional }: ProfessionalCardProps) {
 
   return (
     <Card 
-      className="mb-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow"
+      className="mb-4 border-0 cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] bg-white/80 backdrop-blur-sm shadow-md"
       onClick={handleCardClick}
     >
-      <CardContent className="p-4">
+      <CardContent className="p-5">
         <div className="flex items-center space-x-4">
           <div className="relative">
             <img
               src={professional.imageUrl}
               alt={`${professional.name} - ${professional.service}`}
-              className="w-16 h-16 rounded-xl object-cover"
+              className="w-18 h-18 rounded-2xl object-cover shadow-lg"
             />
+            <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 shadow-md">
+              <Star className="h-3 w-3 text-yellow-500 fill-current" />
+            </div>
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-gray-900 mb-1">
+            <h3 className="font-bold text-gray-900 mb-1 text-lg">
               {professional.name}
             </h3>
-            <p className="text-sm text-gray-600 mb-2">
-              Serviços: {professional.service}
+            <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+              {professional.service}
             </p>
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                <MapPin className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-600">
+            
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center bg-gray-50 rounded-full px-3 py-1">
+                <MapPin className="h-3 w-3 text-gray-500 mr-1" />
+                <span className="text-xs font-medium text-gray-700">
                   {professional.distance} km
                 </span>
               </div>
-              <div className="flex items-center space-x-1">
-                <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                <span className="text-sm font-medium text-gray-700">
+              <div className="flex items-center bg-yellow-50 rounded-full px-3 py-1">
+                <Star className="h-3 w-3 text-yellow-500 fill-current mr-1" />
+                <span className="text-xs font-bold text-yellow-700">
                   {professional.rating}
                 </span>
               </div>
             </div>
+            
             <div>
               <Badge 
-                variant={professional.available ? "default" : "secondary"}
                 className={`
-                  text-xs font-medium
+                  text-xs font-medium border-0 rounded-full px-3 py-1.5
                   ${professional.available
-                    ? "bg-green-100 text-green-700 hover:bg-green-200"
-                    : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                    ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700"
+                    : "bg-gradient-to-r from-orange-100 to-yellow-100 text-orange-700"
                   }
                 `}
               >
-                <div 
-                  className={`w-2 h-2 rounded-full mr-1 ${
-                    professional.available ? "bg-green-500" : "bg-yellow-500"
-                  }`}
-                />
                 {professional.available ? "Disponível agora" : "Ocupado"}
               </Badge>
             </div>
