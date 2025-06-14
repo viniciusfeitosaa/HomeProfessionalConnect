@@ -7,9 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import type { User as UserType, Appointment } from "@shared/schema";
 
 export default function Profile() {
+  const [, setLocation] = useLocation();
+  
   const { data: user } = useQuery<UserType>({
     queryKey: ["/api/user"],
   });
@@ -43,7 +46,7 @@ export default function Profile() {
   };
 
   const handleLogout = () => {
-    console.log("Logging out user");
+    setLocation("/login");
   };
 
   return (
