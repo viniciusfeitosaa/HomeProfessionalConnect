@@ -124,17 +124,46 @@ export class MemStorage implements IStorage {
     });
     this.currentProfessionalId = professionalsData.length + 1;
 
-    // Seed appointment
-    const appointment: Appointment = {
-      id: 1,
-      userId: 1,
-      professionalId: 2,
-      professionalName: "Marcos",
-      scheduledFor: new Date("2025-06-15T19:30:00"),
-      description: "Sua visita com Marcos está marcada para amanhã às 19:30"
-    };
-    this.appointments.set(1, appointment);
-    this.currentAppointmentId = 2;
+    // Seed appointments
+    const appointmentsData = [
+      {
+        id: 1,
+        userId: 1,
+        professionalId: 2,
+        professionalName: "Marcos",
+        scheduledFor: new Date("2025-06-15T19:30:00"),
+        description: "Sua visita com Marcos está marcada para amanhã às 19:30"
+      },
+      {
+        id: 2,
+        userId: 1,
+        professionalId: 1,
+        professionalName: "Pedro Afonso",
+        scheduledFor: new Date("2025-06-16T14:00:00"),
+        description: "Reparo no encanamento da cozinha"
+      },
+      {
+        id: 3,
+        userId: 1,
+        professionalId: 2,
+        professionalName: "Lucas Abreu",
+        scheduledFor: new Date("2025-06-12T10:30:00"),
+        description: "Instalação de tomadas extras - Concluído"
+      },
+      {
+        id: 4,
+        userId: 1,
+        professionalId: 3,
+        professionalName: "Carlos Silva",
+        scheduledFor: new Date("2025-06-10T16:00:00"),
+        description: "Manutenção preventiva do ar-condicionado - Concluído"
+      }
+    ];
+
+    appointmentsData.forEach((apt) => {
+      this.appointments.set(apt.id, apt);
+    });
+    this.currentAppointmentId = appointmentsData.length + 1;
 
     // Seed notifications
     const notification1: Notification = {
