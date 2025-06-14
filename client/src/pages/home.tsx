@@ -1,4 +1,4 @@
-import { StatusBar } from "@/components/status-bar";
+
 import { Header } from "@/components/header";
 import { AppointmentCard } from "@/components/appointment-card";
 import { SearchBar } from "@/components/search-bar";
@@ -39,7 +39,6 @@ export default function Home() {
 
   return (
     <div className="max-w-sm mx-auto bg-white min-h-screen relative">
-      <StatusBar />
       
       <Header userName={user?.name || "Gustavo"} />
       

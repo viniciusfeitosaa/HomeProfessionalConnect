@@ -1,4 +1,4 @@
-import { StatusBar } from "@/components/status-bar";
+
 import { Send, Search, Phone, Video, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,7 +158,6 @@ export default function Messages() {
   if (selectedConversation) {
     return (
       <div className="max-w-sm mx-auto bg-white min-h-screen relative flex flex-col">
-        <StatusBar />
         
         {/* Chat Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
@@ -244,7 +243,6 @@ export default function Messages() {
   // Conversations list view
   return (
     <div className="max-w-sm mx-auto bg-white min-h-screen relative">
-      <StatusBar />
       
       <div className="px-4 py-6">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Mensagens</h1>

@@ -1,4 +1,4 @@
-import { StatusBar } from "@/components/status-bar";
+
 import { Calendar, Clock, MapPin, Phone, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,7 +29,6 @@ export default function Agenda() {
   if (isLoading) {
     return (
       <div className="max-w-sm mx-auto bg-white min-h-screen">
-        <StatusBar />
         <div className="p-6">
           <div className="animate-pulse space-y-4">
             <div className="h-8 bg-gray-200 rounded w-1/2"></div>
@@ -47,7 +46,6 @@ export default function Agenda() {
 
   return (
     <div className="max-w-sm mx-auto bg-white min-h-screen relative">
-      <StatusBar />
       
       <div className="px-4 py-6">
         <div className="flex items-center mb-6">
