@@ -78,12 +78,29 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
                 )}
               </div>
 
-              <div className="flex space-x-3">
+            </div>
+            
+            <div className="ml-6 flex flex-col items-center">
+              <div 
+                className="cursor-pointer group mb-4"
+                onClick={handleViewProfessional}
+              >
+                <div className="relative">
+                  <img
+                    src={professional?.imageUrl || "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"}
+                    alt={`${appointment.professionalName} - Profissional`}
+                    className="w-20 h-20 rounded-full object-cover border-3 border-white/40 shadow-2xl group-hover:scale-105 transition-all duration-300"
+                  />
+                  <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 rounded-full transition-all duration-300"></div>
+                </div>
+              </div>
+
+              <div className="flex flex-col space-y-2 w-full">
                 <Button 
                   variant="secondary"
                   size="sm"
                   onClick={handleViewDetails}
-                  className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-0 flex-1 rounded-xl py-2.5 font-medium transition-all duration-200 hover:scale-[1.02]"
+                  className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-0 rounded-lg py-2 text-xs font-medium transition-all duration-200 hover:scale-[1.02]"
                 >
                   Ver detalhes
                 </Button>
@@ -91,26 +108,11 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
                   variant="secondary"
                   size="sm"
                   onClick={handleContact}
-                  className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-0 rounded-xl px-4 transition-all duration-200 hover:scale-[1.02]"
+                  className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-0 rounded-lg py-2 transition-all duration-200 hover:scale-[1.02]"
                 >
-                  <Phone className="h-4 w-4" />
+                  <Phone className="h-3 w-3 mr-1" />
+                  <span className="text-xs">Contato</span>
                 </Button>
-              </div>
-            </div>
-            
-            <div className="ml-6">
-              <div 
-                className="cursor-pointer group"
-                onClick={handleViewProfessional}
-              >
-                <div className="relative">
-                  <img
-                    src={professional?.imageUrl || "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"}
-                    alt={`${appointment.professionalName} - Profissional`}
-                    className="w-24 h-24 rounded-2xl object-cover border-3 border-white/40 shadow-2xl group-hover:scale-105 transition-all duration-300"
-                  />
-                  <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 rounded-2xl transition-all duration-300"></div>
-                </div>
               </div>
             </div>
           </div>
