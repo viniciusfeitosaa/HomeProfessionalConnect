@@ -12,8 +12,8 @@ export function BottomNavigation() {
   };
 
   return (
-    <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-sm bg-white/90 backdrop-blur-lg border-t border-gray-200/50 shadow-2xl">
-      <div className="flex justify-around py-3">
+    <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-sm lg:max-w-4xl xl:max-w-6xl bg-white/90 backdrop-blur-lg border-t border-gray-200/50 shadow-2xl lg:hidden">
+      <div className="flex justify-around py-2 sm:py-3">
         <Link href="/">
           <Button
             variant="ghost"
