@@ -57,24 +57,26 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
                 {appointment.description}
               </p>
               
-              <div className="flex items-center mb-5 space-x-5">
-                <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-full px-3 py-1">
-                  <Clock className="h-4 w-4 mr-2" />
-                  <span className="text-sm font-medium">
+              <div className="mb-5">
+                <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-xl px-4 py-3 mb-3">
+                  <Clock className="h-5 w-5 mr-3 text-white/90" />
+                  <span className="text-sm font-semibold">
                     {format(new Date(appointment.scheduledFor), "dd/MM 'às' HH:mm", { locale: ptBR })}
                   </span>
                 </div>
                 {professional && (
-                  <>
-                    <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-full px-3 py-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2">
                       <Star className="h-4 w-4 mr-2 text-yellow-300" />
                       <span className="text-sm font-medium">{professional.rating}</span>
+                      <span className="text-xs text-white/70 ml-1">avaliação</span>
                     </div>
-                    <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-full px-3 py-1">
-                      <MapPin className="h-4 w-4 mr-2" />
+                    <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-xl px-4 py-2">
+                      <MapPin className="h-4 w-4 mr-2 text-white/90" />
                       <span className="text-sm font-medium">{professional.distance} km</span>
+                      <span className="text-xs text-white/70 ml-1">distância</span>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
 

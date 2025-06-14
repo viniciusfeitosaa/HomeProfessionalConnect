@@ -40,18 +40,20 @@ export function ProfessionalCard({ professional }: ProfessionalCardProps) {
               {professional.service}
             </p>
             
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center bg-gray-50 rounded-full px-3 py-1">
-                <MapPin className="h-3 w-3 text-gray-500 mr-1" />
-                <span className="text-xs font-medium text-gray-700">
-                  {professional.distance} km
-                </span>
-              </div>
-              <div className="flex items-center bg-yellow-50 rounded-full px-3 py-1">
-                <Star className="h-3 w-3 text-yellow-500 fill-current mr-1" />
-                <span className="text-xs font-bold text-yellow-700">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center bg-gray-50 rounded-xl px-3 py-2">
+                <Star className="h-4 w-4 text-yellow-500 fill-current mr-2" />
+                <span className="text-sm font-bold text-yellow-700">
                   {professional.rating}
                 </span>
+                <span className="text-xs text-gray-500 ml-1">avaliação</span>
+              </div>
+              <div className="flex items-center bg-gray-50 rounded-xl px-3 py-2">
+                <MapPin className="h-4 w-4 text-gray-500 mr-2" />
+                <span className="text-sm font-medium text-gray-700">
+                  {professional.distance} km
+                </span>
+                <span className="text-xs text-gray-500 ml-1">distância</span>
               </div>
             </div>
             
