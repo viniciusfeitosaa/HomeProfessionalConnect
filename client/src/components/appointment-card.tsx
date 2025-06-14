@@ -48,8 +48,9 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
             <div className="flex-1">
               <div className="flex items-center mb-3">
                 <h3 className="text-xl font-bold mr-3">{appointment.professionalName}</h3>
-                <Badge className="bg-white/25 backdrop-blur-sm text-white border-0 text-xs px-3 py-1 rounded-full">
-                  ✓ Confirmado
+                <Badge className="bg-white/25 backdrop-blur-sm text-white border-0 text-xs px-3 py-1 rounded-full flex items-center">
+                  <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                  Confirmado
                 </Badge>
               </div>
               
@@ -58,11 +59,21 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
               </p>
               
               <div className="mb-5">
-                <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-lg px-3 py-2 mb-3">
-                  <Clock className="h-4 w-4 mr-2 text-white/90" />
-                  <span className="text-sm font-medium">
-                    {format(new Date(appointment.scheduledFor), "dd/MM 'às' HH:mm", { locale: ptBR })}
-                  </span>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center bg-white/15 backdrop-blur-sm rounded-lg px-3 py-2">
+                    <Clock className="h-4 w-4 mr-2 text-white/90" />
+                    <span className="text-sm font-medium">
+                      {format(new Date(appointment.scheduledFor), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                    </span>
+                  </div>
+                  <Button 
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleViewDetails}
+                    className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-0 rounded-lg py-2 px-3 text-xs font-medium transition-all duration-200 hover:scale-[1.02]"
+                  >
+                    Ver detalhes
+                  </Button>
                 </div>
                 {professional && (
                   <div className="flex items-center justify-between gap-3">
@@ -74,15 +85,24 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
                       <MapPin className="h-3 w-3 mr-1.5 text-white/90" />
                       <span className="text-sm font-medium">{professional.distance} km</span>
                     </div>
+                    <Button 
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleContact}
+                      className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-0 rounded-lg py-1.5 px-3 transition-all duration-200 hover:scale-[1.02]"
+                    >
+                      <Phone className="h-3 w-3 mr-1" />
+                      <span className="text-xs">Contato</span>
+                    </Button>
                   </div>
                 )}
               </div>
 
             </div>
             
-            <div className="ml-6 flex flex-col items-center">
+            <div className="ml-6 flex flex-col items-center justify-center">
               <div 
-                className="cursor-pointer group mb-4"
+                className="cursor-pointer group"
                 onClick={handleViewProfessional}
               >
                 <div className="relative">
@@ -93,26 +113,6 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
                   />
                   <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 rounded-full transition-all duration-300"></div>
                 </div>
-              </div>
-
-              <div className="flex flex-col space-y-2 w-full">
-                <Button 
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleViewDetails}
-                  className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-0 rounded-lg py-2 text-xs font-medium transition-all duration-200 hover:scale-[1.02]"
-                >
-                  Ver detalhes
-                </Button>
-                <Button 
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleContact}
-                  className="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 border-0 rounded-lg py-2 transition-all duration-200 hover:scale-[1.02]"
-                >
-                  <Phone className="h-3 w-3 mr-1" />
-                  <span className="text-xs">Contato</span>
-                </Button>
               </div>
             </div>
           </div>
