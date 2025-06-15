@@ -1,11 +1,13 @@
 
-import { Send, Search, Phone, Video, MoreVertical } from "lucide-react";
+import { Send, Search, Phone, Video, MoreVertical, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { BottomNavigation } from "@/components/bottom-navigation";
+import { Sidebar } from "@/components/sidebar";
+import { useLocation } from "wouter";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Professional } from "@shared/schema";
@@ -33,6 +35,7 @@ interface Conversation {
 }
 
 export default function Messages() {
+  const [, setLocation] = useLocation();
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
   const [messageText, setMessageText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");

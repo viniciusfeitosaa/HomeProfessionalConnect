@@ -1,16 +1,18 @@
 
-import { Calendar, Clock, MapPin, Phone, Star } from "lucide-react";
+import { Calendar, Clock, MapPin, Phone, Star, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { Sidebar } from "@/components/sidebar";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import type { Appointment } from "@shared/schema";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export default function Agenda() {
+  const [, setLocation] = useLocation();
   const { data: appointments = [], isLoading } = useQuery<Appointment[]>({
     queryKey: ["/api/appointments"],
   });
@@ -57,6 +59,14 @@ export default function Agenda() {
         <div className="w-full max-w-sm lg:max-w-none mx-auto lg:mx-0 min-h-screen relative">
           <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
             <div className="flex items-center mb-6">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation("/")}
+                className="mr-2 p-2 lg:hidden"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
               <Calendar className="h-6 w-6 text-primary mr-3" />
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Minha Agenda</h1>
             </div>
