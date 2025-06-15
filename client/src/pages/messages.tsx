@@ -160,19 +160,22 @@ export default function Messages() {
   // Chat view
   if (selectedConversation) {
     return (
-      <div className="max-w-sm mx-auto bg-white min-h-screen relative flex flex-col">
-        
-        {/* Chat Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200">
-          <div className="flex items-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedConversation(null)}
-              className="mr-2 p-1"
-            >
-              ←
-            </Button>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+        <Sidebar />
+        <div className="lg:pl-64">
+          <div className="w-full max-w-sm lg:max-w-none mx-auto lg:mx-0 min-h-screen relative flex flex-col bg-white lg:bg-transparent">
+            
+            {/* Chat Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 bg-white border-b border-gray-200 lg:rounded-t-lg lg:mt-4 lg:mx-4">
+              <div className="flex items-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedConversation(null)}
+                  className="mr-2 p-1"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
             <Avatar className="w-10 h-10 mr-3">
               <AvatarImage src={selectedConv?.professionalAvatar} />
               <AvatarFallback>{selectedConv?.professionalName?.charAt(0)}</AvatarFallback>
@@ -245,64 +248,76 @@ export default function Messages() {
 
   // Conversations list view
   return (
-    <div className="max-w-sm mx-auto bg-white min-h-screen relative">
-      
-      <div className="px-4 py-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Mensagens</h1>
-
-        {/* Search */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              type="text"
-              placeholder="Buscar conversas..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-gray-100 rounded-xl border-0"
-            />
-          </div>
-        </div>
-
-        {/* Conversations */}
-        <div className="space-y-2 mb-20">
-          {filteredConversations.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">Nenhuma conversa encontrada</p>
-            </div>
-          ) : (
-            filteredConversations.map((conversation) => (
-              <Card
-                key={conversation.id}
-                className="cursor-pointer hover:shadow-md transition-shadow border border-gray-100"
-                onClick={() => setSelectedConversation(conversation.id)}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+      <Sidebar />
+      <div className="lg:pl-64">
+        <div className="w-full max-w-sm lg:max-w-none mx-auto lg:mx-0 min-h-screen relative">
+          <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            <div className="flex items-center mb-6">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation("/")}
+                className="mr-2 p-2 lg:hidden"
               >
-                <CardContent className="p-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="relative">
-                      <Avatar className="w-12 h-12">
-                        <AvatarImage src={conversation.professionalAvatar} />
-                        <AvatarFallback>
-                          {conversation.professionalName.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      {conversation.isOnline && (
-                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
-                      )}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start mb-1">
-                        <h3 className="font-semibold text-gray-900 truncate">
-                          {conversation.professionalName}
-                        </h3>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs text-gray-500">
-                            {formatTime(conversation.lastMessageTime)}
-                          </span>
-                          {conversation.unreadCount > 0 && (
-                            <Badge className="bg-primary text-white text-xs min-w-[1.25rem] h-5 flex items-center justify-center rounded-full">
-                              {conversation.unreadCount}
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Mensagens</h1>
+            </div>
+
+            {/* Search */}
+            <div className="mb-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  type="text"
+                  placeholder="Buscar conversas..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-100 rounded-xl border-0"
+                />
+              </div>
+            </div>
+
+            {/* Conversations */}
+            <div className="space-y-2 mb-20">
+              {filteredConversations.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">Nenhuma conversa encontrada</p>
+                </div>
+              ) : (
+                filteredConversations.map((conversation) => (
+                  <Card
+                    key={conversation.id}
+                    className="cursor-pointer hover:shadow-md transition-shadow border border-gray-100"
+                    onClick={() => setSelectedConversation(conversation.id)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start space-x-3">
+                        <div className="relative">
+                          <Avatar className="w-12 h-12">
+                            <AvatarImage src={conversation.professionalAvatar} />
+                            <AvatarFallback>
+                              {conversation.professionalName.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          {conversation.isOnline && (
+                            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                          )}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start mb-1">
+                            <h3 className="font-semibold text-gray-900 truncate">
+                              {conversation.professionalName}
+                            </h3>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs text-gray-500">
+                                {formatTime(conversation.lastMessageTime)}
+                              </span>
+                              {conversation.unreadCount > 0 && (
+                                <Badge className="bg-primary text-white text-xs min-w-[1.25rem] h-5 flex items-center justify-center rounded-full">
+                                  {conversation.unreadCount}
                             </Badge>
                           )}
                         </div>
@@ -318,10 +333,11 @@ export default function Messages() {
               </Card>
             ))
           )}
+            </div>
+            
+            <BottomNavigation />
+          </div>
         </div>
       </div>
-      
-      <BottomNavigation />
-    </div>
-  );
+    );
 }
