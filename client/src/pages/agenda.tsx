@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BottomNavigation } from "@/components/bottom-navigation";
+import { Sidebar } from "@/components/sidebar";
 import { useQuery } from "@tanstack/react-query";
 import type { Appointment } from "@shared/schema";
 import { format } from "date-fns";
@@ -28,15 +29,20 @@ export default function Agenda() {
 
   if (isLoading) {
     return (
-      <div className="max-w-sm mx-auto bg-white min-h-screen">
-        <div className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-1/2"></div>
-            <div className="h-32 bg-gray-200 rounded"></div>
-            <div className="h-32 bg-gray-200 rounded"></div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+        <Sidebar />
+        <div className="lg:pl-64">
+          <div className="w-full max-w-sm lg:max-w-none mx-auto lg:mx-0 min-h-screen relative">
+            <div className="p-4 sm:p-6 lg:p-8">
+              <div className="animate-pulse space-y-4">
+                <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-32 bg-gray-200 rounded"></div>
+                <div className="h-32 bg-gray-200 rounded"></div>
+              </div>
+            </div>
+            <BottomNavigation />
           </div>
         </div>
-        <BottomNavigation />
       </div>
     );
   }
@@ -45,19 +51,21 @@ export default function Agenda() {
   const pastAppointments = appointments.filter(apt => new Date(apt.scheduledFor) <= new Date());
 
   return (
-    <div className="max-w-sm mx-auto bg-white min-h-screen relative">
-      
-      <div className="px-4 py-6">
-        <div className="flex items-center mb-6">
-          <Calendar className="h-6 w-6 text-primary mr-3" />
-          <h1 className="text-2xl font-bold text-gray-900">Minha Agenda</h1>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+      <Sidebar />
+      <div className="lg:pl-64">
+        <div className="w-full max-w-sm lg:max-w-none mx-auto lg:mx-0 min-h-screen relative">
+          <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+            <div className="flex items-center mb-6">
+              <Calendar className="h-6 w-6 text-primary mr-3" />
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Minha Agenda</h1>
+            </div>
 
-        {/* Próximos Agendamentos */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Próximos Agendamentos
-          </h2>
+            {/* Próximos Agendamentos */}
+            <div className="mb-8">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Próximos Agendamentos
+              </h2>
           
           {upcomingAppointments.length === 0 ? (
             <Card className="border border-gray-100">
@@ -192,9 +200,11 @@ export default function Agenda() {
             </div>
           </div>
         )}
+          </div>
+          
+          <BottomNavigation />
+        </div>
       </div>
-      
-      <BottomNavigation />
     </div>
   );
 }
