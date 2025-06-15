@@ -93,31 +93,31 @@ export default function Profile() {
               <p className="text-gray-600 mb-4">
                 Membro desde Janeiro 2024
               </p>
-          
-          <div className="flex justify-center space-x-6 mb-6">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-primary">{appointments.length}</p>
-              <p className="text-sm text-gray-600">Agendamentos</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-primary">{completedServices}</p>
-              <p className="text-sm text-gray-600">Concluídos</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-primary">4.8</p>
-              <p className="text-sm text-gray-600">Avaliação</p>
-            </div>
-          </div>
+              
+              <div className="flex justify-center space-x-6 mb-6">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{appointments.length}</p>
+                  <p className="text-sm text-gray-600">Agendamentos</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">{completedServices}</p>
+                  <p className="text-sm text-gray-600">Concluídos</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-primary">4.8</p>
+                  <p className="text-sm text-gray-600">Avaliação</p>
+                </div>
+              </div>
 
-          <Button onClick={handleEditProfile} className="w-full mb-6">
-            <Edit className="h-4 w-4 mr-2" />
-            Editar Perfil
-          </Button>
-        </div>
+              <Button onClick={handleEditProfile} className="w-full mb-6">
+                <Edit className="h-4 w-4 mr-2" />
+                Editar Perfil
+              </Button>
+            </div>
 
-        {/* Profile Information */}
-        <Card className="mb-6">
-          <CardHeader>
+            {/* Profile Information */}
+            <Card className="mb-6">
+              <CardHeader>
             <CardTitle className="text-lg">Informações Pessoais</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
