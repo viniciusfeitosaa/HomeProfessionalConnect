@@ -15,7 +15,7 @@ const categories = [
 export function CategoryFilters({ selectedCategory, onCategoryChange }: CategoryFiltersProps) {
   return (
     <div className="px-6 mb-6">
-      <div className="flex space-x-3 overflow-x-auto scrollbar-hide">
+      <div className="flex space-x-3 overflow-x-auto scrollbar-hide pt-[5px] pb-[5px]">
         {categories.map((category) => (
           <Button
             key={category.id}
