@@ -46,9 +46,24 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
         <div className="relative">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between">
             <div className="flex-1 mb-4 lg:mb-0">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3">
-                <h3 className="text-lg sm:text-xl font-bold mb-2 sm:mb-0 sm:mr-3">{appointment.professionalName}</h3>
-                <Badge className="bg-white/25 backdrop-blur-sm text-white border-0 text-xs px-3 py-1 rounded-full flex items-center w-fit">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center space-x-3">
+                  <div 
+                    className="cursor-pointer group"
+                    onClick={handleViewProfessional}
+                  >
+                    <div className="relative">
+                      <img
+                        src={professional?.imageUrl || "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"}
+                        alt={`${appointment.professionalName} - Profissional`}
+                        className="w-12 h-12 sm:w-14 sm:h-14 rounded-full object-cover border-2 border-white/40 shadow-lg group-hover:scale-105 transition-all duration-300"
+                      />
+                      <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 rounded-full transition-all duration-300"></div>
+                    </div>
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-bold text-white">{appointment.professionalName}</h3>
+                </div>
+                <Badge className="bg-white/25 backdrop-blur-sm text-white border-0 text-xs px-3 py-1 rounded-full flex items-center">
                   <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
                   Confirmado
                 </Badge>
@@ -98,22 +113,6 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
                     </Button>
                   </div>
                 )}
-              </div>
-            </div>
-            
-            <div className="flex justify-center lg:ml-6 lg:flex-col lg:items-center lg:justify-center">
-              <div 
-                className="cursor-pointer group"
-                onClick={handleViewProfessional}
-              >
-                <div className="relative">
-                  <img
-                    src={professional?.imageUrl || "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"}
-                    alt={`${appointment.professionalName} - Profissional`}
-                    className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-full object-cover border-3 border-white/40 shadow-2xl group-hover:scale-105 transition-all duration-300"
-                  />
-                  <div className="absolute inset-0 bg-white/0 group-hover:bg-white/10 rounded-full transition-all duration-300"></div>
-                </div>
               </div>
             </div>
           </div>
