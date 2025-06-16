@@ -1,8 +1,8 @@
-# Professional Services App
+# LifeBee - Professional Services App
 
 ## Overview
 
-This is a full-stack web application that connects people with home service professionals like plumbers, electricians, painters, and HVAC technicians. The app features a mobile-first design with a React frontend, Express backend, and PostgreSQL database using Drizzle ORM.
+LifeBee is a full-stack web application that connects people with home service professionals like plumbers, electricians, painters, and HVAC technicians. The app features a mobile-first design with a React frontend, Express backend, and PostgreSQL database using Drizzle ORM. The brand identity uses a friendly bee mascot with warm yellow and orange color scheme.
 
 ## System Architecture
 
@@ -82,6 +82,10 @@ The build process:
 
 ## Recent Changes
 
+- June 16, 2025 - Rebranded application to LifeBee with new bee mascot logo throughout the interface
+- June 16, 2025 - Updated color scheme to warm yellows and oranges matching the bee brand identity
+- June 16, 2025 - Applied LifeBee logo to login screen, sidebar, and mobile header components
+- June 16, 2025 - Updated application title and metadata for LifeBee branding
 - June 15, 2025 - Implemented comprehensive responsive design across all pages (agenda, messages, profile) with proper breakpoints
 - June 15, 2025 - Added back buttons to agenda, messages, and profile pages (hidden on desktop, visible on mobile/tablet)
 - June 15, 2025 - Applied consistent responsive layout pattern: sidebar for desktop, bottom navigation for mobile

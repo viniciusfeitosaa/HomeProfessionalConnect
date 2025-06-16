@@ -13,10 +13,10 @@
   --card-foreground: hsl(20, 14.3%, 4.1%);
   --border: hsl(20, 5.9%, 90%);
   --input: hsl(20, 5.9%, 90%);
-  --primary: hsl(262, 83%, 58%);
-  --primary-foreground: hsl(0, 0%, 98%);
-  --secondary: hsl(270, 95%, 75%);
-  --secondary-foreground: hsl(24, 9.8%, 10%);
+  --primary: hsl(45, 93%, 47%);
+  --primary-foreground: hsl(26, 83%, 14%);
+  --secondary: hsl(48, 96%, 89%);
+  --secondary-foreground: hsl(26, 83%, 14%);
   --accent: hsl(60, 4.8%, 95.9%);
   --accent-foreground: hsl(24, 9.8%, 10%);
   --destructive: hsl(0, 84.2%, 60.2%);
