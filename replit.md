@@ -2,7 +2,7 @@
 
 ## Overview
 
-LifeBee is a full-stack web application that connects people with home service professionals like plumbers, electricians, painters, and HVAC technicians. The app features a mobile-first design with a React frontend, Express backend, and PostgreSQL database using Drizzle ORM. The brand identity uses a friendly bee mascot with warm yellow and orange color scheme.
+LifeBee is a full-stack web application that connects people with healthcare professionals including doctors, nurses, physiotherapists, psychologists, nutritionists, and caregivers. The app features a mobile-first design with a React frontend, Express backend, and PostgreSQL database using Drizzle ORM. The brand identity uses a friendly bee mascot with a construction helmet, featuring warm yellow and orange color scheme.
 
 ## System Architecture
 
@@ -82,6 +82,11 @@ The build process:
 
 ## Recent Changes
 
+- June 16, 2025 - Pivoted application concept from home services to healthcare professionals (doctors, nurses, physiotherapists, psychologists, nutritionists, caregivers)
+- June 16, 2025 - Added responsive advertising carousel to home screen with healthcare-focused promotional content
+- June 16, 2025 - Enhanced login screen responsiveness across all device sizes with improved breakpoints and spacing
+- June 16, 2025 - Updated professional categories and sample data to reflect healthcare specialties
+- June 16, 2025 - Implemented new LifeBee logo design with construction helmet reflecting professional services
 - June 16, 2025 - Rebranded application to LifeBee with new bee mascot logo throughout the interface
 - June 16, 2025 - Updated color scheme to warm yellows and oranges matching the bee brand identity
 - June 16, 2025 - Applied LifeBee logo to login screen, sidebar, and mobile header components
