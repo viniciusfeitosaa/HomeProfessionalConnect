@@ -6,10 +6,12 @@ interface CategoryFiltersProps {
 }
 
 const categories = [
-  { id: "encanador", label: "Encanador" },
-  { id: "eletricista", label: "Eletricista" },
-  { id: "ar-condicionado", label: "Ar-Condicionado" },
-  { id: "pintura", label: "Pintura" },
+  { id: "médico", label: "Médicos" },
+  { id: "enfermagem", label: "Enfermagem" },
+  { id: "fisioterapia", label: "Fisioterapia" },
+  { id: "psicologia", label: "Psicologia" },
+  { id: "nutrição", label: "Nutrição" },
+  { id: "cuidados", label: "Cuidadores" },
 ];
 
 export function CategoryFilters({ selectedCategory, onCategoryChange }: CategoryFiltersProps) {
