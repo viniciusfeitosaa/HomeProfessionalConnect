@@ -72,7 +72,7 @@ export function BottomNavigation() {
             className={`flex flex-col items-center py-2 px-4 ${
               isActive("/profile") 
                 ? "text-primary hover:text-primary/80" 
-                : "text-gray-400 hover:text-primary"
+                : "text-gray-400 dark:text-gray-500 hover:text-primary dark:hover:text-primary"
             }`}
           >
             <User className="h-5 w-5 mb-1" />
