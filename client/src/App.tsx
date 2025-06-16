@@ -8,6 +8,7 @@ import Agenda from "@/pages/agenda";
 import Messages from "@/pages/messages";
 import Profile from "@/pages/profile";
 import Settings from "@/pages/settings";
+import Payment from "@/pages/payment";
 import ProfessionalDetail from "@/pages/professional-detail";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
@@ -20,6 +21,8 @@ function Router() {
       <Route path="/agenda" component={Agenda} />
       <Route path="/messages" component={Messages} />
       <Route path="/profile" component={Profile} />
+      <Route path="/settings" component={Settings} />
+      <Route path="/payment" component={Payment} />
       <Route path="/professional/:id" component={ProfessionalDetail} />
       <Route component={NotFound} />
     </Switch>
