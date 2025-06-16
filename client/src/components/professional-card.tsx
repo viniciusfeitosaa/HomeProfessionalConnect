@@ -28,29 +28,29 @@ export function ProfessionalCard({ professional }: ProfessionalCardProps) {
               alt={`${professional.name} - ${professional.service}`}
               className="w-16 h-16 sm:w-18 sm:h-18 lg:w-20 lg:h-20 rounded-2xl object-cover shadow-lg mx-auto sm:mx-0"
             />
-            <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 shadow-md">
+            <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-800 rounded-full p-1 shadow-md">
               <Star className="h-3 w-3 text-yellow-500 fill-current" />
             </div>
           </div>
           <div className="flex-1 text-center sm:text-left">
-            <h3 className="font-bold text-gray-900 mb-2 text-base sm:text-lg">
+            <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-2 text-base sm:text-lg">
               {professional.name}
             </h3>
-            <p className="text-sm text-gray-600 mb-4 leading-relaxed">
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 leading-relaxed">
               {professional.service}
             </p>
             
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
               <div className="flex items-center justify-center sm:justify-start gap-3">
-                <div className="flex items-center bg-gray-50 rounded-lg px-2.5 py-1.5">
+                <div className="flex items-center bg-gray-50 dark:bg-gray-700 rounded-lg px-2.5 py-1.5">
                   <Star className="h-3 w-3 text-yellow-500 fill-current mr-1.5" />
-                  <span className="text-sm font-bold text-yellow-700">
+                  <span className="text-sm font-bold text-yellow-700 dark:text-yellow-400">
                     {professional.rating}
                   </span>
                 </div>
-                <div className="flex items-center bg-gray-50 rounded-lg px-2.5 py-1.5">
-                  <MapPin className="h-3 w-3 text-gray-500 mr-1.5" />
-                  <span className="text-sm font-medium text-gray-700">
+                <div className="flex items-center bg-gray-50 dark:bg-gray-700 rounded-lg px-2.5 py-1.5">
+                  <MapPin className="h-3 w-3 text-gray-500 dark:text-gray-400 mr-1.5" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     {professional.distance} km
                   </span>
                 </div>
