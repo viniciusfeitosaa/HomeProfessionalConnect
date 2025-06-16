@@ -21,7 +21,7 @@ export function Sidebar() {
   ];
 
   return (
-    <div className="hidden lg:flex lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:w-64 lg:bg-white/90 lg:backdrop-blur-lg lg:border-r lg:border-gray-200/50 lg:shadow-xl">
+    <div className="hidden lg:flex lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:w-64 lg:bg-white/90 dark:bg-black/90 lg:backdrop-blur-lg lg:border-r lg:border-gray-200/50 dark:border-gray-800/50 lg:shadow-xl">
       <div className="flex flex-col w-full">
         {/* Logo */}
         <div className="flex items-center px-6 py-8">

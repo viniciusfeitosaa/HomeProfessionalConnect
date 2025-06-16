@@ -78,7 +78,7 @@ export class MemStorage implements IStorage {
         rating: "4.8",
         distance: "2.5",
         available: true,
-        imageUrl: "https://images.unsplash.com/photo-1594824953857-3bc2358cc3a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+        imageUrl: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80"
       },
       {
         name: "Enfª Maria Santos",
@@ -87,7 +87,7 @@ export class MemStorage implements IStorage {
         rating: "4.9",
         distance: "1.8",
         available: true,
-        imageUrl: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+        imageUrl: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80"
       },
       {
         name: "Ft. João Oliveira",
@@ -96,7 +96,7 @@ export class MemStorage implements IStorage {
         rating: "4.7",
         distance: "3.2",
         available: false,
-        imageUrl: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+        imageUrl: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80"
       },
       {
         name: "Psic. Paula Costa",
@@ -105,7 +105,7 @@ export class MemStorage implements IStorage {
         rating: "4.6",
         distance: "4.1",
         available: true,
-        imageUrl: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+        imageUrl: "https://images.unsplash.com/photo-1594824953857-3bc2358cc3a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80"
       },
       {
         name: "Nutricionista Pedro Alves",
@@ -114,7 +114,7 @@ export class MemStorage implements IStorage {
         rating: "4.5",
         distance: "2.9",
         available: true,
-        imageUrl: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+        imageUrl: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80"
       },
       {
         name: "Cuidadora Lucia Ferreira",
@@ -123,7 +123,7 @@ export class MemStorage implements IStorage {
         rating: "4.8",
         distance: "1.5",
         available: true,
-        imageUrl: "https://images.unsplash.com/photo-1609902726285-00668009ffa8?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+        imageUrl: "https://images.unsplash.com/photo-1609902726285-00668009ffa8?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80"
       }
     ];
 
