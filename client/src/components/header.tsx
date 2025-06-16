@@ -14,11 +14,20 @@ export function Header({ userName }: HeaderProps) {
 
   return (
     <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8 py-4 sm:py-6 bg-gradient-to-r from-white to-gray-50">
-      <div className="flex-1 min-w-0">
-        <h1 className="text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent truncate">
-          Bem vindo, {userName}!
-        </h1>
-        <p className="text-xs sm:text-sm text-gray-500 mt-1 hidden sm:block">Encontre o profissional ideal para você</p>
+      <div className="flex items-center flex-1 min-w-0">
+        <div className="bg-yellow-100 rounded-full w-8 h-8 flex items-center justify-center mr-3 lg:hidden">
+          <img 
+            src="@assets/WhatsApp_Image_2025-06-16_at_11.07.32-removebg-preview_1750084602595.png" 
+            alt="LifeBee Logo"
+            className="w-6 h-6 object-contain"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent truncate">
+            Bem vindo, {userName}!
+          </h1>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1 hidden sm:block">Encontre o profissional ideal para você</p>
+        </div>
       </div>
       <div className="relative ml-4 flex-shrink-0">
         <div className="bg-white rounded-full p-2 sm:p-3 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group">

@@ -24,11 +24,15 @@ export function Sidebar() {
       <div className="flex flex-col w-full">
         {/* Logo */}
         <div className="flex items-center px-6 py-8">
-          <div className="bg-gradient-to-r from-primary to-secondary rounded-full w-10 h-10 flex items-center justify-center">
-            <User className="h-6 w-6 text-white" />
+          <div className="bg-yellow-100 rounded-full w-10 h-10 flex items-center justify-center">
+            <img 
+              src="@assets/WhatsApp_Image_2025-06-16_at_11.07.32-removebg-preview_1750084602595.png" 
+              alt="LifeBee Logo"
+              className="w-8 h-8 object-contain"
+            />
           </div>
           <h1 className="ml-3 text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-            ServiçoFácil
+            LifeBee
           </h1>
         </div>
 
