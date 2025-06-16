@@ -152,19 +152,30 @@ export default function Profile() {
         </Card>
 
         {/* Account Status */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
+        <Card className="mb-6 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Shield className="h-8 w-8 text-green-500" />
-                <div>
-                  <p className="font-semibold text-gray-900">Conta Verificada</p>
-                  <p className="text-sm text-gray-600">Sua identidade foi confirmada</p>
+              <div className="flex items-center space-x-4">
+                <div className="flex-shrink-0">
+                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                    <Shield className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Conta Verificada</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Sua identidade foi confirmada com sucesso
+                  </p>
                 </div>
               </div>
-              <Badge className="bg-green-100 text-green-700">
-                ✓ Verificado
-              </Badge>
+              <div className="flex-shrink-0 ml-4">
+                <Badge className="bg-green-500 text-white shadow-md hover:bg-green-600 transition-colors px-4 py-2 text-sm font-medium border-0">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">✓</span>
+                    <span>Verificado</span>
+                  </div>
+                </Badge>
+              </div>
             </div>
           </CardContent>
         </Card>
