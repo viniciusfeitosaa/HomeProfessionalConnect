@@ -69,52 +69,61 @@ export class MemStorage implements IStorage {
     this.users.set(1, user);
     this.currentUserId = 2;
 
-    // Seed professionals
+    // Seed health professionals
     const professionalsData: Omit<Professional, 'id'>[] = [
       {
-        name: "Pedro Afonso",
-        service: "Reparo e Manutenção",
-        category: "encanador",
-        rating: "4.7",
-        distance: "5.4",
-        available: true,
-        imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
-      },
-      {
-        name: "Lucas Abreu",
-        service: "Serviços Elétricos",
-        category: "eletricista",
-        rating: "4.9",
-        distance: "6.6",
-        available: true,
-        imageUrl: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
-      },
-      {
-        name: "Carlos Silva",
-        service: "Ar-Condicionado",
-        category: "ar-condicionado",
+        name: "Dr. Ana Silva",
+        service: "Cardiologia",
+        category: "médico",
         rating: "4.8",
+        distance: "2.5",
+        available: true,
+        imageUrl: "https://images.unsplash.com/photo-1594824953857-3bc2358cc3a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+      },
+      {
+        name: "Enfª Maria Santos",
+        service: "Enfermagem Domiciliar",
+        category: "enfermagem",
+        rating: "4.9",
+        distance: "1.8",
+        available: true,
+        imageUrl: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+      },
+      {
+        name: "Ft. João Oliveira",
+        service: "Fisioterapia",
+        category: "fisioterapia",
+        rating: "4.7",
         distance: "3.2",
         available: false,
-        imageUrl: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+        imageUrl: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
       },
       {
-        name: "Maria Santos",
-        service: "Pintura Residencial",
-        category: "pintura",
+        name: "Psic. Paula Costa",
+        service: "Psicologia",
+        category: "psicologia",
         rating: "4.6",
-        distance: "7.1",
+        distance: "4.1",
         available: true,
-        imageUrl: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+        imageUrl: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
       },
       {
-        name: "João Oliveira",
-        service: "Limpeza Geral",
-        category: "limpeza",
+        name: "Nutricionista Pedro Alves",
+        service: "Nutrição",
+        category: "nutrição",
         rating: "4.5",
-        distance: "4.8",
+        distance: "2.9",
         available: true,
-        imageUrl: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+        imageUrl: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
+      },
+      {
+        name: "Cuidadora Lucia Ferreira",
+        service: "Cuidadora de Idosos",
+        category: "cuidados",
+        rating: "4.8",
+        distance: "1.5",
+        available: true,
+        imageUrl: "https://images.unsplash.com/photo-1609902726285-00668009ffa8?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80"
       }
     ];
 
