@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Eye, EyeOff, User, Lock, Mail, ArrowRight } from "lucide-react";
 import { useLocation } from "wouter";
+import { LifeBeeLogo } from "@/components/lifebee-logo";
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
