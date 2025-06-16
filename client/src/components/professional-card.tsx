@@ -17,7 +17,7 @@ export function ProfessionalCard({ professional }: ProfessionalCardProps) {
 
   return (
     <Card 
-      className="mb-4 lg:mb-0 border-0 cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] bg-white/80 backdrop-blur-sm shadow-md h-full"
+      className="mb-4 lg:mb-0 border-0 cursor-pointer hover:shadow-lg transition-all duration-300 hover:scale-[1.02] bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-md h-full"
       onClick={handleCardClick}
     >
       <CardContent className="p-4 sm:p-5 h-full">

@@ -41,7 +41,7 @@ export default function Home() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <Sidebar />
       <div className="lg:pl-64">
         <div className="w-full max-w-sm lg:max-w-none mx-auto lg:mx-0 min-h-screen relative">
@@ -70,12 +70,12 @@ export default function Home() {
           <div className="px-4 sm:px-6 lg:px-8 pb-24 lg:pb-8">
             {filteredProfessionals.length === 0 ? (
               <div className="text-center py-12">
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg max-w-md mx-auto">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                    <Search className="h-8 w-8 text-gray-400" />
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg max-w-md mx-auto">
+                  <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <Search className="h-8 w-8 text-gray-400 dark:text-gray-500" />
                   </div>
-                  <p className="text-gray-600 font-medium">Nenhum profissional encontrado</p>
-                  <p className="text-gray-400 text-sm mt-2">Tente ajustar sua busca ou categoria</p>
+                  <p className="text-gray-600 dark:text-gray-300 font-medium">Nenhum profissional encontrado</p>
+                  <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Tente ajustar sua busca ou categoria</p>
                 </div>
               </div>
             ) : (
