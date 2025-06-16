@@ -34,11 +34,7 @@ export default function Login() {
         <div className="text-center mb-8">
           <div className="bg-white/20 backdrop-blur-sm rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center shadow-2xl">
             <div className="bg-white rounded-full w-16 h-16 flex items-center justify-center">
-              <img 
-                src="@assets/WhatsApp_Image_2025-06-16_at_11.07.32-removebg-preview_1750084602595.png" 
-                alt="LifeBee Logo"
-                className="w-12 h-12 object-contain"
-              />
+              <LifeBeeLogo size={48} />
             </div>
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">LifeBee</h1>
