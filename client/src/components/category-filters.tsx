@@ -28,7 +28,7 @@ export function CategoryFilters({ selectedCategory, onCategoryChange }: Category
               px-5 py-3 rounded-2xl text-sm font-semibold whitespace-nowrap transition-all duration-300 border-0 shadow-md hover:shadow-lg hover:scale-105
               ${selectedCategory === category.id
                 ? "bg-gradient-to-r from-primary to-secondary text-white hover:shadow-xl"
-                : "bg-white/80 backdrop-blur-sm text-gray-700 hover:bg-white"
+                : "bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800"
               }
             `}
           >
