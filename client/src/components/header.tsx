@@ -14,7 +14,7 @@ export function Header({ userName }: HeaderProps) {
   const notificationCount = notificationData?.count || 0;
 
   return (
-    <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8 py-4 sm:py-6 bg-gradient-to-r from-white to-gray-50">
+    <div className="flex justify-between items-center px-4 sm:px-6 lg:px-8 py-4 sm:py-6 bg-gradient-to-r from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
       <div className="flex items-center flex-1 min-w-0">
         <div className="mr-3 lg:hidden">
           <LifeBeeLogo size={32} />

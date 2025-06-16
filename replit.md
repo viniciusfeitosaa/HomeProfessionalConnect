@@ -82,6 +82,10 @@ The build process:
 
 ## Recent Changes
 
+- June 16, 2025 - Implemented dark/light theme system with user configuration options in settings page
+- June 16, 2025 - Added Stripe payment integration for healthcare services with secure checkout flow
+- June 16, 2025 - Enhanced professional images with high-quality healthcare-specific photos (300x300px)
+- June 16, 2025 - Created comprehensive settings page with theme selection and app information
 - June 16, 2025 - Pivoted application concept from home services to healthcare professionals (doctors, nurses, physiotherapists, psychologists, nutritionists, caregivers)
 - June 16, 2025 - Added responsive advertising carousel to home screen with healthcare-focused promotional content
 - June 16, 2025 - Enhanced login screen responsiveness across all device sizes with improved breakpoints and spacing

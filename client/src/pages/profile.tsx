@@ -35,7 +35,7 @@ export default function Profile() {
   };
 
   const handlePaymentMethods = () => {
-    console.log("Opening payment methods");
+    setLocation("/payment");
   };
 
   const handlePrivacy = () => {
