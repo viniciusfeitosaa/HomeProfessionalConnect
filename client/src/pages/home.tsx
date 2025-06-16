@@ -25,7 +25,7 @@ export default function Home() {
   });
 
   const { data: professionals = [] } = useQuery<Professional[]>({
-    queryKey: ["/api/professionals", { category: selectedCategory, search: searchQuery }],
+    queryKey: ["/api/professionals"],
   });
 
   const currentAppointment = appointments.find(apt => 
@@ -37,7 +37,7 @@ export default function Home() {
       return prof.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
              prof.service.toLowerCase().includes(searchQuery.toLowerCase());
     }
-    return selectedCategory === "all" || prof.category === selectedCategory;
+    return selectedCategory === "médico" || prof.category === selectedCategory;
   });
 
   return (
