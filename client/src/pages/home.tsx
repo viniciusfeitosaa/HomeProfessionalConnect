@@ -6,13 +6,14 @@ import { CategoryFilters } from "@/components/category-filters";
 import { ProfessionalCard } from "@/components/professional-card";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import { Sidebar } from "@/components/sidebar";
+import { AdsCarousel } from "@/components/ads-carousel";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Search } from "lucide-react";
 import type { Professional, User, Appointment } from "@shared/schema";
 
 export default function Home() {
-  const [selectedCategory, setSelectedCategory] = useState<string>("encanador");
+  const [selectedCategory, setSelectedCategory] = useState<string>("médico");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const { data: user } = useQuery<User>({
@@ -50,6 +51,11 @@ export default function Home() {
           {currentAppointment && (
             <AppointmentCard appointment={currentAppointment} />
           )}
+          
+          {/* Área de Anúncios */}
+          <div className="px-4 sm:px-6 lg:px-8 mb-6">
+            <AdsCarousel />
+          </div>
           
           <SearchBar 
             searchQuery={searchQuery}

@@ -21,33 +21,33 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-purple-600 to-secondary flex items-center justify-center p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-primary via-orange-500 to-secondary flex items-center justify-center p-3 sm:p-4 md:p-6 lg:p-8 xl:p-12">
       {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-0 right-0 w-48 h-48 sm:w-96 sm:h-96 bg-white rounded-full -translate-y-24 translate-x-24 sm:-translate-y-48 sm:translate-x-48"></div>
-        <div className="absolute bottom-0 left-0 w-40 h-40 sm:w-80 sm:h-80 bg-white rounded-full translate-y-20 -translate-x-20 sm:translate-y-40 sm:-translate-x-40"></div>
-        <div className="absolute top-1/2 left-1/2 w-32 h-32 sm:w-64 sm:h-64 bg-white rounded-full -translate-x-16 -translate-y-16 sm:-translate-x-32 sm:-translate-y-32"></div>
+      <div className="absolute inset-0 opacity-10 overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 lg:w-96 lg:h-96 bg-white rounded-full -translate-y-16 translate-x-16 sm:-translate-y-24 sm:translate-x-24 md:-translate-y-32 md:translate-x-32 lg:-translate-y-48 lg:translate-x-48"></div>
+        <div className="absolute bottom-0 left-0 w-24 h-24 sm:w-40 sm:h-40 md:w-56 md:h-56 lg:w-80 lg:h-80 bg-white rounded-full translate-y-12 -translate-x-12 sm:translate-y-20 sm:-translate-x-20 md:translate-y-28 md:-translate-x-28 lg:translate-y-40 lg:-translate-x-40"></div>
+        <div className="absolute top-1/2 left-1/2 w-20 h-20 sm:w-32 sm:h-32 md:w-48 md:h-48 lg:w-64 lg:h-64 bg-white rounded-full -translate-x-10 -translate-y-10 sm:-translate-x-16 sm:-translate-y-16 md:-translate-x-24 md:-translate-y-24 lg:-translate-x-32 lg:-translate-y-32"></div>
       </div>
 
-      <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg relative z-10">
+      <div className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl relative z-10">
         {/* Logo e Título */}
-        <div className="text-center mb-8">
-          <div className="bg-white/20 backdrop-blur-sm rounded-full w-24 h-24 mx-auto mb-6 flex items-center justify-center shadow-2xl">
-            <div className="bg-white rounded-full w-16 h-16 flex items-center justify-center">
-              <LifeBeeLogo size={48} />
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="bg-white/20 backdrop-blur-sm rounded-full w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 mx-auto mb-4 sm:mb-6 flex items-center justify-center shadow-2xl">
+            <div className="bg-white rounded-full w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 flex items-center justify-center">
+              <LifeBeeLogo size={32} className="sm:w-12 sm:h-12 md:w-16 md:h-16" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">LifeBee</h1>
-          <p className="text-white/80 text-sm">Conecte-se com os melhores profissionais</p>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-2">LifeBee</h1>
+          <p className="text-white/80 text-xs sm:text-sm md:text-base px-4">Conecte-se com os melhores profissionais de saúde</p>
         </div>
 
         {/* Card de Login/Cadastro */}
-        <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-2xl">
-          <CardHeader className="pb-4">
+        <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-2xl mx-2 sm:mx-0">
+          <CardHeader className="pb-3 sm:pb-4 px-4 sm:px-6">
             <div className="flex bg-gray-100 rounded-xl p-1">
               <Button
                 variant="ghost"
-                className={`flex-1 rounded-lg transition-all duration-200 ${
+                className={`flex-1 rounded-lg transition-all duration-200 text-sm sm:text-base py-2 sm:py-2 ${
                   isLogin
                     ? "bg-white shadow-sm text-gray-900"
                     : "text-gray-600 hover:text-gray-900"
@@ -58,7 +58,7 @@ export default function Login() {
               </Button>
               <Button
                 variant="ghost"
-                className={`flex-1 rounded-lg transition-all duration-200 ${
+                className={`flex-1 rounded-lg transition-all duration-200 text-sm sm:text-base py-2 sm:py-2 ${
                   !isLogin
                     ? "bg-white shadow-sm text-gray-900"
                     : "text-gray-600 hover:text-gray-900"

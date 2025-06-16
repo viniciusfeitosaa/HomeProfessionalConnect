@@ -23,7 +23,7 @@ export function Header({ userName }: HeaderProps) {
           <h1 className="text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent truncate">
             Bem vindo, {userName}!
           </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1 hidden sm:block">Encontre o profissional ideal para você</p>
+          <p className="text-xs sm:text-sm text-gray-500 mt-1 hidden sm:block">Encontre o profissional de saúde ideal para você</p>
         </div>
       </div>
       <div className="relative ml-4 flex-shrink-0">
