@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug LifeBee</title>
+</head>
+<body>
+    <h1>Debug LifeBee</h1>
+    <div id="status">Verificando...</div>
+    <div id="api-test"></div>
+    
+    <script>
+        // Test API connectivity
+        fetch('/api/user')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('status').innerHTML = 'API funcionando: ' + JSON.stringify(data);
+            })
+            .catch(error => {
+                document.getElementById('status').innerHTML = 'Erro na API: ' + error.message;
+            });
+        
+        // Test professionals API
+        fetch('/api/professionals')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('api-test').innerHTML = 'Profissionais carregados: ' + data.length + ' encontrados';
+            })
+            .catch(error => {
+                document.getElementById('api-test').innerHTML = 'Erro ao carregar profissionais: ' + error.message;
+            });
+    </script>
+</body>
+</html>
