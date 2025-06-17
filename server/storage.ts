@@ -59,71 +59,166 @@ export class MemStorage implements IStorage {
   }
 
   private seedData() {
-    // Create default user
-    const user: User = {
+    // Create default users
+    const clientUser: User = {
       id: 1,
       username: "gustavo",
       password: "password",
-      name: "Gustavo"
+      name: "Gustavo",
+      email: "gustavo@email.com",
+      phone: "(11) 99999-9999",
+      address: "São Paulo, SP",
+      profileImage: null,
+      userType: "client",
+      createdAt: new Date()
     };
-    this.users.set(1, user);
-    this.currentUserId = 2;
+    this.users.set(1, clientUser);
 
-    // Seed health professionals
+    const providerUser: User = {
+      id: 2,
+      username: "ana_fisio",
+      password: "password",
+      name: "Ana Carolina Silva",
+      email: "ana@email.com",
+      phone: "(11) 98888-8888",
+      address: "São Paulo, SP",
+      profileImage: null,
+      userType: "provider",
+      createdAt: new Date()
+    };
+    this.users.set(2, providerUser);
+    this.currentUserId = 3;
+
+    // Seed healthcare professionals with new categories
     const professionalsData: Omit<Professional, 'id'>[] = [
       {
-        name: "Dr. Ana Silva",
-        service: "Cardiologia",
-        category: "médico",
-        rating: "4.8",
-        distance: "2.5",
+        userId: 2,
+        name: "Ana Carolina Silva",
+        specialization: "Fisioterapia Respiratória e Neurológica",
+        category: "fisioterapeuta",
+        subCategory: "terapias_especializadas",
+        description: "Especialista em reabilitação respiratória e neurológica com mais de 8 anos de experiência. Atendo pacientes pós-COVID, AVC e lesões medulares.",
+        experience: "8 anos",
+        certifications: "CREFITO-3, Especialização em Fisioterapia Respiratória USP",
+        availableHours: JSON.stringify({
+          monday: ["08:00", "18:00"],
+          tuesday: ["08:00", "18:00"],
+          wednesday: ["08:00", "18:00"],
+          thursday: ["08:00", "18:00"],
+          friday: ["08:00", "16:00"],
+          saturday: ["08:00", "12:00"]
+        }),
+        hourlyRate: "120.00",
+        rating: "4.9",
+        totalReviews: 127,
+        location: "Vila Madalena, São Paulo",
+        distance: "2.3",
         available: true,
-        imageUrl: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80"
+        imageUrl: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80",
+        createdAt: new Date()
       },
       {
-        name: "Enfª Maria Santos",
-        service: "Enfermagem Domiciliar",
-        category: "enfermagem",
+        userId: 3,
+        name: "Maria Santos",
+        specialization: "Técnica em Enfermagem Domiciliar",
+        category: "tecnico_enfermagem",
+        subCategory: "curativos_medicacao",
+        description: "Técnica em enfermagem especializada em cuidados domiciliares, curativos complexos e administração de medicação. Experiência com pacientes idosos e acamados.",
+        experience: "6 anos",
+        certifications: "COREN-SP, Curso de Curativos Complexos",
+        availableHours: JSON.stringify({
+          monday: ["06:00", "18:00"],
+          tuesday: ["06:00", "18:00"],
+          wednesday: ["06:00", "18:00"],
+          thursday: ["06:00", "18:00"],
+          friday: ["06:00", "18:00"],
+          saturday: ["08:00", "14:00"]
+        }),
+        hourlyRate: "80.00",
+        rating: "4.8",
+        totalReviews: 89,
+        location: "Pinheiros, São Paulo",
+        distance: "3.1",
+        available: true,
+        imageUrl: "https://images.unsplash.com/photo-1594824953857-3bc2358cc3a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80",
+        createdAt: new Date()
+      },
+      {
+        userId: 4,
+        name: "João Carlos",
+        specialization: "Acompanhante Hospitalar Especializado",
+        category: "acompanhante_hospitalar",
+        subCategory: "acompanhamento_hospitalar",
+        description: "Acompanhante hospitalar com formação em técnico em enfermagem. Especializado em UTI, pós-operatório e cuidados com idosos hospitalizados.",
+        experience: "5 anos",
+        certifications: "Técnico em Enfermagem, Curso de Acompanhante Hospitalar",
+        availableHours: JSON.stringify({
+          monday: ["00:00", "23:59"],
+          tuesday: ["00:00", "23:59"],
+          wednesday: ["00:00", "23:59"],
+          thursday: ["00:00", "23:59"],
+          friday: ["00:00", "23:59"],
+          saturday: ["00:00", "23:59"],
+          sunday: ["00:00", "23:59"]
+        }),
+        hourlyRate: "70.00",
+        rating: "4.7",
+        totalReviews: 156,
+        location: "Vila Olímpia, São Paulo",
+        distance: "4.2",
+        available: true,
+        imageUrl: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80",
+        createdAt: new Date()
+      },
+      {
+        userId: 5,
+        name: "Clara Mendes",
+        specialization: "Cuidadora Domiciliar e Companhia",
+        category: "acompanhante_hospitalar",
+        subCategory: "companhia_apoio_emocional",
+        description: "Cuidadora especializada em apoio emocional e companhia para idosos. Oferece cuidados diários, preparação de refeições e suporte para atividades cotidianas.",
+        experience: "4 anos",
+        certifications: "Curso de Cuidador de Idosos, Primeiros Socorros",
+        availableHours: JSON.stringify({
+          monday: ["07:00", "19:00"],
+          tuesday: ["07:00", "19:00"],
+          wednesday: ["07:00", "19:00"],
+          thursday: ["07:00", "19:00"],
+          friday: ["07:00", "19:00"]
+        }),
+        hourlyRate: "60.00",
         rating: "4.9",
+        totalReviews: 94,
+        location: "Jardins, São Paulo",
         distance: "1.8",
         available: true,
-        imageUrl: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80"
+        imageUrl: "https://images.unsplash.com/photo-1609902726285-00668009ffa8?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80",
+        createdAt: new Date()
       },
       {
-        name: "Ft. João Oliveira",
-        service: "Fisioterapia",
-        category: "fisioterapia",
-        rating: "4.7",
-        distance: "3.2",
-        available: false,
-        imageUrl: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80"
-      },
-      {
-        name: "Psic. Paula Costa",
-        service: "Psicologia",
-        category: "psicologia",
+        userId: 6,
+        name: "Roberto Silva",
+        specialization: "Apoio Domiciliar Integral",
+        category: "tecnico_enfermagem",
+        subCategory: "preparacao_refeicoes",
+        description: "Profissional especializado em cuidados domiciliares integrais, incluindo preparação de refeições especiais, acompanhamento em consultas e compras.",
+        experience: "7 anos",
+        certifications: "Técnico em Nutrição, Curso de Manipulação de Alimentos",
+        availableHours: JSON.stringify({
+          monday: ["08:00", "17:00"],
+          tuesday: ["08:00", "17:00"],
+          wednesday: ["08:00", "17:00"],
+          thursday: ["08:00", "17:00"],
+          friday: ["08:00", "17:00"]
+        }),
+        hourlyRate: "75.00",
         rating: "4.6",
-        distance: "4.1",
-        available: true,
-        imageUrl: "https://images.unsplash.com/photo-1594824953857-3bc2358cc3a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80"
-      },
-      {
-        name: "Nutricionista Pedro Alves",
-        service: "Nutrição",
-        category: "nutrição",
-        rating: "4.5",
-        distance: "2.9",
-        available: true,
-        imageUrl: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80"
-      },
-      {
-        name: "Cuidadora Lucia Ferreira",
-        service: "Cuidadora de Idosos",
-        category: "cuidados",
-        rating: "4.8",
-        distance: "1.5",
-        available: true,
-        imageUrl: "https://images.unsplash.com/photo-1609902726285-00668009ffa8?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80"
+        totalReviews: 73,
+        location: "Moema, São Paulo",
+        distance: "5.1",
+        available: false,
+        imageUrl: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80",
+        createdAt: new Date()
       }
     ];
 
