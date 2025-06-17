@@ -10,6 +10,7 @@ import Profile from "@/pages/profile";
 import Settings from "@/pages/settings";
 import Payment from "@/pages/payment";
 import ProfessionalDetail from "@/pages/professional-detail";
+import ProviderDashboard from "@/pages/provider-dashboard";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
@@ -17,6 +18,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      <Route path="/provider-dashboard" component={ProviderDashboard} />
       <Route path="/" component={Home} />
       <Route path="/agenda" component={Agenda} />
       <Route path="/messages" component={Messages} />

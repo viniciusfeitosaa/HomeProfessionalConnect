@@ -6,12 +6,9 @@ interface CategoryFiltersProps {
 }
 
 const categories = [
-  { id: "médico", label: "Médicos" },
-  { id: "enfermagem", label: "Enfermagem" },
-  { id: "fisioterapia", label: "Fisioterapia" },
-  { id: "psicologia", label: "Psicologia" },
-  { id: "nutrição", label: "Nutrição" },
-  { id: "cuidados", label: "Cuidadores" },
+  { id: "fisioterapeuta", label: "🏃‍♂️ Fisioterapeuta" },
+  { id: "acompanhante_hospitalar", label: "🏥 Acompanhante Hospitalar" },
+  { id: "tecnico_enfermagem", label: "💉 Técnico em Enfermagem" },
 ];
 
 export function CategoryFilters({ selectedCategory, onCategoryChange }: CategoryFiltersProps) {
