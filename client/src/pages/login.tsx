@@ -2,22 +2,29 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Eye, EyeOff, User, Lock, Mail, ArrowRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Eye, EyeOff, User, Lock, Mail, ArrowRight, Heart, Stethoscope, Phone } from "lucide-react";
 import { useLocation } from "wouter";
 import { LifeBeeLogo } from "@/components/lifebee-logo";
 
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [userType, setUserType] = useState<"client" | "provider">("client");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [, setLocation] = useLocation();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Por enquanto, apenas redireciona para home
-    setLocation("/");
+    // Redireciona baseado no tipo de usuário
+    if (userType === "provider") {
+      setLocation("/provider-dashboard");
+    } else {
+      setLocation("/");
+    }
   };
 
   return (
@@ -34,7 +41,7 @@ export default function Login() {
         <div className="text-center mb-6 sm:mb-8">
           <div className="bg-white/20 backdrop-blur-sm rounded-full w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 mx-auto mb-4 sm:mb-6 flex items-center justify-center shadow-2xl">
             <div className="bg-white rounded-full w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 flex items-center justify-center">
-              <LifeBeeLogo size={32} className="sm:w-12 sm:h-12 md:w-16 md:h-16" />
+              <LifeBeeLogo size={50} className="sm:w-12 sm:h-12 md:w-16 md:h-16" />
             </div>
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-2">LifeBee</h1>
@@ -73,17 +80,70 @@ export default function Login() {
           <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
               {!isLogin && (
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <Input
-                    type="text"
-                    placeholder="Nome completo"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="pl-10 py-3 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
-                    required
-                  />
-                </div>
+                <>
+                  {/* Seleção de Tipo de Usuário */}
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-gray-700">Você é:</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        type="button"
+                        variant={userType === "client" ? "default" : "outline"}
+                        className={`p-4 h-auto flex flex-col items-center gap-2 ${
+                          userType === "client" 
+                            ? "bg-primary text-white" 
+                            : "border-2 hover:border-primary"
+                        }`}
+                        onClick={() => setUserType("client")}
+                      >
+                        <Heart className="h-6 w-6" />
+                        <div className="text-center">
+                          <div className="font-semibold text-sm">Cliente</div>
+                          <div className="text-xs opacity-80">Preciso de cuidados</div>
+                        </div>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={userType === "provider" ? "default" : "outline"}
+                        className={`p-4 h-auto flex flex-col items-center gap-2 ${
+                          userType === "provider" 
+                            ? "bg-primary text-white" 
+                            : "border-2 hover:border-primary"
+                        }`}
+                        onClick={() => setUserType("provider")}
+                      >
+                        <Stethoscope className="h-6 w-6" />
+                        <div className="text-center">
+                          <div className="font-semibold text-sm">Profissional</div>
+                          <div className="text-xs opacity-80">Ofereço serviços</div>
+                        </div>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                    <Input
+                      type="text"
+                      placeholder="Nome completo"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="pl-10 py-3 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
+                      required
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                    <Input
+                      type="tel"
+                      placeholder="Telefone"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="pl-10 py-3 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
+                      required
+                    />
+                  </div>
+                </>
               )}
 
               <div className="relative">
@@ -116,6 +176,19 @@ export default function Login() {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
+
+              {!isLogin && userType === "provider" && (
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Stethoscope className="h-5 w-5 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">Área de atuação</span>
+                  </div>
+                  <p className="text-xs text-blue-700">
+                    Após o cadastro, você poderá configurar seus serviços especializados em:
+                    Fisioterapia, Acompanhamento hospitalar, Técnico em enfermagem
+                  </p>
+                </div>
+              )}
 
               {isLogin && (
                 <div className="text-right">
@@ -167,17 +240,11 @@ export default function Login() {
           </CardContent>
         </Card>
 
-        <div className="text-center mt-6">
-          <p className="text-white/70 text-sm">
-            Ao continuar, você concorda com nossos{" "}
-            <a href="#" className="text-white hover:text-white/80 font-medium underline">
-              Termos de Uso
-            </a>{" "}
-            e{" "}
-            <a href="#" className="text-white hover:text-white/80 font-medium underline">
-              Política de Privacidade
-            </a>
-          </p>
+        <div className="text-center mt-6 text-white/70 text-xs sm:text-sm">
+          Ao continuar, você concorda com nossos{" "}
+          <button className="underline hover:text-white">Termos de Serviço</button>
+          {" "}e{" "}
+          <button className="underline hover:text-white">Política de Privacidade</button>
         </div>
       </div>
     </div>
