@@ -1,18 +1,19 @@
-import { 
-  users, 
-  professionals, 
-  appointments, 
+import {
+  users,
+  professionals,
+  appointments,
   notifications,
-  type User, 
+  type User,
   type Professional,
   type Appointment,
   type Notification,
   type InsertUser,
   type InsertProfessional,
   type InsertAppointment,
-  type InsertNotification
+  type InsertNotification,
 } from "@shared/schema";
 
+// Interface for storage operations
 export interface IStorage {
   // Users
   getUser(id: number): Promise<User | undefined>;
@@ -90,8 +91,9 @@ export class MemStorage implements IStorage {
     this.currentUserId = 3;
 
     // Seed healthcare professionals with new categories
-    const professionalsData: Omit<Professional, 'id'>[] = [
+    const professionalsData: Professional[] = [
       {
+        id: 1,
         userId: 2,
         name: "Ana Carolina Silva",
         specialization: "Fisioterapia Respiratória e Neurológica",
@@ -118,6 +120,7 @@ export class MemStorage implements IStorage {
         createdAt: new Date()
       },
       {
+        id: 2,
         userId: 3,
         name: "Maria Santos",
         specialization: "Técnica em Enfermagem Domiciliar",
@@ -144,6 +147,7 @@ export class MemStorage implements IStorage {
         createdAt: new Date()
       },
       {
+        id: 3,
         userId: 4,
         name: "João Carlos",
         specialization: "Acompanhante Hospitalar Especializado",
@@ -171,6 +175,7 @@ export class MemStorage implements IStorage {
         createdAt: new Date()
       },
       {
+        id: 4,
         userId: 5,
         name: "Clara Mendes",
         specialization: "Cuidadora Domiciliar e Companhia",
@@ -196,6 +201,7 @@ export class MemStorage implements IStorage {
         createdAt: new Date()
       },
       {
+        id: 5,
         userId: 6,
         name: "Roberto Silva",
         specialization: "Apoio Domiciliar Integral",
@@ -222,45 +228,54 @@ export class MemStorage implements IStorage {
       }
     ];
 
-    professionalsData.forEach((prof, index) => {
-      const professional: Professional = { ...prof, id: index + 1 };
-      this.professionals.set(index + 1, professional);
+    professionalsData.forEach((prof) => {
+      this.professionals.set(prof.id, prof);
     });
     this.currentProfessionalId = professionalsData.length + 1;
 
-    // Seed appointments
-    const appointmentsData = [
+    // Seed sample appointments with new structure
+    const appointmentsData: Appointment[] = [
       {
         id: 1,
-        userId: 1,
-        professionalId: 2,
-        professionalName: "Marcos",
-        scheduledFor: new Date("2025-06-15T19:30:00"),
-        description: "Sua visita com Marcos está marcada para amanhã às 19:30"
+        clientId: 1,
+        professionalId: 1,
+        professionalName: "Ana Carolina Silva",
+        serviceType: "Fisioterapia Respiratória",
+        scheduledFor: new Date("2025-06-18T09:00:00"),
+        duration: 2,
+        totalCost: "240.00",
+        status: "confirmed",
+        notes: "Sessão de fisioterapia respiratória domiciliar para reabilitação pós-COVID",
+        address: "Rua das Flores, 123 - São Paulo, SP",
+        createdAt: new Date()
       },
       {
         id: 2,
-        userId: 1,
-        professionalId: 1,
-        professionalName: "Pedro Afonso",
-        scheduledFor: new Date("2025-06-16T14:00:00"),
-        description: "Reparo no encanamento da cozinha"
+        clientId: 1,
+        professionalId: 3,
+        professionalName: "João Carlos",
+        serviceType: "Acompanhamento Hospitalar",
+        scheduledFor: new Date("2025-06-19T08:00:00"),
+        duration: 8,
+        totalCost: "560.00",
+        status: "pending",
+        notes: "Acompanhamento durante cirurgia no Hospital das Clínicas",
+        address: "Hospital das Clínicas - São Paulo, SP",
+        createdAt: new Date()
       },
       {
         id: 3,
-        userId: 1,
+        clientId: 1,
         professionalId: 2,
-        professionalName: "Lucas Abreu",
-        scheduledFor: new Date("2025-06-12T10:30:00"),
-        description: "Instalação de tomadas extras - Concluído"
-      },
-      {
-        id: 4,
-        userId: 1,
-        professionalId: 3,
-        professionalName: "Carlos Silva",
-        scheduledFor: new Date("2025-06-10T16:00:00"),
-        description: "Manutenção preventiva do ar-condicionado - Concluído"
+        professionalName: "Maria Santos",
+        serviceType: "Curativos e Medicação",
+        scheduledFor: new Date("2025-06-17T14:00:00"),
+        duration: 1,
+        totalCost: "80.00",
+        status: "completed",
+        notes: "Curativo pós-operatório e administração de medicação - Concluído",
+        address: "Rua das Flores, 123 - São Paulo, SP",
+        createdAt: new Date()
       }
     ];
 
@@ -273,14 +288,14 @@ export class MemStorage implements IStorage {
     const notification1: Notification = {
       id: 1,
       userId: 1,
-      message: "Seu agendamento foi confirmado",
+      message: "Seu agendamento de fisioterapia foi confirmado para amanhã às 09:00",
       read: false,
       createdAt: new Date()
     };
     const notification2: Notification = {
       id: 2,
       userId: 1,
-      message: "Nova mensagem do profissional",
+      message: "Nova mensagem de Ana Carolina Silva sobre sua sessão",
       read: false,
       createdAt: new Date()
     };
@@ -294,39 +309,44 @@ export class MemStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const users = Array.from(this.users.values());
+    return users.find(user => user.username === username);
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
+    const user: User = { 
+      ...insertUser, 
+      id,
+      email: insertUser.email || null,
+      phone: insertUser.phone || null,
+      address: insertUser.address || null,
+      profileImage: insertUser.profileImage || null,
+      userType: insertUser.userType || "client",
+      createdAt: insertUser.createdAt || new Date()
+    };
     this.users.set(id, user);
     return user;
   }
 
   async getAllProfessionals(): Promise<Professional[]> {
-    return Array.from(this.professionals.values()).sort((a, b) => 
-      parseFloat(a.distance) - parseFloat(b.distance)
-    );
+    return Array.from(this.professionals.values());
   }
 
   async getProfessionalsByCategory(category: string): Promise<Professional[]> {
-    return Array.from(this.professionals.values())
-      .filter(prof => prof.category === category)
-      .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+    return Array.from(this.professionals.values()).filter(
+      (professional) => professional.category === category
+    );
   }
 
   async searchProfessionals(query: string): Promise<Professional[]> {
     const lowerQuery = query.toLowerCase();
-    return Array.from(this.professionals.values())
-      .filter(prof => 
-        prof.name.toLowerCase().includes(lowerQuery) ||
-        prof.service.toLowerCase().includes(lowerQuery) ||
-        prof.category.toLowerCase().includes(lowerQuery)
-      )
-      .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance));
+    return Array.from(this.professionals.values()).filter(
+      (professional) => 
+        professional.name.toLowerCase().includes(lowerQuery) || 
+        professional.specialization?.toLowerCase().includes(lowerQuery) ||
+        professional.description?.toLowerCase().includes(lowerQuery)
+    );
   }
 
   async getProfessional(id: number): Promise<Professional | undefined> {
@@ -334,28 +354,36 @@ export class MemStorage implements IStorage {
   }
 
   async getAppointmentsByUser(userId: number): Promise<Appointment[]> {
-    return Array.from(this.appointments.values())
-      .filter(appointment => appointment.userId === userId)
-      .sort((a, b) => a.scheduledFor.getTime() - b.scheduledFor.getTime());
+    return Array.from(this.appointments.values()).filter(
+      (appointment) => appointment.clientId === userId
+    );
   }
 
   async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
     const id = this.currentAppointmentId++;
-    const appointment: Appointment = { ...insertAppointment, id };
+    const appointment: Appointment = { 
+      ...insertAppointment, 
+      id,
+      address: insertAppointment.address || null,
+      createdAt: insertAppointment.createdAt || new Date(),
+      totalCost: insertAppointment.totalCost || null,
+      status: insertAppointment.status || "pending",
+      notes: insertAppointment.notes || null
+    };
     this.appointments.set(id, appointment);
     return appointment;
   }
 
   async getNotificationsByUser(userId: number): Promise<Notification[]> {
-    return Array.from(this.notifications.values())
-      .filter(notification => notification.userId === userId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return Array.from(this.notifications.values()).filter(
+      (notification) => notification.userId === userId
+    );
   }
 
   async getUnreadNotificationCount(userId: number): Promise<number> {
-    return Array.from(this.notifications.values())
-      .filter(notification => notification.userId === userId && !notification.read)
-      .length;
+    return Array.from(this.notifications.values()).filter(
+      (notification) => notification.userId === userId && !notification.read
+    ).length;
   }
 
   async createNotification(insertNotification: InsertNotification): Promise<Notification> {
@@ -363,7 +391,7 @@ export class MemStorage implements IStorage {
     const notification: Notification = { 
       ...insertNotification, 
       id,
-      read: insertNotification.read ?? false,
+      read: insertNotification.read || false,
       createdAt: new Date()
     };
     this.notifications.set(id, notification);
