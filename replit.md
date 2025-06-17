@@ -82,6 +82,14 @@ The build process:
 
 ## Recent Changes
 
+- June 17, 2025 - **MAJOR ARCHITECTURE UPDATE**: Implemented dual-user system with client and provider interfaces
+- June 17, 2025 - Created specialized healthcare categories: Fisioterapeuta, Acompanhante Hospitalar, Técnico em Enfermagem
+- June 17, 2025 - Added provider dashboard with service management, appointment tracking, and profile configuration
+- June 17, 2025 - Updated login system to support user type selection during registration (client vs provider)
+- June 17, 2025 - Restructured database schema to support user types and specialized healthcare services
+- June 17, 2025 - Implemented subcategory system for specific services (terapias especializadas, acompanhamento hospitalar, curativos e medicação, etc.)
+- June 17, 2025 - Enhanced professional data with detailed specializations, certifications, and hourly rates
+- June 17, 2025 - Updated appointment system to reflect new service structure with duration and cost tracking
 - June 16, 2025 - Applied comprehensive dark mode support across all UI components and pages
 - June 16, 2025 - Enhanced user experience with improved visual feedback and transitions
 - June 16, 2025 - Optimized professional search and filtering functionality
