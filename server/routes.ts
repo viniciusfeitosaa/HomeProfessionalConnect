@@ -22,15 +22,19 @@ import { z } from "zod";
 // Rate limiting
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
+  max: 10, // Increased limit for development
   message: 'Muitas tentativas de login. Tente novamente em 15 minutos.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for development
+    return process.env.NODE_ENV === 'development';
+  }
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Trust proxy for rate limiting and headers
-  app.set('trust proxy', true);
+  // Configure trust proxy more securely
+  app.set('trust proxy', 1);
   
   // Security middleware with CSP configuration for development
   app.use(helmet({
