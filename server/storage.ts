@@ -3,14 +3,20 @@ import {
   professionals,
   appointments,
   notifications,
+  loginAttempts,
+  verificationCodes,
   type User,
   type Professional,
   type Appointment,
   type Notification,
+  type LoginAttempt,
+  type VerificationCode,
   type InsertUser,
   type InsertProfessional,
   type InsertAppointment,
   type InsertNotification,
+  type InsertLoginAttempt,
+  type InsertVerificationCode,
 } from "@shared/schema";
 
 // Interface for storage operations
@@ -18,22 +24,40 @@ export interface IStorage {
   // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByGoogleId(googleId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: number, updates: Partial<User>): Promise<User>;
+  updateUserLoginAttempts(id: number, attempts: number): Promise<void>;
+  blockUser(id: number): Promise<void>;
+  verifyUser(id: number): Promise<void>;
   
   // Professionals
   getAllProfessionals(): Promise<Professional[]>;
   getProfessionalsByCategory(category: string): Promise<Professional[]>;
   searchProfessionals(query: string): Promise<Professional[]>;
   getProfessional(id: number): Promise<Professional | undefined>;
+  createProfessional(professional: InsertProfessional): Promise<Professional>;
+  updateProfessional(id: number, updates: Partial<Professional>): Promise<Professional>;
   
   // Appointments
   getAppointmentsByUser(userId: number): Promise<Appointment[]>;
+  getAppointmentsByProfessional(professionalId: number): Promise<Appointment[]>;
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
+  updateAppointment(id: number, updates: Partial<Appointment>): Promise<Appointment>;
   
   // Notifications
   getNotificationsByUser(userId: number): Promise<Notification[]>;
   getUnreadNotificationCount(userId: number): Promise<number>;
   createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationRead(id: number): Promise<void>;
+  
+  // Security & Anti-fraud
+  createLoginAttempt(attempt: InsertLoginAttempt): Promise<LoginAttempt>;
+  getRecentLoginAttempts(ipAddress: string, minutes: number): Promise<LoginAttempt[]>;
+  createVerificationCode(code: InsertVerificationCode): Promise<VerificationCode>;
+  getVerificationCode(code: string, type: string): Promise<VerificationCode | undefined>;
+  markCodeAsUsed(id: number): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
