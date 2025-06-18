@@ -5,14 +5,23 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  password: text("password"),
+  googleId: text("google_id").unique(),
   name: text("name").notNull(),
-  email: text("email"),
+  email: text("email").notNull(),
   phone: text("phone"),
+  phoneVerified: boolean("phone_verified").default(false),
   address: text("address"),
   profileImage: text("profile_image"),
   userType: text("user_type", { enum: ["client", "provider"] }).notNull().default("client"),
+  isVerified: boolean("is_verified").default(false),
+  isBlocked: boolean("is_blocked").default(false),
+  lastLoginAt: timestamp("last_login_at"),
+  loginAttempts: integer("login_attempts").default(0),
+  resetToken: text("reset_token"),
+  resetTokenExpiry: timestamp("reset_token_expiry"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const professionals = pgTable("professionals", {
@@ -71,8 +80,32 @@ export const notifications = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const loginAttempts = pgTable("login_attempts", {
+  id: serial("id").primaryKey(),
+  email: text("email"),
+  ipAddress: text("ip_address").notNull(),
+  userAgent: text("user_agent"),
+  successful: boolean("successful").notNull().default(false),
+  blocked: boolean("blocked").notNull().default(false),
+  attemptedAt: timestamp("attempted_at").defaultNow().notNull(),
+});
+
+export const verificationCodes = pgTable("verification_codes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"),
+  email: text("email"),
+  phone: text("phone"),
+  code: text("code").notNull(),
+  type: text("type", { enum: ["email", "phone", "password_reset"] }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const insertProfessionalSchema = createInsertSchema(professionals).omit({
@@ -88,12 +121,26 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
   createdAt: true,
 });
 
+export const insertLoginAttemptSchema = createInsertSchema(loginAttempts).omit({
+  id: true,
+  attemptedAt: true,
+});
+
+export const insertVerificationCodeSchema = createInsertSchema(verificationCodes).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type User = typeof users.$inferSelect;
 export type Professional = typeof professionals.$inferSelect;
 export type Appointment = typeof appointments.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+export type LoginAttempt = typeof loginAttempts.$inferSelect;
+export type VerificationCode = typeof verificationCodes.$inferSelect;
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertProfessional = z.infer<typeof insertProfessionalSchema>;
 export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type InsertLoginAttempt = z.infer<typeof insertLoginAttemptSchema>;
+export type InsertVerificationCode = z.infer<typeof insertVerificationCodeSchema>;

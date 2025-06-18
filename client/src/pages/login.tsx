@@ -19,6 +19,28 @@ export default function Login({ onLogin }: LoginProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
 
+  const formatPhoneNumber = (value: string) => {
+    // Remove tudo que não é número
+    const numbers = value.replace(/\D/g, '');
+    
+    // Limita a 11 dígitos
+    const truncated = numbers.substring(0, 11);
+    
+    // Aplica a formatação baseada no tamanho
+    if (truncated.length <= 2) {
+      return truncated;
+    } else if (truncated.length <= 7) {
+      return `(${truncated.substring(0, 2)}) ${truncated.substring(2)}`;
+    } else {
+      return `(${truncated.substring(0, 2)}) ${truncated.substring(2, 7)}-${truncated.substring(7)}`;
+    }
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setPhone(formatted);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Chama a função onLogin com o tipo de usuário
@@ -134,9 +156,9 @@ export default function Login({ onLogin }: LoginProps) {
                     <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                     <Input
                       type="tel"
-                      placeholder="Telefone"
+                      placeholder="(11) 99999-9999"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={handlePhoneChange}
                       className="pl-10 py-3 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
                       required
                     />
