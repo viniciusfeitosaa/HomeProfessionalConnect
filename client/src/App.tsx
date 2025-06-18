@@ -13,6 +13,8 @@ import Settings from "@/pages/settings";
 import Payment from "@/pages/payment";
 import ProfessionalDetail from "@/pages/professional-detail";
 import ProviderDashboard from "@/pages/provider-dashboard";
+import ProviderRegistration from "@/pages/provider-registration";
+import ServiceOffer from "@/pages/service-offer";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
@@ -31,6 +33,11 @@ function Router() {
       <Switch>
         <Route path="/" component={ProviderDashboard} />
         <Route path="/provider-dashboard" component={ProviderDashboard} />
+        <Route path="/provider-registration">
+          <ProviderRegistration onComplete={() => setUserType("provider")} />
+        </Route>
+        <Route path="/service-offer/:id" component={ServiceOffer} />
+        <Route path="/messages" component={Messages} />
         <Route path="/profile" component={Profile} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

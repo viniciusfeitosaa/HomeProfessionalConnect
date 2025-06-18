@@ -89,8 +89,8 @@ export default function ProviderDashboard() {
 
   const handleOfferService = (serviceId: number) => {
     setSelectedService(serviceId);
-    // Aqui você integraria com a API para enviar a oferta
-    console.log("Oferecendo serviço para:", serviceId);
+    // Navegar para a página de oferta de serviço
+    window.location.href = `/service-offer/${serviceId}`;
   };
 
   return (
