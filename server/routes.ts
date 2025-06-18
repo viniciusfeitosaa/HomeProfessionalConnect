@@ -241,19 +241,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isVerified: false
       });
 
-      // Generate verification code for phone
-      if (phone) {
-        const code = generateVerificationCode();
-        await storage.createVerificationCode({
-          userId: user.id,
-          phone,
-          code,
-          type: 'phone',
-          expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
-        });
-        
-        await sendSMSVerification(phone, code);
-      }
+      // Auto-verify user without SMS
+      await storage.updateUser(user.id, { 
+        phoneVerified: true,
+        isVerified: true
+      });
 
       const token = generateToken(user);
       res.status(201).json({ 
@@ -263,10 +255,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: user.name, 
           email: user.email, 
           userType: user.userType,
-          isVerified: user.isVerified,
-          phoneVerified: user.phoneVerified
-        },
-        requiresPhoneVerification: !!phone
+          isVerified: true,
+          phoneVerified: true,
+          phone: user.phone
+        }
       });
     } catch (error) {
       console.error('Registration error:', error);
@@ -274,73 +266,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Phone verification
-  app.post('/api/auth/verify-phone', authenticateToken, async (req, res) => {
+  // Messages API for client-professional communication
+  app.get('/api/messages', authenticateToken, async (req, res) => {
     try {
-      const { code } = req.body;
       const user = req.user as any;
-
-      if (!code) {
-        return res.status(400).json({ message: 'Código é obrigatório' });
-      }
-
-      const verificationCode = await storage.getVerificationCode(code, 'phone');
-      if (!verificationCode) {
-        return res.status(400).json({ message: 'Código inválido ou expirado' });
-      }
-
-      // Check if code belongs to user and is not expired
-      if (verificationCode.userId !== user.id || verificationCode.expiresAt < new Date()) {
-        return res.status(400).json({ message: 'Código inválido ou expirado' });
-      }
-
-      // Check if code was already used
-      if (verificationCode.used) {
-        return res.status(400).json({ message: 'Código já foi utilizado' });
-      }
-
-      // Mark code as used and verify user phone
-      await storage.markCodeAsUsed(verificationCode.id);
-      await storage.updateUser(user.id, { 
-        phoneVerified: true,
-        isVerified: true
-      });
-
-      res.json({ message: 'Telefone verificado com sucesso' });
+      // Return conversations with professionals
+      const conversations = [
+        {
+          id: 1,
+          professionalId: 1,
+          professionalName: "Ana Carolina Silva",
+          specialization: "Fisioterapeuta",
+          lastMessage: "Ótimo! Nos vemos na próxima sessão então.",
+          lastMessageTime: new Date(Date.now() - 1000 * 60 * 30),
+          unreadCount: 2,
+          isOnline: true
+        }
+      ];
+      res.json(conversations);
     } catch (error) {
-      console.error('Phone verification error:', error);
+      console.error('Get messages error:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });
 
-  // Resend phone verification code
-  app.post('/api/auth/resend-code', authenticateToken, async (req, res) => {
+  app.post('/api/messages', authenticateToken, async (req, res) => {
     try {
       const user = req.user as any;
+      const { recipientId, content, type } = req.body;
 
-      if (!user.phone) {
-        return res.status(400).json({ message: 'Telefone não cadastrado' });
+      if (!recipientId || !content) {
+        return res.status(400).json({ message: 'Destinatário e conteúdo são obrigatórios' });
       }
 
-      if (user.phoneVerified) {
-        return res.status(400).json({ message: 'Telefone já verificado' });
-      }
+      const message = {
+        id: Date.now(),
+        senderId: user.id,
+        recipientId,
+        content,
+        type: type || 'text',
+        timestamp: new Date(),
+        isRead: false
+      };
 
-      // Generate new verification code
-      const code = generateVerificationCode();
-      await storage.createVerificationCode({
-        userId: user.id,
-        phone: user.phone,
-        code,
-        type: 'phone',
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
-      });
-      
-      await sendSMSVerification(user.phone, code);
-
-      res.json({ message: 'Código reenviado com sucesso' });
+      res.status(201).json(message);
     } catch (error) {
-      console.error('Resend code error:', error);
+      console.error('Send message error:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });
