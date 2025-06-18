@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { apiRequest } from '@/lib/queryClient';
 
 interface User {
   id: number;
@@ -22,60 +21,38 @@ export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
     isLoading: true,
-    isAuthenticated: false
+    isAuthenticated: false,
   });
 
   useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  const checkAuthStatus = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const storedUser = localStorage.getItem('user');
-
-      if (!token) {
-        setAuthState({
-          user: null,
-          isLoading: false,
-          isAuthenticated: false
-        });
-        return;
-      }
-
-      // Verify token with server
-      const response = await fetch('/api/user', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const user = await response.json();
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    
+    if (token && userData) {
+      try {
+        const user = JSON.parse(userData);
         setAuthState({
           user,
           isLoading: false,
-          isAuthenticated: true
+          isAuthenticated: true,
         });
-      } else {
-        // Token invalid, clear storage
+      } catch (error) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setAuthState({
           user: null,
           isLoading: false,
-          isAuthenticated: false
+          isAuthenticated: false,
         });
       }
-    } catch (error) {
-      console.error('Auth check failed:', error);
+    } else {
       setAuthState({
         user: null,
         isLoading: false,
-        isAuthenticated: false
+        isAuthenticated: false,
       });
     }
-  };
+  }, []);
 
   const login = (token: string, user: User) => {
     localStorage.setItem('token', token);
@@ -83,35 +60,23 @@ export function useAuth() {
     setAuthState({
       user,
       isLoading: false,
-      isAuthenticated: true
+      isAuthenticated: true,
     });
   };
 
-  const logout = async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-    } catch (error) {
-      console.error('Logout request failed:', error);
-    } finally {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      setAuthState({
-        user: null,
-        isLoading: false,
-        isAuthenticated: false
-      });
-    }
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setAuthState({
+      user: null,
+      isLoading: false,
+      isAuthenticated: false,
+    });
   };
 
   return {
     ...authState,
     login,
     logout,
-    checkAuthStatus
   };
 }
