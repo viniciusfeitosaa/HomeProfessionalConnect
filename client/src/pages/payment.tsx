@@ -1,54 +1,44 @@
-import { useState, useEffect } from "react";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { useState } from "react";
 import { ArrowLeft, CreditCard, Shield, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
-if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
-  throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
-}
-
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
-
 const CheckoutForm = ({ amount }: { amount: number }) => {
-  const stripe = useStripe();
-  const elements = useElements();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(false);
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiryDate, setExpiryDate] = useState("");
+  const [cvv, setCvv] = useState("");
+  const [cardHolder, setCardHolder] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!stripe || !elements) {
-      return;
-    }
-
     setIsLoading(true);
 
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: window.location.origin + "/profile",
-      },
-    });
+    try {
+      const response = await apiRequest("POST", "/api/create-payment-intent", {
+        amount,
+        card: { cardNumber, expiryDate, cvv, cardHolder }
+      });
 
-    if (error) {
+      if (response.ok) {
+        toast({
+          title: "Pagamento Realizado",
+          description: "Seu pagamento foi processado com sucesso!",
+        });
+        setLocation("/profile");
+      }
+    } catch (error: any) {
       toast({
         title: "Erro no Pagamento",
-        description: error.message,
+        description: error.message || "Erro ao processar pagamento",
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: "Pagamento Realizado",
-        description: "Seu pagamento foi processado com sucesso!",
-      });
-      setLocation("/profile");
     }
 
     setIsLoading(false);
@@ -56,38 +46,62 @@ const CheckoutForm = ({ amount }: { amount: number }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="bg-muted/50 p-4 rounded-lg">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-          <Shield className="h-4 w-4" />
-          Pagamento seguro com criptografia SSL
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-2">Nome no Cartão</label>
+          <Input
+            type="text"
+            placeholder="João da Silva"
+            value={cardHolder}
+            onChange={(e) => setCardHolder(e.target.value)}
+            required
+          />
         </div>
-        <PaymentElement className="mb-4" />
+        
+        <div>
+          <label className="block text-sm font-medium mb-2">Número do Cartão</label>
+          <Input
+            type="text"
+            placeholder="0000 0000 0000 0000"
+            value={cardNumber}
+            onChange={(e) => setCardNumber(e.target.value)}
+            maxLength={19}
+            required
+          />
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Validade</label>
+            <Input
+              type="text"
+              placeholder="MM/AA"
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+              maxLength={5}
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">CVV</label>
+            <Input
+              type="text"
+              placeholder="123"
+              value={cvv}
+              onChange={(e) => setCvv(e.target.value)}
+              maxLength={4}
+              required
+            />
+          </div>
+        </div>
       </div>
       
-      <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg">
-        <span className="font-medium">Total:</span>
-        <span className="text-xl font-bold text-primary">
-          R$ {(amount / 100).toFixed(2)}
-        </span>
-      </div>
-
       <Button 
         type="submit" 
-        disabled={!stripe || isLoading}
-        className="w-full h-12 text-base font-medium"
-        size="lg"
+        disabled={isLoading}
+        className="w-full py-3 text-lg font-semibold"
       >
-        {isLoading ? (
-          <div className="flex items-center gap-2">
-            <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-            Processando...
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            Pagar R$ {(amount / 100).toFixed(2)}
-          </div>
-        )}
+        {isLoading ? "Processando..." : `Pagar R$ ${amount.toFixed(2)}`}
       </Button>
     </form>
   );
@@ -95,91 +109,80 @@ const CheckoutForm = ({ amount }: { amount: number }) => {
 
 export default function Payment() {
   const [, setLocation] = useLocation();
-  const [clientSecret, setClientSecret] = useState("");
-  const [amount] = useState(5000); // R$ 50,00 em centavos
-
-  useEffect(() => {
-    // Criar PaymentIntent assim que a página carrega
-    apiRequest("POST", "/api/create-payment-intent", { amount })
-      .then((res) => res.json())
-      .then((data) => {
-        setClientSecret(data.clientSecret);
-      })
-      .catch((error) => {
-        console.error("Erro ao criar payment intent:", error);
-      });
-  }, [amount]);
-
-  if (!clientSecret) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background to-muted/50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-          <p className="text-muted-foreground">Carregando informações de pagamento...</p>
-        </div>
-      </div>
-    );
-  }
+  const amount = 150; // Demo amount
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted/50">
-      <div className="container mx-auto px-4 py-6 max-w-2xl">
-        {/* Header */}
-        <div className="flex items-center mb-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setLocation("/profile")}
-            className="mr-4"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-2xl font-bold text-foreground">Pagamento</h1>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Header */}
+      <div className="bg-white dark:bg-gray-800 shadow-sm border-b">
+        <div className="max-w-lg mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation("/")}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-5 w-5" />
+              Voltar
+            </Button>
+            <h1 className="text-lg font-semibold">Pagamento</h1>
+            <div className="w-16"></div>
+          </div>
         </div>
+      </div>
 
-        {/* Service Info */}
-        <Card className="mb-6 border-border/50 bg-card/50 backdrop-blur-sm">
+      <div className="max-w-lg mx-auto p-4 space-y-6">
+        {/* Service Summary */}
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                <CreditCard className="h-4 w-4 text-primary" />
-              </div>
-              Consulta Médica Domiciliar
+              <CreditCard className="h-5 w-5" />
+              Resumo do Serviço
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Check className="h-5 w-5 text-green-600" />
-              <span className="text-sm">Médico especialista em casa</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Check className="h-5 w-5 text-green-600" />
-              <span className="text-sm">Atendimento personalizado</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Check className="h-5 w-5 text-green-600" />
-              <span className="text-sm">Equipamentos profissionais</span>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span>Consulta Fisioterapia</span>
+                <span>R$ 120,00</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Taxa de serviço</span>
+                <span>R$ 30,00</span>
+              </div>
+              <div className="border-t pt-3">
+                <div className="flex justify-between font-semibold text-lg">
+                  <span>Total</span>
+                  <span>R$ {amount.toFixed(2)}</span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Payment Form */}
-        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+        <Card>
           <CardHeader>
             <CardTitle>Informações de Pagamento</CardTitle>
           </CardHeader>
           <CardContent>
-            <Elements stripe={stripePromise} options={{ clientSecret }}>
-              <CheckoutForm amount={amount} />
-            </Elements>
+            <CheckoutForm amount={amount} />
           </CardContent>
         </Card>
 
-        {/* Security Info */}
-        <div className="mt-6 text-center">
-          <p className="text-xs text-muted-foreground">
-            Seus dados estão protegidos com criptografia de nível bancário
-          </p>
+        {/* Security Notice */}
+        <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+          <Shield className="h-5 w-5 text-green-600" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-green-800 dark:text-green-300">
+              Pagamento Seguro
+            </p>
+            <p className="text-xs text-green-600 dark:text-green-400">
+              Suas informações são protegidas com criptografia SSL
+            </p>
+          </div>
+          <Check className="h-5 w-5 text-green-600" />
         </div>
       </div>
     </div>
