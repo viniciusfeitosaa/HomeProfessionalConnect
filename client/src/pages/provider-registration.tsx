@@ -44,14 +44,33 @@ function PhoneVerification({ phone }: { phone: string }) {
   const [verificationCode, setVerificationCode] = useState("");
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(60);
+  const [timeLeft, setTimeLeft] = useState(15);
+  const [isResending, setIsResending] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
-  const sendVerificationCode = () => {
-    // Simular envio do código
-    setIsCodeSent(true);
-    console.log(`Código enviado para ${phone}`);
-    
-    // Simular countdown
+  const sendVerificationCode = async () => {
+    setIsResending(true);
+    try {
+      const response = await fetch("/api/auth/resend-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        }
+      });
+      
+      if (response.ok) {
+        setIsCodeSent(true);
+        setTimeLeft(15);
+        startTimer();
+      }
+    } catch (error) {
+      console.error("Error sending code:", error);
+    }
+    setIsResending(false);
+  };
+
+  const startTimer = () => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -63,11 +82,29 @@ function PhoneVerification({ phone }: { phone: string }) {
     }, 1000);
   };
 
-  const verifyCode = () => {
-    // Simular verificação do código
-    if (verificationCode === "123456") {
-      setIsVerified(true);
+  const verifyCode = async () => {
+    setIsVerifying(true);
+    try {
+      const response = await fetch("/api/auth/verify-phone", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+        body: JSON.stringify({ code: verificationCode })
+      });
+      
+      if (response.ok) {
+        setIsVerified(true);
+      } else {
+        const error = await response.json();
+        alert(error.message || "Código inválido");
+      }
+    } catch (error) {
+      console.error("Error verifying code:", error);
+      alert("Erro ao verificar código");
     }
+    setIsVerifying(false);
   };
 
   if (isVerified) {

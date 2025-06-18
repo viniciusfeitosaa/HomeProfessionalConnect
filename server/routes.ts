@@ -29,6 +29,9 @@ const authLimiter = rateLimit({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Trust proxy for rate limiting and headers
+  app.set('trust proxy', true);
+  
   // Security middleware with CSP configuration for development
   app.use(helmet({
     contentSecurityPolicy: {
@@ -278,8 +281,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const verificationCode = await storage.getVerificationCode(code, 'phone');
-      if (!verificationCode || verificationCode.userId !== user.id) {
+      if (!verificationCode) {
         return res.status(400).json({ message: 'Código inválido ou expirado' });
+      }
+
+      // Check if code belongs to user and is not expired
+      if (verificationCode.userId !== user.id || verificationCode.expiresAt < new Date()) {
+        return res.status(400).json({ message: 'Código inválido ou expirado' });
+      }
+
+      // Check if code was already used
+      if (verificationCode.used) {
+        return res.status(400).json({ message: 'Código já foi utilizado' });
       }
 
       // Mark code as used and verify user phone
@@ -292,6 +305,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: 'Telefone verificado com sucesso' });
     } catch (error) {
       console.error('Phone verification error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Resend phone verification code
+  app.post('/api/auth/resend-code', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+
+      if (!user.phone) {
+        return res.status(400).json({ message: 'Telefone não cadastrado' });
+      }
+
+      if (user.phoneVerified) {
+        return res.status(400).json({ message: 'Telefone já verificado' });
+      }
+
+      // Generate new verification code
+      const code = generateVerificationCode();
+      await storage.createVerificationCode({
+        userId: user.id,
+        phone: user.phone,
+        code,
+        type: 'phone',
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
+      });
+      
+      await sendSMSVerification(user.phone, code);
+
+      res.json({ message: 'Código reenviado com sucesso' });
+    } catch (error) {
+      console.error('Resend code error:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });
