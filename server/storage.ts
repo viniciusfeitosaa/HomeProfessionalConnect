@@ -437,8 +437,23 @@ export class MemStorage implements IStorage {
   async createProfessional(professional: InsertProfessional): Promise<Professional> {
     const id = this.currentProfessionalId++;
     const newProfessional: Professional = { 
-      ...professional, 
       id,
+      userId: professional.userId,
+      name: professional.name,
+      specialization: professional.specialization,
+      category: professional.category,
+      subCategory: professional.subCategory,
+      description: professional.description,
+      experience: professional.experience || null,
+      certifications: professional.certifications || null,
+      availableHours: professional.availableHours || null,
+      hourlyRate: professional.hourlyRate || null,
+      rating: professional.rating || "5.0",
+      totalReviews: professional.totalReviews || 0,
+      location: professional.location || null,
+      distance: professional.distance || null,
+      available: professional.available !== undefined ? professional.available : true,
+      imageUrl: professional.imageUrl || null,
       createdAt: new Date()
     };
     this.professionals.set(id, newProfessional);
@@ -480,8 +495,12 @@ export class MemStorage implements IStorage {
   async createLoginAttempt(attempt: InsertLoginAttempt): Promise<LoginAttempt> {
     const id = this.currentLoginAttemptId++;
     const loginAttempt: LoginAttempt = { 
-      ...attempt, 
       id,
+      email: attempt.email || null,
+      ipAddress: attempt.ipAddress,
+      userAgent: attempt.userAgent || null,
+      successful: attempt.successful || false,
+      blocked: attempt.blocked || false,
       attemptedAt: new Date()
     };
     this.loginAttempts.set(id, loginAttempt);
@@ -498,8 +517,14 @@ export class MemStorage implements IStorage {
   async createVerificationCode(code: InsertVerificationCode): Promise<VerificationCode> {
     const id = this.currentVerificationCodeId++;
     const verificationCode: VerificationCode = { 
-      ...code, 
       id,
+      userId: code.userId || null,
+      email: code.email || null,
+      phone: code.phone || null,
+      code: code.code,
+      type: code.type,
+      expiresAt: code.expiresAt,
+      used: code.used || false,
       createdAt: new Date()
     };
     this.verificationCodes.set(id, verificationCode);
