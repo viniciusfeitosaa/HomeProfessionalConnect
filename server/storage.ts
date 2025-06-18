@@ -65,20 +65,28 @@ export class MemStorage implements IStorage {
   private professionals: Map<number, Professional>;
   private appointments: Map<number, Appointment>;
   private notifications: Map<number, Notification>;
+  private loginAttempts: Map<number, LoginAttempt>;
+  private verificationCodes: Map<number, VerificationCode>;
   private currentUserId: number;
   private currentProfessionalId: number;
   private currentAppointmentId: number;
   private currentNotificationId: number;
+  private currentLoginAttemptId: number;
+  private currentVerificationCodeId: number;
 
   constructor() {
     this.users = new Map();
     this.professionals = new Map();
     this.appointments = new Map();
     this.notifications = new Map();
+    this.loginAttempts = new Map();
+    this.verificationCodes = new Map();
     this.currentUserId = 1;
     this.currentProfessionalId = 1;
     this.currentAppointmentId = 1;
     this.currentNotificationId = 1;
+    this.currentLoginAttemptId = 1;
+    this.currentVerificationCodeId = 1;
     
     this.seedData();
   }
@@ -89,13 +97,22 @@ export class MemStorage implements IStorage {
       id: 1,
       username: "gustavo",
       password: "password",
+      googleId: null,
       name: "Gustavo",
       email: "gustavo@email.com",
       phone: "(11) 99999-9999",
+      phoneVerified: false,
       address: "São Paulo, SP",
       profileImage: null,
       userType: "client",
-      createdAt: new Date()
+      isVerified: true,
+      isBlocked: false,
+      lastLoginAt: null,
+      loginAttempts: 0,
+      resetToken: null,
+      resetTokenExpiry: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     this.users.set(1, clientUser);
 
@@ -103,13 +120,22 @@ export class MemStorage implements IStorage {
       id: 2,
       username: "ana_fisio",
       password: "password",
+      googleId: null,
       name: "Ana Carolina Silva",
       email: "ana@email.com",
       phone: "(11) 98888-8888",
+      phoneVerified: true,
       address: "São Paulo, SP",
       profileImage: null,
       userType: "provider",
-      createdAt: new Date()
+      isVerified: true,
+      isBlocked: false,
+      lastLoginAt: null,
+      loginAttempts: 0,
+      resetToken: null,
+      resetTokenExpiry: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     this.users.set(2, providerUser);
     this.currentUserId = 3;
@@ -337,20 +363,161 @@ export class MemStorage implements IStorage {
     return users.find(user => user.username === username);
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.email === email);
+  }
+
+  async getUserByGoogleId(googleId: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.googleId === googleId);
+  }
+
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
     const user: User = { 
-      ...insertUser, 
       id,
-      email: insertUser.email || null,
+      username: insertUser.username,
+      password: insertUser.password || null,
+      googleId: insertUser.googleId || null,
+      name: insertUser.name,
+      email: insertUser.email,
       phone: insertUser.phone || null,
+      phoneVerified: insertUser.phoneVerified || false,
       address: insertUser.address || null,
       profileImage: insertUser.profileImage || null,
       userType: insertUser.userType || "client",
-      createdAt: insertUser.createdAt || new Date()
+      isVerified: insertUser.isVerified || false,
+      isBlocked: insertUser.isBlocked || false,
+      lastLoginAt: insertUser.lastLoginAt || null,
+      loginAttempts: insertUser.loginAttempts || 0,
+      resetToken: insertUser.resetToken || null,
+      resetTokenExpiry: insertUser.resetTokenExpiry || null,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: number, updates: Partial<User>): Promise<User> {
+    const user = this.users.get(id);
+    if (!user) throw new Error("User not found");
+    
+    const updatedUser = { ...user, ...updates, updatedAt: new Date() };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+
+  async updateUserLoginAttempts(id: number, attempts: number): Promise<void> {
+    const user = this.users.get(id);
+    if (user) {
+      user.loginAttempts = attempts;
+      user.updatedAt = new Date();
+      this.users.set(id, user);
+    }
+  }
+
+  async blockUser(id: number): Promise<void> {
+    const user = this.users.get(id);
+    if (user) {
+      user.isBlocked = true;
+      user.updatedAt = new Date();
+      this.users.set(id, user);
+    }
+  }
+
+  async verifyUser(id: number): Promise<void> {
+    const user = this.users.get(id);
+    if (user) {
+      user.isVerified = true;
+      user.updatedAt = new Date();
+      this.users.set(id, user);
+    }
+  }
+
+  async createProfessional(professional: InsertProfessional): Promise<Professional> {
+    const id = this.currentProfessionalId++;
+    const newProfessional: Professional = { 
+      ...professional, 
+      id,
+      createdAt: new Date()
+    };
+    this.professionals.set(id, newProfessional);
+    return newProfessional;
+  }
+
+  async updateProfessional(id: number, updates: Partial<Professional>): Promise<Professional> {
+    const professional = this.professionals.get(id);
+    if (!professional) throw new Error("Professional not found");
+    
+    const updatedProfessional = { ...professional, ...updates };
+    this.professionals.set(id, updatedProfessional);
+    return updatedProfessional;
+  }
+
+  async getAppointmentsByProfessional(professionalId: number): Promise<Appointment[]> {
+    return Array.from(this.appointments.values()).filter(
+      appointment => appointment.professionalId === professionalId
+    );
+  }
+
+  async updateAppointment(id: number, updates: Partial<Appointment>): Promise<Appointment> {
+    const appointment = this.appointments.get(id);
+    if (!appointment) throw new Error("Appointment not found");
+    
+    const updatedAppointment = { ...appointment, ...updates };
+    this.appointments.set(id, updatedAppointment);
+    return updatedAppointment;
+  }
+
+  async markNotificationRead(id: number): Promise<void> {
+    const notification = this.notifications.get(id);
+    if (notification) {
+      notification.read = true;
+      this.notifications.set(id, notification);
+    }
+  }
+
+  async createLoginAttempt(attempt: InsertLoginAttempt): Promise<LoginAttempt> {
+    const id = this.currentLoginAttemptId++;
+    const loginAttempt: LoginAttempt = { 
+      ...attempt, 
+      id,
+      attemptedAt: new Date()
+    };
+    this.loginAttempts.set(id, loginAttempt);
+    return loginAttempt;
+  }
+
+  async getRecentLoginAttempts(ipAddress: string, minutes: number): Promise<LoginAttempt[]> {
+    const cutoff = new Date(Date.now() - minutes * 60 * 1000);
+    return Array.from(this.loginAttempts.values()).filter(
+      attempt => attempt.ipAddress === ipAddress && attempt.attemptedAt >= cutoff
+    );
+  }
+
+  async createVerificationCode(code: InsertVerificationCode): Promise<VerificationCode> {
+    const id = this.currentVerificationCodeId++;
+    const verificationCode: VerificationCode = { 
+      ...code, 
+      id,
+      createdAt: new Date()
+    };
+    this.verificationCodes.set(id, verificationCode);
+    return verificationCode;
+  }
+
+  async getVerificationCode(code: string, type: string): Promise<VerificationCode | undefined> {
+    return Array.from(this.verificationCodes.values()).find(
+      vc => vc.code === code && vc.type === type && !vc.used && vc.expiresAt > new Date()
+    );
+  }
+
+  async markCodeAsUsed(id: number): Promise<void> {
+    const verificationCode = this.verificationCodes.get(id);
+    if (verificationCode) {
+      verificationCode.used = true;
+      this.verificationCodes.set(id, verificationCode);
+    }
   }
 
   async getAllProfessionals(): Promise<Professional[]> {
