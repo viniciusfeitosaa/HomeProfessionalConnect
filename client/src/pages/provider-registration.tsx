@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   User, Phone, Mail, MapPin, Award, Clock, DollarSign, 
-  FileText, Camera, CheckCircle, ArrowRight, Upload 
+  FileText, Camera, CheckCircle, ArrowRight, Upload, Shield 
 } from "lucide-react";
 import { LifeBeeLogo } from "@/components/lifebee-logo";
 
@@ -38,6 +38,87 @@ const serviceCategories = {
     ]
   }
 };
+
+// Phone Verification Component
+function PhoneVerification({ phone }: { phone: string }) {
+  const [verificationCode, setVerificationCode] = useState("");
+  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(60);
+
+  const sendVerificationCode = () => {
+    // Simular envio do código
+    setIsCodeSent(true);
+    console.log(`Código enviado para ${phone}`);
+    
+    // Simular countdown
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const verifyCode = () => {
+    // Simular verificação do código
+    if (verificationCode === "123456") {
+      setIsVerified(true);
+    }
+  };
+
+  if (isVerified) {
+    return (
+      <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+        <CheckCircle className="h-4 w-4 text-green-600" />
+        <span className="text-sm text-green-800 dark:text-green-200">Telefone verificado com sucesso!</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-3">
+      <div className="flex items-center gap-2">
+        <Shield className="h-4 w-4 text-blue-600" />
+        <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Verificação de Telefone</span>
+      </div>
+      
+      {!isCodeSent ? (
+        <div>
+          <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
+            Enviaremos um código de verificação via WhatsApp
+          </p>
+          <Button size="sm" onClick={sendVerificationCode} className="w-full">
+            Enviar Código de Verificação
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-xs text-blue-700 dark:text-blue-300">
+            Código enviado para {phone}
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Digite o código (123456)"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              className="text-sm"
+            />
+            <Button size="sm" onClick={verifyCode} disabled={verificationCode.length < 6}>
+              Verificar
+            </Button>
+          </div>
+          {timeLeft > 0 && (
+            <p className="text-xs text-gray-500">Reenviar em {timeLeft}s</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface ProviderRegistrationProps {
   onComplete: () => void;
@@ -120,16 +201,21 @@ export default function ProviderRegistration({ onComplete }: ProviderRegistratio
                 />
               </div>
 
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <Input
-                  type="tel"
-                  placeholder="Telefone/WhatsApp"
-                  value={formData.phone}
-                  onChange={(e) => updateFormData("phone", e.target.value)}
-                  className="pl-10 py-3"
-                  required
-                />
+              <div className="space-y-2">
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <Input
+                    type="tel"
+                    placeholder="(11) 99999-9999"
+                    value={formData.phone}
+                    onChange={(e) => updateFormData("phone", e.target.value)}
+                    className="pl-10 py-3"
+                    required
+                  />
+                </div>
+                {formData.phone && formData.phone.length >= 10 && (
+                  <PhoneVerification phone={formData.phone} />
+                )}
               </div>
 
               <div className="relative">
