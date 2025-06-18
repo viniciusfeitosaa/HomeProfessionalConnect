@@ -108,13 +108,10 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     return res.status(401).json({ message: 'Token de acesso necessário' });
   }
 
-  const decoded = verifyToken(token);
-  if (!decoded) {
-    return res.status(403).json({ message: 'Token inválido' });
-  }
-
   try {
-    const user = await storage.getUser(decoded.id);
+    const decoded = verifyToken(token);
+    const user = await storage.getUser(decoded.userId);
+    
     if (!user || user.isBlocked) {
       return res.status(403).json({ message: 'Usuário não encontrado ou bloqueado' });
     }
@@ -122,7 +119,8 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     req.user = user;
     next();
   } catch (error) {
-    res.status(500).json({ message: 'Erro interno do servidor' });
+    console.error('Authentication error:', error);
+    return res.status(403).json({ message: 'Token inválido' });
   }
 };
 
