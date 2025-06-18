@@ -128,7 +128,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
 
 // Anti-fraud middleware
 export const rateLimitByIP = async (req: Request, res: Response, next: NextFunction) => {
-  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const ip = req.ip || (req as any).connection?.remoteAddress || 'unknown';
   const userAgent = req.get('User-Agent') || 'unknown';
 
   try {
