@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LoadingScreen } from "@/components/loading-screen";
+import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/home";
 import Agenda from "@/pages/agenda";
 import Messages from "@/pages/messages";
@@ -19,22 +20,29 @@ import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
 function Router() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userType, setUserType] = useState<"client" | "provider" | null>(null);
+  const { user, isLoading, isAuthenticated, login } = useAuth();
 
-  // Always show login as main screen (as requested)
+  // Show loading or login screen
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
-    return <Login onLogin={(type) => { setIsAuthenticated(true); setUserType(type); }} />;
+    return <Login onLogin={(type) => window.location.reload()} />;
   }
 
   // Provider routes
-  if (userType === "provider") {
+  if (user?.userType === "provider") {
     return (
       <Switch>
         <Route path="/" component={ProviderDashboard} />
         <Route path="/provider-dashboard" component={ProviderDashboard} />
         <Route path="/provider-registration">
-          <ProviderRegistration onComplete={() => setUserType("provider")} />
+          <ProviderRegistration onComplete={() => window.location.reload()} />
         </Route>
         <Route path="/service-offer/:id" component={ServiceOffer} />
         <Route path="/messages" component={Messages} />
