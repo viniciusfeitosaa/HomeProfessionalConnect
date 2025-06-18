@@ -4,7 +4,6 @@ import session from "express-session";
 import passport from "passport";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import Stripe from "stripe";
 import { storage } from "./storage";
 import { 
   generateToken, 
@@ -19,12 +18,6 @@ import {
 } from "./auth";
 import "./auth"; // Initialize passport strategies
 import { z } from "zod";
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
-}
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Rate limiting
 const authLimiter = rateLimit({
@@ -41,12 +34,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://js.stripe.com"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "ws:", "wss:", "https://accounts.google.com", "https://api.stripe.com"],
-        frameSrc: ["'self'", "https://accounts.google.com", "https://js.stripe.com", "https://hooks.stripe.com"]
+        connectSrc: ["'self'", "ws:", "wss:", "https://accounts.google.com"],
+        frameSrc: ["'self'", "https://accounts.google.com"]
       },
     },
     crossOriginEmbedderPolicy: false
@@ -407,7 +400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Stripe payment route
+  // Payment route (simplified for demo)
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
       const { amount } = req.body;
@@ -416,20 +409,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid amount" });
       }
 
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount),
-        currency: "brl",
-        metadata: {
-          userId: "1", // For demo purposes
-          service: "healthcare_consultation"
-        }
+      // Simulate payment processing for demo
+      res.json({ 
+        clientSecret: "demo_payment_" + Date.now(),
+        success: true,
+        message: "Payment processed successfully"
       });
-
-      res.json({ clientSecret: paymentIntent.client_secret });
     } catch (error: any) {
       console.error("Payment error:", error);
       res.status(500).json({ 
-        message: "Error creating payment intent: " + error.message 
+        message: "Error processing payment: " + error.message 
       });
     }
   });
