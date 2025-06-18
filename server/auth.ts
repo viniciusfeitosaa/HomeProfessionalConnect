@@ -110,7 +110,8 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
 
   try {
     const decoded = verifyToken(token);
-    const user = await storage.getUser(decoded.userId);
+    const userId = decoded.userId || decoded.id; // Support both formats
+    const user = await storage.getUser(userId);
     
     if (!user || user.isBlocked) {
       return res.status(403).json({ message: 'Usuário não encontrado ou bloqueado' });
