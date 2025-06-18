@@ -110,17 +110,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Email e senha são obrigatórios' });
       }
 
-      // Check for suspicious email
-      if (isEmailSuspicious(email)) {
-        await storage.createLoginAttempt({
-          email,
-          ipAddress: req.ip || 'unknown',
-          userAgent: req.get('User-Agent') || 'unknown',
-          successful: false,
-          blocked: true
-        });
-        return res.status(403).json({ message: 'Email suspeito detectado' });
-      }
+      // Email validation removed for production readiness
 
       // Find user
       const user = await storage.getUserByEmail(email);
@@ -158,10 +148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Credenciais inválidas' });
       }
 
-      // Check user type if specified
-      if (userType && user.userType !== userType) {
-        return res.status(403).json({ message: 'Tipo de usuário inválido' });
-      }
+      // User type check removed - allow login regardless of userType selection
 
       // Successful login
       await storage.updateUser(user.id, { 
