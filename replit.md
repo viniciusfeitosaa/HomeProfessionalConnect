@@ -82,6 +82,14 @@ The build process:
 
 ## Recent Changes
 
+- June 17, 2025 - **COMPREHENSIVE UX OVERHAUL**: Implemented loading screen, login-first flow, and complete dual-user experience
+- June 17, 2025 - Added animated loading screen with LifeBee branding that displays on app startup
+- June 17, 2025 - Made login the primary screen that appears after loading, with user type selection
+- June 17, 2025 - Created complete provider registration flow with step-by-step onboarding
+- June 17, 2025 - Rebuilt agenda system with interactive calendar, time slot selection, and availability checking
+- June 17, 2025 - Enhanced professional detail pages with portfolio showcase, reviews, and direct messaging
+- June 17, 2025 - Implemented comprehensive messaging system with real-time chat interface
+- June 17, 2025 - Added professional portfolio display with service categories and client testimonials
 - June 17, 2025 - **MAJOR ARCHITECTURE UPDATE**: Implemented dual-user system with client and provider interfaces
 - June 17, 2025 - Created specialized healthcare categories: Fisioterapeuta, Acompanhante Hospitalar, Técnico em Enfermagem
 - June 17, 2025 - Added provider dashboard with service management, appointment tracking, and profile configuration
