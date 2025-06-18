@@ -128,8 +128,8 @@ function PhoneVerification({ phone }: { phone: string }) {
           <p className="text-xs text-blue-700 dark:text-blue-300 mb-2">
             Enviaremos um código de verificação via WhatsApp
           </p>
-          <Button size="sm" onClick={sendVerificationCode} className="w-full">
-            Enviar Código de Verificação
+          <Button size="sm" onClick={sendVerificationCode} className="w-full" disabled={isResending}>
+            {isResending ? "Enviando..." : "Enviar Código de Verificação"}
           </Button>
         </div>
       ) : (
@@ -139,18 +139,35 @@ function PhoneVerification({ phone }: { phone: string }) {
           </p>
           <div className="flex gap-2">
             <Input
-              placeholder="Digite o código (123456)"
+              placeholder="Digite o código de 6 dígitos"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value)}
               className="text-sm"
+              maxLength={6}
             />
-            <Button size="sm" onClick={verifyCode} disabled={verificationCode.length < 6}>
-              Verificar
+            <Button 
+              size="sm" 
+              onClick={verifyCode} 
+              disabled={verificationCode.length < 6 || isVerifying}
+            >
+              {isVerifying ? "Verificando..." : "Verificar"}
             </Button>
           </div>
-          {timeLeft > 0 && (
-            <p className="text-xs text-gray-500">Reenviar em {timeLeft}s</p>
-          )}
+          <div className="flex justify-between items-center">
+            {timeLeft > 0 ? (
+              <p className="text-xs text-gray-500">Reenviar em {timeLeft}s</p>
+            ) : (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={sendVerificationCode}
+                disabled={isResending}
+                className="text-xs p-0 h-auto"
+              >
+                {isResending ? "Reenviando..." : "Reenviar código"}
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -22,6 +22,20 @@ import NotFound from "@/pages/not-found";
 function Router() {
   const { user, isLoading, isAuthenticated, login } = useAuth();
 
+  // Check for Google OAuth callback token in URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const userType = urlParams.get('userType');
+    
+    if (token && userType) {
+      localStorage.setItem('token', token);
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+      window.location.reload();
+    }
+  }, []);
+
   // Show loading or login screen
   if (isLoading) {
     return (
