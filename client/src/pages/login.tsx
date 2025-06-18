@@ -4,10 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, User, Lock, Mail, ArrowRight, Heart, Stethoscope, Phone } from "lucide-react";
-import { useLocation } from "wouter";
 import { LifeBeeLogo } from "@/components/lifebee-logo";
 
-export default function Login() {
+interface LoginProps {
+  onLogin: (userType: "client" | "provider") => void;
+}
+
+export default function Login({ onLogin }: LoginProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [userType, setUserType] = useState<"client" | "provider">("client");
@@ -15,16 +18,11 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [, setLocation] = useLocation();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Redireciona baseado no tipo de usuário
-    if (userType === "provider") {
-      setLocation("/provider-dashboard");
-    } else {
-      setLocation("/");
-    }
+    // Chama a função onLogin com o tipo de usuário
+    onLogin(userType);
   };
 
   return (
