@@ -69,13 +69,13 @@ function Router() {
 }
 
 function App() {
-  const [isLoading, setIsLoading] = useState(true);
+  const [showLoading, setShowLoading] = useState(true);
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        {isLoading ? (
-          <LoadingScreen onComplete={() => setIsLoading(false)} />
+        {showLoading ? (
+          <LoadingScreen onComplete={() => setShowLoading(false)} />
         ) : (
           <Router />
         )}

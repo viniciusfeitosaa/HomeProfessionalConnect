@@ -36,8 +36,21 @@ const authLimiter = rateLimit({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Security middleware
-  app.use(helmet());
+  // Security middleware with CSP configuration for development
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com", "https://js.stripe.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "ws:", "wss:", "https://accounts.google.com", "https://api.stripe.com"],
+        frameSrc: ["'self'", "https://accounts.google.com", "https://js.stripe.com", "https://hooks.stripe.com"]
+      },
+    },
+    crossOriginEmbedderPolicy: false
+  }));
   
   // Session configuration
   app.use(session({
