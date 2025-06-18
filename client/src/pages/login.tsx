@@ -333,18 +333,6 @@ export default function Login({ onLogin }: LoginProps) {
                         <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                         <Input
                           type="text"
-                          placeholder="Nome de usuário"
-                          value={username}
-                          onChange={(e) => setUsername(e.target.value)}
-                          className="pl-10 py-3 rounded-xl border-gray-200 focus:border-primary focus:ring-primary"
-                          required
-                        />
-                      </div>
-
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                        <Input
-                          type="text"
                           placeholder="Nome completo"
                           value={name}
                           onChange={(e) => setName(e.target.value)}
