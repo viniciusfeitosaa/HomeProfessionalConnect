@@ -135,7 +135,10 @@ export default function ProviderRegistration({ onComplete }: ProviderRegistratio
                   />
                 </div>
                 {formData.phone && formData.phone.length >= 10 && (
-                  <PhoneVerification phone={formData.phone} />
+                  <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm text-green-800 dark:text-green-200">Telefone válido</span>
+                  </div>
                 )}
               </div>
 
