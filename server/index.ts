@@ -5,8 +5,13 @@ import { setupVite, serveStatic, log } from "./vite";
 // Extend Express Request type for user property
 declare global {
   namespace Express {
+    interface User {
+      id: number;
+      email: string;
+      userType: string;
+    }
     interface Request {
-      user?: any;
+      user?: User;
     }
   }
 }
