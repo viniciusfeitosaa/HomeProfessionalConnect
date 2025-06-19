@@ -13,7 +13,7 @@ import { Search } from "lucide-react";
 import type { Professional, User, Appointment } from "@shared/schema";
 
 export default function Home() {
-  const [selectedCategory, setSelectedCategory] = useState<string>("médico");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const { data: user } = useQuery<User>({
@@ -35,9 +35,10 @@ export default function Home() {
   const filteredProfessionals = professionals.filter(prof => {
     if (searchQuery) {
       return prof.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             prof.service.toLowerCase().includes(searchQuery.toLowerCase());
+             prof.specialization.toLowerCase().includes(searchQuery.toLowerCase()) ||
+             prof.description.toLowerCase().includes(searchQuery.toLowerCase());
     }
-    return selectedCategory === "médico" || prof.category === selectedCategory;
+    return selectedCategory === "all" || prof.category === selectedCategory;
   });
 
   return (
@@ -46,7 +47,7 @@ export default function Home() {
       <div className="lg:pl-64">
         <div className="w-full max-w-sm lg:max-w-none mx-auto lg:mx-0 min-h-screen relative">
           
-          <Header userName={user?.name || "Gustavo"} />
+          <Header userName={user?.name || "Usuário"} />
           
           {currentAppointment && (
             <AppointmentCard appointment={currentAppointment} />
