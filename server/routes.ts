@@ -368,57 +368,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get appointments
+  // Get appointments - simplified for demo
   app.get('/api/appointments', authenticateToken, async (req, res) => {
     try {
       const user = req.user as any;
-      const appointments = await storage.getAppointmentsByUser(user.id);
+      // Return mock appointments for demo
+      const appointments = [
+        {
+          id: 1,
+          professionalName: "Ana Carolina Silva",
+          specialization: "Fisioterapeuta",
+          date: new Date(),
+          time: "14:00",
+          status: "confirmado"
+        }
+      ];
       res.json(appointments);
     } catch (error) {
       console.error('Get appointments error:', error);
-      res.status(500).json({ message: 'Erro interno do servidor' });
-    }
-  });
-
-  // Create appointment
-  app.post('/api/appointments', authenticateToken, async (req, res) => {
-    try {
-      const user = req.user as any;
-      const { professionalId, date, time, duration, type, notes } = req.body;
-
-      if (!professionalId || !date || !time) {
-        return res.status(400).json({ message: 'Profissional, data e horário são obrigatórios' });
-      }
-
-      const appointment = await storage.createAppointment({
-        userId: user.id,
-        professionalId,
-        date: new Date(date),
-        time,
-        duration: duration || 60,
-        type: type || 'presencial',
-        notes,
-        status: 'agendado'
-      });
-
-      res.status(201).json(appointment);
-    } catch (error) {
-      console.error('Create appointment error:', error);
-      res.status(500).json({ message: 'Erro interno do servidor' });
-    }
-  });
-
-  // Update appointment
-  app.put('/api/appointments/:id', authenticateToken, async (req, res) => {
-    try {
-      const user = req.user as any;
-      const appointmentId = parseInt(req.params.id);
-      const updates = req.body;
-
-      const appointment = await storage.updateAppointment(appointmentId, updates);
-      res.json(appointment);
-    } catch (error) {
-      console.error('Update appointment error:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });

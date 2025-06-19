@@ -4,6 +4,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
 import { LoadingScreen } from "@/components/loading-screen";
 import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/home";
@@ -20,33 +21,35 @@ import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
 function Router() {
-  const { user, isLoading, isAuthenticated, login } = useAuth();
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const [showLoadingScreen, setShowLoadingScreen] = useState(true);
 
-  // Check for Google OAuth callback token in URL
+  // Show loading screen on first load
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    const userType = urlParams.get('userType');
-    
-    if (token && userType) {
-      localStorage.setItem('token', token);
-      // Clear URL parameters
-      window.history.replaceState({}, document.title, window.location.pathname);
-      window.location.reload();
-    }
+    const timer = setTimeout(() => {
+      setShowLoadingScreen(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
   }, []);
 
-  // Show loading or login screen
+  // Show loading screen first
+  if (showLoadingScreen) {
+    return <LoadingScreen onComplete={() => setShowLoadingScreen(false)} />;
+  }
+
+  // Show loading spinner while checking auth
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="animate-spin w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full" />
       </div>
     );
   }
 
+  // Show login as main screen when not authenticated
   if (!isAuthenticated) {
-    return <Login onLogin={(type) => window.location.reload()} />;
+    return <Login onLogin={() => window.location.reload()} />;
   }
 
   // Provider routes
@@ -83,18 +86,14 @@ function Router() {
 }
 
 function App() {
-  const [showLoading, setShowLoading] = useState(true);
-
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        {showLoading ? (
-          <LoadingScreen onComplete={() => setShowLoading(false)} />
-        ) : (
+      <ThemeProvider defaultTheme="light" storageKey="lifebee-theme">
+        <TooltipProvider>
           <Router />
-        )}
-        <Toaster />
-      </TooltipProvider>
+          <Toaster />
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
