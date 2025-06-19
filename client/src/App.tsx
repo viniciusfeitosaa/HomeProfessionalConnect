@@ -22,21 +22,6 @@ import NotFound from "@/pages/not-found";
 
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
-  const [showLoadingScreen, setShowLoadingScreen] = useState(true);
-
-  // Show loading screen on first load
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowLoadingScreen(false);
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Show loading screen first
-  if (showLoadingScreen) {
-    return <LoadingScreen onComplete={() => setShowLoadingScreen(false)} />;
-  }
 
   // Show loading spinner while checking auth
   if (isLoading) {
@@ -86,11 +71,17 @@ function Router() {
 }
 
 function App() {
+  const [showLoading, setShowLoading] = useState(true);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="light" storageKey="lifebee-theme">
         <TooltipProvider>
-          <Router />
+          {showLoading ? (
+            <LoadingScreen onComplete={() => setShowLoading(false)} />
+          ) : (
+            <Router />
+          )}
           <Toaster />
         </TooltipProvider>
       </ThemeProvider>
