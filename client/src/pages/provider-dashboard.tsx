@@ -8,15 +8,34 @@ import { Switch } from "@/components/ui/switch";
 import { 
   DollarSign, TrendingUp, Calendar, Users, MapPin, Search, 
   MessageCircle, Clock, Star, Filter, Navigation, Zap,
-  BarChart3, PieChart, Target, Award, Bell, Settings 
+  BarChart3, PieChart, Target, Award, Bell, Settings,
+  ChevronDown, User, Shield, HelpCircle, LogOut, Moon, Sun,
+  X, CheckCircle, AlertCircle, Info, Heart
 } from "lucide-react";
 import { LifeBeeLogo } from "@/components/lifebee-logo";
 import { Link } from "wouter";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { useTheme } from "@/components/theme-provider";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ProviderDashboard() {
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [isAvailable, setIsAvailable] = useState(true);
   const [searchRadius, setSearchRadius] = useState(5);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const { logout } = useAuth();
 
   // Dashboard Analytics Data
   const analytics = {
@@ -78,6 +97,62 @@ export default function ProviderDashboard() {
     { month: "Mai", earnings: 4850, services: 23 }
   ];
 
+  // Notifications Data
+  const notifications = [
+    {
+      id: 1,
+      type: "service",
+      title: "Nova solicitação de serviço",
+      message: "Maria Silva solicitou fisioterapia respiratória na Vila Madalena",
+      time: "5 min atrás",
+      read: false,
+      icon: Users,
+      color: "text-blue-600"
+    },
+    {
+      id: 2,
+      type: "payment",
+      title: "Pagamento recebido",
+      message: "Você recebeu R$ 120,00 pelo serviço com João Santos",
+      time: "1 hora atrás",
+      read: false,
+      icon: DollarSign,
+      color: "text-green-600"
+    },
+    {
+      id: 3,
+      type: "rating",
+      title: "Nova avaliação",
+      message: "Ana Costa avaliou seu serviço com 5 estrelas",
+      time: "2 horas atrás",
+      read: true,
+      icon: Star,
+      color: "text-yellow-600"
+    },
+    {
+      id: 4,
+      type: "appointment",
+      title: "Lembrete de consulta",
+      message: "Consulta com Pedro Silva amanhã às 14:00",
+      time: "3 horas atrás",
+      read: true,
+      icon: Calendar,
+      color: "text-purple-600"
+    },
+    {
+      id: 5,
+      type: "system",
+      title: "Atualização do sistema",
+      message: "Nova versão do app disponível com melhorias",
+      time: "1 dia atrás",
+      read: true,
+      icon: Info,
+      color: "text-gray-600"
+    }
+  ];
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case "high": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
@@ -91,6 +166,16 @@ export default function ProviderDashboard() {
     setSelectedService(serviceId);
     // Navegar para a página de oferta de serviço
     window.location.href = `/service-offer/${serviceId}`;
+  };
+
+  const handleLogout = () => {
+    logout();
+    window.location.href = '/';
+  };
+
+  const markNotificationAsRead = (notificationId: number) => {
+    // Em uma implementação real, você faria uma chamada para a API
+    console.log(`Marking notification ${notificationId} as read`);
   };
 
   return (
@@ -111,12 +196,143 @@ export default function ProviderDashboard() {
               <span className="text-sm text-gray-600 dark:text-gray-400">Disponível</span>
               <Switch checked={isAvailable} onCheckedChange={setIsAvailable} />
             </div>
-            <Button variant="outline" size="sm">
-              <Bell className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm">
-              <Settings className="h-4 w-4" />
-            </Button>
+            
+            {/* Notifications */}
+            <Popover open={showNotifications} onOpenChange={setShowNotifications}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="relative">
+                  <Bell className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-0" align="end">
+                <div className="p-4 border-b">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">Notificações</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowNotifications(false)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500">
+                      Nenhuma notificação
+                    </div>
+                  ) : (
+                    notifications.map((notification) => {
+                      const IconComponent = notification.icon;
+                      return (
+                        <div
+                          key={notification.id}
+                          className={`p-4 border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer ${
+                            !notification.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                          }`}
+                          onClick={() => markNotificationAsRead(notification.id)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={`p-2 rounded-full bg-gray-100 dark:bg-gray-700 ${notification.color}`}>
+                              <IconComponent className="h-4 w-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className={`text-sm font-medium ${!notification.read ? 'text-blue-900 dark:text-blue-100' : 'text-gray-900 dark:text-white'}`}>
+                                {notification.title}
+                              </h4>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                {notification.message}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {notification.time}
+                              </p>
+                            </div>
+                            {!notification.read && (
+                              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                {notifications.length > 0 && (
+                  <div className="p-3 border-t">
+                    <Button variant="ghost" size="sm" className="w-full">
+                      Ver todas as notificações
+                    </Button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
+
+            {/* Settings Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4" />
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link href="/profile" className="flex items-center cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    Meu Perfil
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="flex items-center cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Configurações
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+                  {theme === 'dark' ? (
+                    <>
+                      <Sun className="mr-2 h-4 w-4" />
+                      Modo Claro
+                    </>
+                  ) : (
+                    <>
+                      <Moon className="mr-2 h-4 w-4" />
+                      Modo Escuro
+                    </>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <Shield className="mr-2 h-4 w-4" />
+                  Privacidade e Segurança
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Bell className="mr-2 h-4 w-4" />
+                  Preferências de Notificação
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <DollarSign className="mr-2 h-4 w-4" />
+                  Métodos de Pagamento
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <HelpCircle className="mr-2 h-4 w-4" />
+                  Central de Ajuda
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={handleLogout}
+                  className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sair da Conta
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
