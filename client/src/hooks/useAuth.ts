@@ -28,23 +28,15 @@ export function useAuth() {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
     
-    console.log('useAuth: Checking authentication...');
-    console.log('useAuth: Token exists:', !!token);
-    console.log('useAuth: User data exists:', !!userData);
-    
     if (token && userData) {
       try {
         const user = JSON.parse(userData);
-        console.log('useAuth: Parsed user data:', user);
-        console.log('useAuth: User type from localStorage:', user.userType);
-        
         setAuthState({
           user,
           isLoading: false,
           isAuthenticated: true,
         });
       } catch (error) {
-        console.log('useAuth: Error parsing user data, clearing localStorage');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setAuthState({
@@ -54,7 +46,6 @@ export function useAuth() {
         });
       }
     } else {
-      console.log('useAuth: No token or user data found');
       setAuthState({
         user: null,
         isLoading: false,

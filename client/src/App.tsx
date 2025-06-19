@@ -23,10 +23,6 @@ import NotFound from "@/pages/not-found";
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
 
-  console.log('Router: user object:', user);
-  console.log('Router: isAuthenticated:', isAuthenticated);
-  console.log('Router: user.userType:', user?.userType);
-
   // Show loading spinner while checking auth
   if (isLoading) {
     return (
@@ -46,7 +42,6 @@ function Router() {
 
   // Provider routes
   if (user?.userType === "provider") {
-    console.log('Router: Routing to provider dashboard');
     return (
       <Switch>
         <Route path="/" component={ProviderDashboard} />
