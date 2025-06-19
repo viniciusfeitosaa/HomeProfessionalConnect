@@ -222,22 +222,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Auto-verify user without SMS
-      await storage.updateUser(user.id, { 
+      const updatedUser = await storage.updateUser(user.id, { 
         phoneVerified: true,
         isVerified: true
       });
 
-      const token = generateToken(user);
+      // Create welcome notification for new user
+      await storage.createNotification({
+        userId: user.id,
+        message: `Bem-vindo à LifeBee, ${user.name}! Sua conta foi criada com sucesso.`,
+        read: false
+      });
+
+      const token = generateToken(updatedUser);
       res.status(201).json({ 
         token, 
         user: { 
-          id: user.id, 
-          name: user.name, 
-          email: user.email, 
-          userType: user.userType,
+          id: updatedUser.id, 
+          name: updatedUser.name, 
+          email: updatedUser.email, 
+          userType: updatedUser.userType,
           isVerified: true,
           phoneVerified: true,
-          phone: user.phone
+          phone: updatedUser.phone
         }
       });
     } catch (error) {
@@ -489,6 +496,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = (req as any).user;
       const count = await storage.getUnreadNotificationCount(user.id);
       res.json({ count });
+    } catch (error) {
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Mark notification as read
+  app.patch("/api/notifications/:id/read", authenticateToken, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.markNotificationRead(id);
+      res.json({ message: "Notification marked as read" });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
     }
