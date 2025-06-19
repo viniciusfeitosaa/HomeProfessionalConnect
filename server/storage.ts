@@ -18,6 +18,8 @@ import {
   type InsertLoginAttempt,
   type InsertVerificationCode,
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, or, gte, ilike, sql } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -615,4 +617,214 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database Storage Implementation
+export class DatabaseStorage implements IStorage {
+  // Users
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async getUserByGoogleId(googleId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.googleId, googleId));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
+    return user;
+  }
+
+  async updateUser(id: number, updates: Partial<User>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async updateUserLoginAttempts(id: number, attempts: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ loginAttempts: attempts, updatedAt: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  async blockUser(id: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ isBlocked: true, updatedAt: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  async verifyUser(id: number): Promise<void> {
+    await db
+      .update(users)
+      .set({ isVerified: true, updatedAt: new Date() })
+      .where(eq(users.id, id));
+  }
+
+  // Professionals
+  async getAllProfessionals(): Promise<Professional[]> {
+    return await db.select().from(professionals).where(eq(professionals.available, true));
+  }
+
+  async getProfessionalsByCategory(category: string): Promise<Professional[]> {
+    return await db.select().from(professionals)
+      .where(and(eq(professionals.category, category), eq(professionals.available, true)));
+  }
+
+  async searchProfessionals(query: string): Promise<Professional[]> {
+    return await db.select().from(professionals)
+      .where(
+        and(
+          eq(professionals.available, true),
+          or(
+            ilike(professionals.name, `%${query}%`),
+            ilike(professionals.specialization, `%${query}%`),
+            ilike(professionals.description, `%${query}%`)
+          )
+        )
+      );
+  }
+
+  async getProfessional(id: number): Promise<Professional | undefined> {
+    const [professional] = await db.select().from(professionals).where(eq(professionals.id, id));
+    return professional || undefined;
+  }
+
+  async createProfessional(insertProfessional: InsertProfessional): Promise<Professional> {
+    const [professional] = await db
+      .insert(professionals)
+      .values(insertProfessional)
+      .returning();
+    return professional;
+  }
+
+  async updateProfessional(id: number, updates: Partial<Professional>): Promise<Professional> {
+    const [professional] = await db
+      .update(professionals)
+      .set(updates)
+      .where(eq(professionals.id, id))
+      .returning();
+    return professional;
+  }
+
+  // Appointments
+  async getAppointmentsByUser(userId: number): Promise<Appointment[]> {
+    return await db.select().from(appointments).where(eq(appointments.clientId, userId));
+  }
+
+  async getAppointmentsByProfessional(professionalId: number): Promise<Appointment[]> {
+    return await db.select().from(appointments).where(eq(appointments.professionalId, professionalId));
+  }
+
+  async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
+    const [appointment] = await db
+      .insert(appointments)
+      .values(insertAppointment)
+      .returning();
+    return appointment;
+  }
+
+  async updateAppointment(id: number, updates: Partial<Appointment>): Promise<Appointment> {
+    const [appointment] = await db
+      .update(appointments)
+      .set(updates)
+      .where(eq(appointments.id, id))
+      .returning();
+    return appointment;
+  }
+
+  // Notifications
+  async getNotificationsByUser(userId: number): Promise<Notification[]> {
+    return await db.select().from(notifications).where(eq(notifications.userId, userId));
+  }
+
+  async getUnreadNotificationCount(userId: number): Promise<number> {
+    const [result] = await db
+      .select({ count: sql<number>`cast(count(*) as int)` })
+      .from(notifications)
+      .where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
+    return result?.count || 0;
+  }
+
+  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
+    const [notification] = await db
+      .insert(notifications)
+      .values(insertNotification)
+      .returning();
+    return notification;
+  }
+
+  async markNotificationRead(id: number): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(eq(notifications.id, id));
+  }
+
+  // Security & Anti-fraud
+  async createLoginAttempt(insertLoginAttempt: InsertLoginAttempt): Promise<LoginAttempt> {
+    const [loginAttempt] = await db
+      .insert(loginAttempts)
+      .values(insertLoginAttempt)
+      .returning();
+    return loginAttempt;
+  }
+
+  async getRecentLoginAttempts(ipAddress: string, minutes: number): Promise<LoginAttempt[]> {
+    const timeAgo = new Date(Date.now() - minutes * 60 * 1000);
+    return await db.select().from(loginAttempts)
+      .where(
+        and(
+          eq(loginAttempts.ipAddress, ipAddress),
+          gte(loginAttempts.attemptedAt, timeAgo)
+        )
+      );
+  }
+
+  async createVerificationCode(insertVerificationCode: InsertVerificationCode): Promise<VerificationCode> {
+    const [verificationCode] = await db
+      .insert(verificationCodes)
+      .values(insertVerificationCode)
+      .returning();
+    return verificationCode;
+  }
+
+  async getVerificationCode(code: string, type: string): Promise<VerificationCode | undefined> {
+    const [verificationCode] = await db.select().from(verificationCodes)
+      .where(
+        and(
+          eq(verificationCodes.code, code),
+          eq(verificationCodes.type, type),
+          eq(verificationCodes.used, false),
+          gte(verificationCodes.expiresAt, new Date())
+        )
+      );
+    return verificationCode || undefined;
+  }
+
+  async markCodeAsUsed(id: number): Promise<void> {
+    await db
+      .update(verificationCodes)
+      .set({ used: true })
+      .where(eq(verificationCodes.id, id));
+  }
+}
+
+export const storage = new DatabaseStorage();
