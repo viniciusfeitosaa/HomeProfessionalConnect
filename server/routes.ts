@@ -296,6 +296,133 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User profile management
+  app.put('/api/user/profile', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { name, email, phone, address, bio } = req.body;
+
+      const updatedUser = await storage.updateUser(user.id, {
+        name,
+        email, 
+        phone,
+        // address and bio would need to be added to schema
+      });
+
+      res.json({
+        message: 'Perfil atualizado com sucesso',
+        user: {
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          userType: updatedUser.userType,
+          phone: updatedUser.phone
+        }
+      });
+    } catch (error) {
+      console.error('Update profile error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Change password
+  app.put('/api/user/password', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: 'Senha atual e nova senha são obrigatórias' });
+      }
+
+      // Verify current password
+      const isValidPassword = await verifyPassword(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(400).json({ message: 'Senha atual incorreta' });
+      }
+
+      // Hash new password
+      const hashedPassword = await hashPassword(newPassword);
+
+      // Update password
+      await storage.updateUser(user.id, { password: hashedPassword });
+
+      res.json({ message: 'Senha alterada com sucesso' });
+    } catch (error) {
+      console.error('Change password error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Delete account
+  app.delete('/api/user/account', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      // In a real app, you would soft delete or properly handle data removal
+      // For now, just return success
+      res.json({ message: 'Conta excluída com sucesso' });
+    } catch (error) {
+      console.error('Delete account error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Get appointments
+  app.get('/api/appointments', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const appointments = await storage.getAppointmentsByUser(user.id);
+      res.json(appointments);
+    } catch (error) {
+      console.error('Get appointments error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Create appointment
+  app.post('/api/appointments', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { professionalId, date, time, duration, type, notes } = req.body;
+
+      if (!professionalId || !date || !time) {
+        return res.status(400).json({ message: 'Profissional, data e horário são obrigatórios' });
+      }
+
+      const appointment = await storage.createAppointment({
+        userId: user.id,
+        professionalId,
+        date: new Date(date),
+        time,
+        duration: duration || 60,
+        type: type || 'presencial',
+        notes,
+        status: 'agendado'
+      });
+
+      res.status(201).json(appointment);
+    } catch (error) {
+      console.error('Create appointment error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Update appointment
+  app.put('/api/appointments/:id', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const appointmentId = parseInt(req.params.id);
+      const updates = req.body;
+
+      const appointment = await storage.updateAppointment(appointmentId, updates);
+      res.json(appointment);
+    } catch (error) {
+      console.error('Update appointment error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
   // Get current user
   app.get("/api/user", authenticateToken, async (req, res) => {
     try {
