@@ -88,20 +88,12 @@ export default function Login({ onLogin }: LoginProps) {
         const data = await response.json();
         
         if (response.ok) {
-          console.log('Registration successful, user data:', data.user);
-          console.log('User type from registration:', data.user.userType);
-          
           localStorage.setItem('token', data.token);
           localStorage.setItem('user', JSON.stringify(data.user));
           
-          // Verify what was stored
-          const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-          console.log('Stored user data:', storedUser);
-          console.log('Stored user type:', storedUser.userType);
-          
           toast({
             title: "Conta criada com sucesso!",
-            description: `Bem-vindo(a), ${data.user.name} (${data.user.userType})`,
+            description: `Bem-vindo(a), ${data.user.name}`,
           });
           onLogin(data.user.userType);
         } else {

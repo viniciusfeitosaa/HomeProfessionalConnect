@@ -685,7 +685,7 @@ export class DatabaseStorage implements IStorage {
 
   async getProfessionalsByCategory(category: string): Promise<Professional[]> {
     return await db.select().from(professionals)
-      .where(and(eq(professionals.category, category), eq(professionals.available, true)));
+      .where(and(eq(professionals.category, category as any), eq(professionals.available, true)));
   }
 
   async searchProfessionals(query: string): Promise<Professional[]> {
@@ -811,7 +811,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(verificationCodes.code, code),
-          eq(verificationCodes.type, type),
+          eq(verificationCodes.type, type as any),
           eq(verificationCodes.used, false),
           gte(verificationCodes.expiresAt, new Date())
         )
