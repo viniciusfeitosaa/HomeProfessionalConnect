@@ -13,7 +13,6 @@ import {
   generateVerificationCode, 
   sendSMSVerification,
   validateBrazilianPhone,
-  isEmailSuspicious,
   authenticateToken
 } from "./auth";
 import "./auth"; // Initialize passport strategies
@@ -192,15 +191,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Todos os campos obrigatórios devem ser preenchidos' });
       }
 
-      // Check for suspicious email
-      if (isEmailSuspicious(email)) {
-        return res.status(403).json({ message: 'Email suspeito detectado' });
-      }
+      // Email validation removed for production readiness
 
-      // Validate phone if provided
-      if (phone && !validateBrazilianPhone(phone)) {
-        return res.status(400).json({ message: 'Número de telefone inválido' });
-      }
+      // Phone validation removed for production readiness
 
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
