@@ -9,10 +9,12 @@ import { BottomNavigation } from "@/components/bottom-navigation";
 import { Sidebar } from "@/components/sidebar";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
 import type { User as UserType, Appointment } from "@shared/schema";
 
 export default function Profile() {
   const [, setLocation] = useLocation();
+  const { logout } = useAuth();
   
   const { data: user } = useQuery<UserType>({
     queryKey: ["/api/user"],
@@ -47,7 +49,8 @@ export default function Profile() {
   };
 
   const handleLogout = () => {
-    setLocation("/login");
+    logout();
+    window.location.reload();
   };
 
   return (
