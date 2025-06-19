@@ -462,10 +462,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user appointments
-  app.get("/api/appointments", async (req, res) => {
+  app.get("/api/appointments", authenticateToken, async (req, res) => {
     try {
-      // For demo purposes, always use user ID 1
-      const appointments = await storage.getAppointmentsByUser(1);
+      const user = (req as any).user;
+      const appointments = await storage.getAppointmentsByUser(user.id);
       res.json(appointments);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -473,10 +473,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get user notifications
-  app.get("/api/notifications", async (req, res) => {
+  app.get("/api/notifications", authenticateToken, async (req, res) => {
     try {
-      // For demo purposes, always use user ID 1
-      const notifications = await storage.getNotificationsByUser(1);
+      const user = (req as any).user;
+      const notifications = await storage.getNotificationsByUser(user.id);
       res.json(notifications);
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -484,10 +484,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get unread notification count
-  app.get("/api/notifications/count", async (req, res) => {
+  app.get("/api/notifications/count", authenticateToken, async (req, res) => {
     try {
-      // For demo purposes, always use user ID 1
-      const count = await storage.getUnreadNotificationCount(1);
+      const user = (req as any).user;
+      const count = await storage.getUnreadNotificationCount(user.id);
       res.json({ count });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
