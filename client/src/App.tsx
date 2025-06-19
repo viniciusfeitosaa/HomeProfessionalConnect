@@ -23,6 +23,10 @@ import NotFound from "@/pages/not-found";
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
 
+  console.log('Router: user object:', user);
+  console.log('Router: isAuthenticated:', isAuthenticated);
+  console.log('Router: user.userType:', user?.userType);
+
   // Show loading spinner while checking auth
   if (isLoading) {
     return (
@@ -34,11 +38,15 @@ function Router() {
 
   // Show login as main screen when not authenticated
   if (!isAuthenticated) {
-    return <Login onLogin={() => window.location.reload()} />;
+    return <Login onLogin={(userType) => {
+      // Force reload to ensure auth state is properly updated
+      window.location.reload();
+    }} />;
   }
 
   // Provider routes
   if (user?.userType === "provider") {
+    console.log('Router: Routing to provider dashboard');
     return (
       <Switch>
         <Route path="/" component={ProviderDashboard} />
