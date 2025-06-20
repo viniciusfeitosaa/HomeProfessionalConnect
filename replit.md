@@ -66,22 +66,34 @@ The application uses the following main entities:
 
 ## Deployment Strategy
 
-The application is configured for deployment on Replit with the following setup:
+### Hybrid Deployment (Frontend + Backend Separation)
 
+The application now supports both monolithic and separated deployment:
+
+**Option 1: Full Replit Deployment**
 - **Development**: `npm run dev` starts both frontend and backend in development mode
 - **Build**: `npm run build` creates production builds for both client and server
 - **Production**: `npm run start` runs the production server
 - **Database**: PostgreSQL provisioned through Replit modules
 - **Port Configuration**: Server runs on port 5000, exposed as port 80
-- **Auto-scaling**: Configured for Replit's autoscale deployment target
 
-The build process:
-1. Vite builds the React frontend to `dist/public`
-2. esbuild bundles the Express server to `dist/index.js`
-3. Production server serves static files and API routes
+**Option 2: Netlify Frontend + Replit Backend (Recommended)**
+- **Frontend**: Deployed on Netlify with optimized build and CDN
+- **Backend**: Remains on Replit for database and API services
+- **API Communication**: Frontend connects to Replit backend via CORS-enabled API
+- **Configuration**: Environment variables handle API URL switching
+- **Benefits**: Better performance, scaling, and cost optimization
+
+### Netlify Frontend Setup
+- Independent build system in `/client` directory
+- Vite configuration optimized for production
+- API requests route to Replit backend via environment variables
+- Automatic deployments on Git push
+- Custom domain support and SSL included
 
 ## Recent Changes
 
+- June 20, 2025 - **NETLIFY FRONTEND MIGRATION**: Configured complete frontend separation for Netlify deployment with independent build system, API configuration, and production-ready setup
 - June 19, 2025 - **DATABASE MIGRATION COMPLETE**: Migrated from in-memory storage to PostgreSQL database with full DatabaseStorage implementation, schema creation, and sample data seeding
 - June 19, 2025 - Fixed critical security vulnerability CVE-2025-30208 by upgrading Vite from 5.4.14 to 5.4.15
 - June 19, 2025 - Resolved user registration routing issue where professionals were incorrectly directed to client interface
