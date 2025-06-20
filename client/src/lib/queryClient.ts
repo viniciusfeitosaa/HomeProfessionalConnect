@@ -20,7 +20,11 @@ export async function apiRequest(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(url, {
+  // Use environment variable for API base URL in production
+  const baseUrl = import.meta.env.VITE_API_URL || '';
+  const fullUrl = url.startsWith('/api') ? `${baseUrl}${url}` : url;
+
+  const res = await fetch(fullUrl, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
