@@ -1,15 +1,8 @@
 
-import { Header } from "@/components/header";
-import { AppointmentCard } from "@/components/appointment-card";
-import { SearchBar } from "@/components/search-bar";
-import { CategoryFilters } from "@/components/category-filters";
-import { ProfessionalCard } from "@/components/professional-card";
-import { BottomNavigation } from "@/components/bottom-navigation";
-import { Sidebar } from "@/components/sidebar";
-import { AdsCarousel } from "@/components/ads-carousel";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Bell, Settings, Search, Home as HomeIcon, MessageCircle, ShoppingBag, Calendar, User as UserIcon } from "lucide-react";
+import { useLocation } from "wouter";
 import type { Professional, User, Appointment } from "@shared/schema";
 
 export default function Home() {

@@ -1,0 +1,90 @@
+export default function Home() {
+  return (
+    <div className="bg-black text-white min-h-screen">
+      {/* Header */}
+      <div className="flex justify-between items-center p-4 bg-black">
+        <div>
+          <p className="text-sm">Olá,</p>
+          <p className="font-semibold">Eduardo Beltrano</p>
+        </div>
+        <div className="flex gap-4 items-center">
+          <span className="material-icons">notifications</span>
+          <img src="/user-avatar.jpg" alt="User" className="w-8 h-8 rounded-full" />
+        </div>
+      </div>
+
+      {/* Botões Serviços e Lojas */}
+      <div className="flex justify-around mt-2">
+        <button className="bg-yellow-500 text-black px-4 py-2 rounded-full">Serviços</button>
+        <button className="bg-gray-800 text-white px-4 py-2 rounded-full">Lojas</button>
+      </div>
+
+      {/* Busca */}
+      <div className="p-4">
+        <div className="flex items-center bg-white text-black rounded-full px-4 py-2">
+          <input
+            type="text"
+            placeholder="Qual serviço precisa hoje?"
+            className="flex-1 outline-none bg-transparent"
+          />
+          <span className="material-icons">tune</span>
+        </div>
+      </div>
+
+      {/* Banner */}
+      <div className="overflow-x-scroll flex space-x-4 px-4 mb-4">
+        <img src="/banner1.jpg" className="w-80 rounded-xl" alt="Banner 1" />
+        <img src="/banner2.jpg" className="w-80 rounded-xl" alt="Banner 2" />
+      </div>
+
+      {/* Serviços mais procurados */}
+      <div className="px-4">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-lg font-bold">Serviços mais procurados</h2>
+          <button className="text-yellow-400 text-sm">Ver tudo</button>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { icon: "🏠", label: "Gestão do Lar" },
+            { icon: "🤝", label: "Cuidados Paliativos" },
+            { icon: "🧑‍🦽", label: "Acompanhante Hospitalar" },
+            { icon: "🧑‍⚕️", label: "Fisioterapia" },
+            { icon: "🧑‍🤝‍🧑", label: "Apoio Emocional" },
+            { icon: "🩺", label: "Exames Domiciliares" },
+          ].map((item, index) => (
+            <div
+              key={index}
+              className="bg-yellow-400 text-black rounded-xl flex flex-col items-center p-2"
+            >
+              <div className="text-2xl">{item.icon}</div>
+              <p className="text-center text-sm">{item.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Top Bees */}
+      <div className="px-4 mt-6">
+        <h2 className="text-lg font-bold mb-2">Top Bees</h2>
+        <div className="bg-white text-black rounded-xl flex items-center p-4 shadow">
+          <img src="/rejanefab.jpg" alt="Rejane" className="w-16 h-16 rounded-lg mr-4" />
+          <div>
+            <h3 className="font-semibold">Rejane Fabrícia</h3>
+            <p className="text-sm text-gray-600">Acompanhante Hospitalar</p>
+            <p className="text-yellow-500 text-sm">⭐ 4.9 (65 Avaliações)</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Menu Inferior */}
+      <nav className="fixed bottom-0 w-full bg-black text-white flex justify-around py-2 border-t border-gray-700">
+        {["Início", "Chat", "Pedidos", "Agenda", "Perfil"].map((item, index) => (
+          <button key={index} className="flex flex-col items-center text-xs">
+            <span className="material-icons">home</span>
+            {item}
+          </button>
+        ))}
+      </nav>
+    </div>
+  );
+}
