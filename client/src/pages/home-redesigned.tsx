@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Bell, Settings, Search, Home as HomeIcon, MessageCircle, ShoppingBag, Calendar, User as UserIcon } from "lucide-react";
