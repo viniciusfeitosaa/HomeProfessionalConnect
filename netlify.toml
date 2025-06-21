@@ -8,7 +8,7 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "https://your-replit-app.replit.app/api/:splat"
+  to = "https://YOUR_REPLIT_URL_HERE.replit.app/api/:splat"
   status = 200
   force = true
 
