@@ -12,14 +12,17 @@ export default function Home() {
 
   const { data: user } = useQuery<User>({
     queryKey: ["/api/user"],
+    retry: false,
   });
 
   const { data: professionals = [] } = useQuery<Professional[]>({
     queryKey: ["/api/professionals"],
+    retry: false,
   });
 
   const { data: notificationData } = useQuery<{ count: number }>({
     queryKey: ["/api/notifications/count"],
+    retry: false,
   });
 
   const notificationCount = notificationData?.count || 0;

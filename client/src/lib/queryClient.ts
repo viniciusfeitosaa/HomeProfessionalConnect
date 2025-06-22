@@ -20,8 +20,8 @@ export async function apiRequest(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // Get API base URL from environment or use production default
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://your-replit-app.replit.app';
+  // Get API base URL from environment or use localhost for development
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
 
   const res = await fetch(fullUrl, {
@@ -49,7 +49,7 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://your-replit-app.replit.app';
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
     const url = queryKey[0] as string;
     const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
     
@@ -75,7 +75,7 @@ export const getQueryFn: <T>(options: {
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
+      queryFn: getQueryFn({ on401: "returnNull" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
