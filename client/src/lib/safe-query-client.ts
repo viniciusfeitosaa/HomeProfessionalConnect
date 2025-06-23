@@ -7,6 +7,7 @@ async function safeApiRequest(url: string, options: RequestInit = {}): Promise<a
     
     const token = localStorage.getItem('token');
     const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
       ...((options.headers as Record<string, string>) || {}),
     };
     
@@ -18,9 +19,11 @@ async function safeApiRequest(url: string, options: RequestInit = {}): Promise<a
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     const response = await fetch(fullUrl, {
+      method: 'GET',
       ...options,
       headers,
       signal: controller.signal,
+      credentials: 'include',
     });
 
     clearTimeout(timeoutId);
@@ -29,12 +32,13 @@ async function safeApiRequest(url: string, options: RequestInit = {}): Promise<a
       if (response.status === 401 || response.status === 403) {
         return null;
       }
-      throw new Error(`HTTP ${response.status}`);
+      return null; // Return null for any HTTP error instead of throwing
     }
 
-    return await response.json();
+    const data = await response.json();
+    return data;
   } catch (error: any) {
-    console.warn('API request failed silently:', error.message);
+    // Silently handle all fetch errors
     return null;
   }
 }
