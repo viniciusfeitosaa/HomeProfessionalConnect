@@ -1,6 +1,5 @@
 
-import { useQuery } from "@tanstack/react-query";
-import { safeQueryClient } from "@/lib/safe-query-client";
+
 import { useState } from "react";
 import { Bell, Settings, Search, Home as HomeIcon, MessageCircle, ShoppingBag, Calendar, User as UserIcon } from "lucide-react";
 import { useLocation } from "wouter";
@@ -11,22 +10,52 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [, setLocation] = useLocation();
 
-  const { data: user } = useQuery<User>({
-    queryKey: ["/api/user"],
-    retry: false,
-    enabled: !!localStorage.getItem('token'),
-  });
+  // Dados locais temporários enquanto conectamos com sua API do Replit
+  const professionals = [
+    {
+      id: 1,
+      name: "Dr. Maria Silva",
+      specialty: "Fisioterapeuta",
+      category: "fisioterapeuta",
+      rating: 4.8,
+      reviews: 124,
+      distance: "1.2 km",
+      price: "R$ 80/sessão",
+      available: true,
+      profileImage: "/api/placeholder/300/300",
+      description: "Especialista em reabilitação ortopédica"
+    },
+    {
+      id: 2,
+      name: "Ana Costa",
+      specialty: "Acompanhante Hospitalar", 
+      category: "acompanhante_hospitalar",
+      rating: 4.9,
+      reviews: 89,
+      distance: "0.8 km",
+      price: "R$ 120/dia",
+      available: true,
+      profileImage: "/api/placeholder/300/300",
+      description: "Cuidados especializados para idosos"
+    },
+    {
+      id: 3,
+      name: "Carlos Santos",
+      specialty: "Técnico em Enfermagem",
+      category: "tecnico_enfermagem", 
+      rating: 4.7,
+      reviews: 156,
+      distance: "2.1 km",
+      price: "R$ 60/visita",
+      available: true,
+      profileImage: "/api/placeholder/300/300",
+      description: "Curativos e medicação domiciliar"
+    }
+  ];
 
-  const { data: professionals = [], isLoading: professionalsLoading, error: professionalsError } = useQuery<Professional[]>({
-    queryKey: ["/api/professionals"],
-    retry: false,
-  });
-
-  const { data: notificationData } = useQuery<{ count: number }>({
-    queryKey: ["/api/notifications/count"],
-    retry: false,
-    enabled: !!localStorage.getItem('token'),
-  });
+  const professionalsLoading = false;
+  const notificationData = { count: 3 };
+  const user = { name: "Usuário" };
 
   const notificationCount = notificationData?.count || 0;
   const topProfessional = professionals && professionals.length > 0 
@@ -54,8 +83,8 @@ export default function Home() {
     );
   }
 
-  // Show offline mode if there's an error and no data
-  if (professionalsError && professionals.length === 0) {
+  // Show offline mode if there's no data
+  if (professionals.length === 0) {
     return (
       <div className="bg-black text-white min-h-screen">
         <div className="flex justify-between items-center p-4 bg-black">
@@ -243,17 +272,17 @@ export default function Home() {
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-lg">{topProfessional.name}</h3>
-              <p className="text-sm text-gray-600 mb-1">{topProfessional.specialization}</p>
+              <p className="text-sm text-gray-600 mb-1">{topProfessional.specialty}</p>
               <div className="flex items-center">
                 <span className="text-yellow-500 mr-1">⭐</span>
                 <span className="text-sm font-medium">
-                  {topProfessional.rating} ({topProfessional.totalReviews} Avaliações)
+                  {topProfessional.rating} ({topProfessional.reviews} Avaliações)
                 </span>
               </div>
             </div>
             <button 
               className="bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium text-sm"
-              onClick={() => setLocation(`/professional/${topProfessional.id}`)}
+              onClick={() => setLocation(`/professional/${topProfessional.id.toString()}`)}
             >
               Ver perfil
             </button>
