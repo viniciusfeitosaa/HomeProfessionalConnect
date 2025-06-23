@@ -13,9 +13,10 @@ export default function Home() {
   const { data: user } = useQuery<User>({
     queryKey: ["/api/user"],
     retry: false,
+    enabled: !!localStorage.getItem('token'),
   });
 
-  const { data: professionals = [] } = useQuery<Professional[]>({
+  const { data: professionals = [], isLoading: professionalsLoading } = useQuery<Professional[]>({
     queryKey: ["/api/professionals"],
     retry: false,
   });
@@ -23,6 +24,7 @@ export default function Home() {
   const { data: notificationData } = useQuery<{ count: number }>({
     queryKey: ["/api/notifications/count"],
     retry: false,
+    enabled: !!localStorage.getItem('token'),
   });
 
   const notificationCount = notificationData?.count || 0;
@@ -36,6 +38,18 @@ export default function Home() {
     { icon: "🧑‍🤝‍🧑", label: "Apoio Emocional", category: "acompanhante_hospitalar" },
     { icon: "🩺", label: "Exames Domiciliares", category: "tecnico_enfermagem" },
   ];
+
+  // Show loading state
+  if (professionalsLoading) {
+    return (
+      <div className="bg-black text-white min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p>Carregando profissionais...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleServiceClick = (category: string) => {
     console.log("Navegando para categoria:", category);

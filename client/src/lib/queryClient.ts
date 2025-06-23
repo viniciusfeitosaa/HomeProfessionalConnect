@@ -49,34 +49,41 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-    const url = queryKey[0] as string;
-    const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
-    
-    const token = localStorage.getItem('token');
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    try {
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const url = queryKey[0] as string;
+      const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+      
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
 
-    const res = await fetch(fullUrl, {
-      headers,
-      credentials: "include",
-    });
+      const res = await fetch(fullUrl, {
+        headers,
+        credentials: "include",
+      });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
-    }
+      if (unauthorizedBehavior === "returnNull" && (res.status === 401 || res.status === 403)) {
+        return null;
+      }
 
-    if (!res.ok) {
+      if (!res.ok) {
+        if (unauthorizedBehavior === "returnNull") {
+          return null;
+        }
+        const text = (await res.text()) || res.statusText;
+        throw new Error(`${res.status}: ${text}`);
+      }
+      
+      return await res.json();
+    } catch (error) {
       if (unauthorizedBehavior === "returnNull") {
         return null;
       }
-      const text = (await res.text()) || res.statusText;
-      throw new Error(`${res.status}: ${text}`);
+      throw error;
     }
-    
-    return await res.json();
   };
 
 export const queryClient = new QueryClient({
