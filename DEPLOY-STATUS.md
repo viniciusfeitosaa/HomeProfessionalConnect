@@ -13,8 +13,9 @@
 - ✅ Build system otimizado com Vite
 - ✅ API configuração dinâmica (localhost/produção)
 - ✅ Error Boundary para tratamento de crashes
-- ✅ Queries otimizadas com retry=false
-- ✅ Loading states implementados
+- ✅ Safe Query Client implementado - elimina erros "Failed to fetch"
+- ✅ Modo offline gracioso com interface funcional
+- ✅ Loading states e tratamento de conectividade
 
 ## 🔄 Próximos Passos para Deploy
 

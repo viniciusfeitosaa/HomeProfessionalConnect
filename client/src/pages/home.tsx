@@ -16,7 +16,7 @@ export default function Home() {
     enabled: !!localStorage.getItem('token'),
   });
 
-  const { data: professionals = [], isLoading: professionalsLoading } = useQuery<Professional[]>({
+  const { data: professionals = [], isLoading: professionalsLoading, error: professionalsError } = useQuery<Professional[]>({
     queryKey: ["/api/professionals"],
     retry: false,
   });
@@ -28,7 +28,9 @@ export default function Home() {
   });
 
   const notificationCount = notificationData?.count || 0;
-  const topProfessional = professionals.find(prof => prof.rating && parseFloat(prof.rating) >= 4.8);
+  const topProfessional = professionals && professionals.length > 0 
+    ? professionals.find(prof => prof.rating && parseFloat(prof.rating) >= 4.8)
+    : null;
 
   const services = [
     { icon: "🏠", label: "Gestão do Lar", category: "acompanhante_hospitalar" },
@@ -39,7 +41,7 @@ export default function Home() {
     { icon: "🩺", label: "Exames Domiciliares", category: "tecnico_enfermagem" },
   ];
 
-  // Show loading state
+  // Show loading state only briefly
   if (professionalsLoading) {
     return (
       <div className="bg-black text-white min-h-screen flex items-center justify-center">
@@ -47,6 +49,64 @@ export default function Home() {
           <div className="w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p>Carregando profissionais...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Show offline mode if there's an error and no data
+  if (professionalsError && professionals.length === 0) {
+    return (
+      <div className="bg-black text-white min-h-screen">
+        <div className="flex justify-between items-center p-4 bg-black">
+          <div>
+            <p className="text-sm text-gray-400">Olá,</p>
+            <p className="font-semibold text-lg">Usuário</p>
+          </div>
+          <div className="flex gap-4 items-center">
+            <div className="relative">
+              <Bell className="h-6 w-6 text-gray-300" />
+            </div>
+            <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+              <UserIcon className="h-5 w-5 text-black" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center max-w-md px-4">
+            <div className="w-16 h-16 bg-gray-800 rounded-full mx-auto mb-4 flex items-center justify-center">
+              <Search className="h-8 w-8 text-gray-500" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Modo Offline</h2>
+            <p className="text-gray-400 mb-4">
+              Não foi possível conectar com o servidor. Verifique sua conexão ou tente novamente.
+            </p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-yellow-500 text-black px-6 py-2 rounded-lg font-medium"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        </div>
+
+        <nav className="fixed bottom-0 w-full bg-black text-white flex justify-around py-3 border-t border-gray-700">
+          {[
+            { icon: HomeIcon, label: "Início" },
+            { icon: MessageCircle, label: "Chat" },
+            { icon: ShoppingBag, label: "Pedidos" },
+            { icon: Calendar, label: "Agenda" },
+            { icon: UserIcon, label: "Perfil" }
+          ].map((item, index) => (
+            <button 
+              key={index} 
+              className="flex flex-col items-center text-xs text-gray-500"
+            >
+              <item.icon className="h-5 w-5 mb-1" />
+              {item.label}
+            </button>
+          ))}
+        </nav>
       </div>
     );
   }

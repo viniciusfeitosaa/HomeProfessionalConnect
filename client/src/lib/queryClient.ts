@@ -60,10 +60,16 @@ export const getQueryFn: <T>(options: {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const res = await fetch(fullUrl, {
         headers,
         credentials: "include",
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (unauthorizedBehavior === "returnNull" && (res.status === 401 || res.status === 403)) {
         return null;
@@ -78,10 +84,18 @@ export const getQueryFn: <T>(options: {
       }
       
       return await res.json();
-    } catch (error) {
+    } catch (error: any) {
+      console.warn('API request failed:', error.message);
+      
       if (unauthorizedBehavior === "returnNull") {
         return null;
       }
+      
+      // For network errors, return null instead of throwing
+      if (error.name === 'AbortError' || error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+        return null;
+      }
+      
       throw error;
     }
   };
@@ -94,6 +108,8 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       staleTime: 5 * 60 * 1000, // 5 minutes
       retry: false,
+      retryOnMount: false,
+      refetchOnReconnect: false,
     },
     mutations: {
       retry: false,
