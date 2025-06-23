@@ -1,5 +1,6 @@
 
 import { useQuery } from "@tanstack/react-query";
+import { safeQueryClient } from "@/lib/safe-query-client";
 import { useState } from "react";
 import { Bell, Settings, Search, Home as HomeIcon, MessageCircle, ShoppingBag, Calendar, User as UserIcon } from "lucide-react";
 import { useLocation } from "wouter";

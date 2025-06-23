@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { safeQueryClient } from "@/lib/safe-query-client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Message {
