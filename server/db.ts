@@ -1,4 +1,4 @@
-// Conexão com o banco Neon/PostgreSQL usando variável DATABASE_URL definida no .env
+// Conexão com o banco Neon/PostgreSQL usando variável DATABASE_URL definida no ambiente
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
