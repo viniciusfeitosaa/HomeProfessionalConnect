@@ -55,11 +55,11 @@ passport.use(new GoogleStrategy({
 }));*/
 
 // Serialize/deserialize user for sessions
-passport.serializeUser((user: any, done) => {
+passport.serializeUser((user: any, done: (err: any, id?: any) => void) => {
   done(null, user.id);
 });
 
-passport.deserializeUser(async (id: number, done) => {
+passport.deserializeUser(async (id: number, done: (err: any, user?: any) => void) => {
   try {
     const user = await storage.getUser(id);
     done(null, user);

@@ -1,0 +1,31 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "target": "ES2020",
+    "outDir": "dist",
+    "rootDir": "..",
+    "strict": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "baseUrl": "..",
+    "paths": {
+      "@shared/*": ["shared/*"]
+    }
+  },
+  "include": ["./**/*", "../shared/**/*"],
+  "exclude": [
+    "../client", 
+    "../node_modules", 
+    "../dist", 
+    "../vite.config.ts",
+    "../tailwind.config.ts",
+    "../postcss.config.js",
+    "../components.json",
+    "**/*.test.ts"
+  ]
+} 
