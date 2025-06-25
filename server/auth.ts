@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import { Request, Response, NextFunction } from 'express';
 import { storage } from './storage';
 import type { User } from '@shared/schema';
-
+/*
 // Google OAuth Strategy
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID!,
@@ -52,7 +52,7 @@ passport.use(new GoogleStrategy({
   } catch (error) {
     return done(error, undefined);
   }
-}));
+}));*/
 
 // Serialize/deserialize user for sessions
 passport.serializeUser((user: any, done) => {
