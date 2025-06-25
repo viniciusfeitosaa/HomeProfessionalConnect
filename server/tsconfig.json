@@ -1,0 +1,17 @@
+{
+  "include": ["./**/*"],
+  "exclude": ["../client", "../node_modules", "../dist", "**/*.test.ts"],
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "module": "CommonJS",
+    "target": "ES2022",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "moduleResolution": "node",
+    "resolveJsonModule": true
+  }
+} 
