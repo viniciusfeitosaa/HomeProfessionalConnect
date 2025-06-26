@@ -1,6 +1,4 @@
 import { pgTable, text, serial, integer, boolean, decimal, timestamp } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -102,35 +100,7 @@ export const verificationCodes = pgTable("verification_codes", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertProfessionalSchema = createInsertSchema(professionals).omit({
-  id: true,
-});
-
-export const insertAppointmentSchema = createInsertSchema(appointments).omit({
-  id: true,
-});
-
-export const insertNotificationSchema = createInsertSchema(notifications).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertLoginAttemptSchema = createInsertSchema(loginAttempts).omit({
-  id: true,
-  attemptedAt: true,
-});
-
-export const insertVerificationCodeSchema = createInsertSchema(verificationCodes).omit({
-  id: true,
-  createdAt: true,
-});
-
+// Tipos TypeScript inferidos das tabelas
 export type User = typeof users.$inferSelect;
 export type Professional = typeof professionals.$inferSelect;
 export type Appointment = typeof appointments.$inferSelect;
@@ -138,9 +108,10 @@ export type Notification = typeof notifications.$inferSelect;
 export type LoginAttempt = typeof loginAttempts.$inferSelect;
 export type VerificationCode = typeof verificationCodes.$inferSelect;
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type InsertProfessional = z.infer<typeof insertProfessionalSchema>;
-export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
-export type InsertNotification = z.infer<typeof insertNotificationSchema>;
-export type InsertLoginAttempt = z.infer<typeof insertLoginAttemptSchema>;
-export type InsertVerificationCode = z.infer<typeof insertVerificationCodeSchema>;
+// Tipos para inserção (sem campos auto-gerados)
+export type InsertUser = Omit<User, 'id' | 'createdAt' | 'updatedAt'>;
+export type InsertProfessional = Omit<Professional, 'id'>;
+export type InsertAppointment = Omit<Appointment, 'id'>;
+export type InsertNotification = Omit<Notification, 'id' | 'createdAt'>;
+export type InsertLoginAttempt = Omit<LoginAttempt, 'id' | 'attemptedAt'>;
+export type InsertVerificationCode = Omit<VerificationCode, 'id' | 'createdAt'>;

@@ -216,9 +216,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword,
         name,
         userType: userType || 'client',
-        phone,
+        phone: phone || null,
         phoneVerified: false,
-        isVerified: false
+        googleId: null,
+        address: null,
+        profileImage: null,
+        isVerified: false,
+        isBlocked: false,
+        lastLoginAt: null,
+        loginAttempts: 0,
+        resetToken: null,
+        resetTokenExpiry: null
       });
 
       // Auto-verify user without SMS

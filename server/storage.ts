@@ -404,36 +404,39 @@ export class MemStorage implements IStorage {
     const user = this.users.get(id);
     if (!user) throw new Error("User not found");
     
-    const updatedUser = { ...user, ...updates, updatedAt: new Date() };
+    const allowed = [
+      'username', 'password', 'googleId', 'name', 'email', 'phone', 'phoneVerified', 'address', 'profileImage',
+      'userType', 'isVerified', 'isBlocked', 'lastLoginAt', 'loginAttempts', 'resetToken', 'resetTokenExpiry', 'updatedAt'
+    ];
+    const safeUpdates: any = {};
+    for (const key of allowed) {
+      if (key in updates) safeUpdates[key] = (updates as any)[key];
+    }
+    safeUpdates.updatedAt = new Date();
+    const updatedUser = { ...user, ...safeUpdates };
     this.users.set(id, updatedUser);
     return updatedUser;
   }
 
   async updateUserLoginAttempts(id: number, attempts: number): Promise<void> {
-    const user = this.users.get(id);
-    if (user) {
-      user.loginAttempts = attempts;
-      user.updatedAt = new Date();
-      this.users.set(id, user);
-    }
+    await db
+      .update(users)
+      .set({ [users.loginAttempts.name]: attempts, [users.updatedAt.name]: new Date() })
+      .where(eq(users.id, id));
   }
 
   async blockUser(id: number): Promise<void> {
-    const user = this.users.get(id);
-    if (user) {
-      user.isBlocked = true;
-      user.updatedAt = new Date();
-      this.users.set(id, user);
-    }
+    await db
+      .update(users)
+      .set({ [users.isBlocked.name]: true, [users.updatedAt.name]: new Date() })
+      .where(eq(users.id, id));
   }
 
   async verifyUser(id: number): Promise<void> {
-    const user = this.users.get(id);
-    if (user) {
-      user.isVerified = true;
-      user.updatedAt = new Date();
-      this.users.set(id, user);
-    }
+    await db
+      .update(users)
+      .set({ [users.isVerified.name]: true, [users.updatedAt.name]: new Date() })
+      .where(eq(users.id, id));
   }
 
   async createProfessional(professional: InsertProfessional): Promise<Professional> {
@@ -487,11 +490,10 @@ export class MemStorage implements IStorage {
   }
 
   async markNotificationRead(id: number): Promise<void> {
-    const notification = this.notifications.get(id);
-    if (notification) {
-      notification.read = true;
-      this.notifications.set(id, notification);
-    }
+    await db
+      .update(notifications)
+      .set({ [notifications.read.name]: true })
+      .where(eq(notifications.id, id));
   }
 
   async createLoginAttempt(attempt: InsertLoginAttempt): Promise<LoginAttempt> {
@@ -540,11 +542,10 @@ export class MemStorage implements IStorage {
   }
 
   async markCodeAsUsed(id: number): Promise<void> {
-    const verificationCode = this.verificationCodes.get(id);
-    if (verificationCode) {
-      verificationCode.used = true;
-      this.verificationCodes.set(id, verificationCode);
-    }
+    await db
+      .update(verificationCodes)
+      .set({ [verificationCodes.used.name]: true })
+      .where(eq(verificationCodes.id, id));
   }
 
   async getAllProfessionals(): Promise<Professional[]> {
@@ -649,9 +650,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUser(id: number, updates: Partial<User>): Promise<User> {
+    const allowed = [
+      'username', 'password', 'googleId', 'name', 'email', 'phone', 'phoneVerified', 'address', 'profileImage',
+      'userType', 'isVerified', 'isBlocked', 'lastLoginAt', 'loginAttempts', 'resetToken', 'resetTokenExpiry', 'updatedAt'
+    ];
+    const safeUpdates: any = {};
+    for (const key of allowed) {
+      if (key in updates) safeUpdates[key] = (updates as any)[key];
+    }
+    safeUpdates.updatedAt = new Date();
     const [user] = await db
       .update(users)
-      .set({ ...updates, updatedAt: new Date() })
+      .set(safeUpdates)
       .where(eq(users.id, id))
       .returning();
     return user;
@@ -660,21 +670,21 @@ export class DatabaseStorage implements IStorage {
   async updateUserLoginAttempts(id: number, attempts: number): Promise<void> {
     await db
       .update(users)
-      .set({ loginAttempts: attempts, updatedAt: new Date() })
+      .set({ [users.loginAttempts.name]: attempts, [users.updatedAt.name]: new Date() })
       .where(eq(users.id, id));
   }
 
   async blockUser(id: number): Promise<void> {
     await db
       .update(users)
-      .set({ isBlocked: true, updatedAt: new Date() })
+      .set({ [users.isBlocked.name]: true, [users.updatedAt.name]: new Date() })
       .where(eq(users.id, id));
   }
 
   async verifyUser(id: number): Promise<void> {
     await db
       .update(users)
-      .set({ isVerified: true, updatedAt: new Date() })
+      .set({ [users.isVerified.name]: true, [users.updatedAt.name]: new Date() })
       .where(eq(users.id, id));
   }
 
@@ -774,7 +784,7 @@ export class DatabaseStorage implements IStorage {
   async markNotificationRead(id: number): Promise<void> {
     await db
       .update(notifications)
-      .set({ read: true })
+      .set({ [notifications.read.name]: true })
       .where(eq(notifications.id, id));
   }
 
@@ -822,7 +832,7 @@ export class DatabaseStorage implements IStorage {
   async markCodeAsUsed(id: number): Promise<void> {
     await db
       .update(verificationCodes)
-      .set({ used: true })
+      .set({ [verificationCodes.used.name]: true })
       .where(eq(verificationCodes.id, id));
   }
 }
