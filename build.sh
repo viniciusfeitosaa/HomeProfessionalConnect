@@ -10,6 +10,6 @@ cd server
 npm install
 
 echo "🔨 Fazendo build do server..."
-npm run build:render
+npx tsc --project tsconfig.render.json
 
 echo "✅ Build concluído com sucesso!" 
