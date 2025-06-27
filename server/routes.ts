@@ -4,7 +4,7 @@ import session from "express-session";
 import passport from "passport";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 import { 
   generateToken, 
   verifyPassword, 
@@ -14,8 +14,8 @@ import {
   sendSMSVerification,
   validateBrazilianPhone,
   authenticateToken
-} from "./auth";
-import "./auth"; // Initialize passport strategies
+} from "./auth.js";
+import "./auth.js"; // Initialize passport strategies
 import { z } from "zod";
 
 // Rate limiting

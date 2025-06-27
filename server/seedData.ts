@@ -1,5 +1,5 @@
-import { db } from "./db";
-import { professionals, users } from "@shared/schema";
+import { db } from "./db.js";
+import { professionals, users } from "../shared/schema.js";
 
 export async function seedDatabase() {
   // Check if data already exists

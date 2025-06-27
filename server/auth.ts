@@ -3,8 +3,8 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { Request, Response, NextFunction } from 'express';
-import { storage } from './storage';
-import type { User } from '@shared/schema';
+import { storage } from './storage.js';
+import { User } from '../shared/schema.js';
 /*
 // Google OAuth Strategy
 passport.use(new GoogleStrategy({

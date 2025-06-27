@@ -1,6 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { seedDatabase } from "./seedData";
+import { registerRoutes } from "./routes.js";
+import { seedDatabase } from "./seedData.js";
 
 // Extend Express Request type for user property
 declare global {

@@ -11,8 +11,8 @@
     "**/*.test.ts"
   ],
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "..",
+    "outDir": "../server/dist",
+    "rootDir": "../",
     "module": "ESNext",
     "target": "ES2022",
     "strict": true,

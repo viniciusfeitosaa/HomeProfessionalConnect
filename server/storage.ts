@@ -17,8 +17,8 @@ import {
   type InsertNotification,
   type InsertLoginAttempt,
   type InsertVerificationCode,
-} from "@shared/schema";
-import { db } from "./db";
+} from "../shared/schema.js";
+import { db } from "./db.js";
 import { eq, and, or, gte, ilike, sql } from "drizzle-orm";
 
 // Interface for storage operations
