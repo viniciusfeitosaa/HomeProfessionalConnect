@@ -6,13 +6,11 @@
   "scripts": {
     "build": "tsc",
     "build:render": "tsc --project tsconfig.render.json",
+    "build:deploy": "npm install && npm run build:render",
     "start": "node dist/index.js",
     "dev": "ts-node index.ts"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.4",
-    "drizzle-orm": "^0.39.1",
-    "drizzle-zod": "^0.7.0",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
     "express-rate-limit": "^7.5.0",
