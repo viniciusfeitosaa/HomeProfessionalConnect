@@ -34,17 +34,9 @@ async function runCommand(command, args, cwd = __dirname) {
 
 async function build() {
   try {
-    console.log('🚀 Iniciando build para Render...');
+    console.log('🚀 Iniciando build do TypeScript...');
     
-    // 1. Instalar dependências da raiz
-    console.log('\n📦 Instalando dependências da raiz...');
-    await runCommand('npm', ['install']);
-    
-    // 2. Instalar dependências do server
-    console.log('\n📦 Instalando dependências do server...');
-    await runCommand('npm', ['install'], join(__dirname, 'server'));
-    
-    // 3. Fazer build do server
+    // Fazer build do server
     console.log('\n🔨 Fazendo build do server...');
     await runCommand('npm', ['run', 'build:render'], join(__dirname, 'server'));
     
