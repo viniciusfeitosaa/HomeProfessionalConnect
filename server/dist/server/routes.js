@@ -6,6 +6,7 @@ import helmet from "helmet";
 import { storage } from "./storage.js";
 import { generateToken, verifyPassword, hashPassword, rateLimitByIP, authenticateToken } from "./auth.js";
 import "./auth.js"; // Initialize passport strategies
+import pgSession from "connect-pg-simple";
 // Rate limiting
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -36,8 +37,14 @@ export async function registerRoutes(app) {
         },
         crossOriginEmbedderPolicy: false
     }));
-    // Session configuration
+    // Session configuration with PostgreSQL store
+    const PgSession = pgSession(session);
     app.use(session({
+        store: new PgSession({
+            conString: process.env.DATABASE_URL || process.env.NETLIFY_DATABASE_URL,
+            tableName: 'sessions', // tabela para armazenar as sessões
+            createTableIfMissing: true, // cria a tabela automaticamente se não existir
+        }),
         secret: process.env.JWT_SECRET,
         resave: false,
         saveUninitialized: false,

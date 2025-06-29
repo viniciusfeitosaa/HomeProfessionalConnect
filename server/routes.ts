@@ -17,6 +17,7 @@ import {
 } from "./auth.js";
 import "./auth.js"; // Initialize passport strategies
 import { z } from "zod";
+import pgSession from "connect-pg-simple";
 
 // Rate limiting
 const authLimiter = rateLimit({
@@ -51,8 +52,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     crossOriginEmbedderPolicy: false
   }));
   
-  // Session configuration
+  // Session configuration with PostgreSQL store
+  const PgSession = pgSession(session);
+  
   app.use(session({
+    store: new PgSession({
+      conString: process.env.DATABASE_URL || process.env.NETLIFY_DATABASE_URL,
+      tableName: 'sessions', // tabela para armazenar as sessões
+      createTableIfMissing: true, // cria a tabela automaticamente se não existir
+    }),
     secret: process.env.JWT_SECRET!,
     resave: false,
     saveUninitialized: false,
