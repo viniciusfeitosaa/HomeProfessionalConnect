@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -32,6 +33,45 @@ async function runCommand(command, args, cwd = __dirname) {
   });
 }
 
+function copyFolderSync(from, to) {
+  if (!existsSync(to)) {
+    mkdirSync(to, { recursive: true });
+  }
+  for (const entry of readdirSync(from)) {
+    const srcPath = join(from, entry);
+    const destPath = join(to, entry);
+    if (statSync(srcPath).isDirectory()) {
+      copyFolderSync(srcPath, destPath);
+    } else {
+      copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
+function fixImportsInFile(filePath) {
+  try {
+    let content = readFileSync(filePath, 'utf8');
+    // Substituir imports de ../shared/schema.js para ./shared/schema.js
+    content = content.replace(/from ['"]\.\.\/shared\/schema\.js['"]/g, "from './shared/schema.js'");
+    writeFileSync(filePath, content, 'utf8');
+  } catch (error) {
+    console.error(`Erro ao corrigir imports em ${filePath}:`, error.message);
+  }
+}
+
+function fixImportsInDist(distPath) {
+  if (existsSync(distPath)) {
+    for (const entry of readdirSync(distPath)) {
+      const fullPath = join(distPath, entry);
+      if (statSync(fullPath).isDirectory()) {
+        fixImportsInDist(fullPath);
+      } else if (entry.endsWith('.js')) {
+        fixImportsInFile(fullPath);
+      }
+    }
+  }
+}
+
 async function build() {
   try {
     console.log('🚀 Iniciando build do TypeScript...');
@@ -39,6 +79,17 @@ async function build() {
     // Fazer build do server
     console.log('\n🔨 Fazendo build do server...');
     await runCommand('npm', ['run', 'build:render'], join(__dirname, 'server'));
+    
+    // Copiar a pasta shared para dentro de dist
+    console.log('\n📁 Copiando arquivos compartilhados para dist...');
+    const sharedSrc = join(__dirname, 'shared');
+    const sharedDest = join(__dirname, 'server', 'dist', 'shared');
+    copyFolderSync(sharedSrc, sharedDest);
+    
+    // Corrigir imports nos arquivos compilados
+    console.log('\n🔧 Corrigindo imports nos arquivos compilados...');
+    const distPath = join(__dirname, 'server', 'dist');
+    fixImportsInDist(distPath);
     
     console.log('\n✅ Build concluído com sucesso!');
   } catch (error) {

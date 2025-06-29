@@ -8,5 +8,8 @@
     "build:render": "tsc --project tsconfig.render.json",
     "start": "node dist/index.js",
     "dev": "tsx index.ts"
+  },
+  "devDependencies": {
+    "cpy": "^11.1.0"
   }
-} 
+}
