@@ -18,6 +18,13 @@ import {
 import "./auth.js"; // Initialize passport strategies
 import { z } from "zod";
 import pgSession from "connect-pg-simple";
+import 'express-session';
+
+declare module 'express-session' {
+  interface SessionData {
+    [key: string]: any;
+  }
+}
 
 // Rate limiting
 const authLimiter = rateLimit({
