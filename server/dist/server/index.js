@@ -7,6 +7,7 @@ app.use((req, res, next) => {
     const allowedOrigins = [
         'https://spiffy-alpaca-35ad72.netlify.app',
         'https://home-professional-connect-viniciusalves36.replit.app',
+        'https://lifebee-app.netlify.app',
         'http://localhost:3000',
         'http://localhost:5173',
         'http://localhost:5000'
