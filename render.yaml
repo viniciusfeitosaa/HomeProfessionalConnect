@@ -3,7 +3,7 @@ services:
     name: lifebee-backend
     env: node
     plan: free
-    buildCommand: npm install && npm run render-build
+    buildCommand: npm install && node build.js
     startCommand: node server/dist/index.js
     envVars:
       - key: NODE_ENV

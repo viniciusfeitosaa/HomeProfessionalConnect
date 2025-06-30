@@ -74,26 +74,29 @@ function fixImportsInDist(distPath) {
 
 async function build() {
   try {
-    console.log('🚀 Iniciando build do TypeScript...');
+    console.log('🚀 [build.js] INICIANDO SCRIPT DE BUILD GERAL.');
     
     // Fazer build do server
-    console.log('\n🔨 Fazendo build do server...');
+    console.log('\n🔨 [build.js] Preparando para executar o build do server...');
     await runCommand('npm', ['run', 'build:render'], join(__dirname, 'server'));
+    console.log('✅ [build.js] Build do server (tsc) concluído.');
     
     // Copiar a pasta shared para dentro de dist
-    console.log('\n📁 Copiando arquivos compartilhados para dist...');
+    console.log('\n📁 [build.js] Copiando a pasta shared para server/dist/shared...');
     const sharedSrc = join(__dirname, 'shared');
     const sharedDest = join(__dirname, 'server', 'dist', 'shared');
     copyFolderSync(sharedSrc, sharedDest);
+    console.log('✅ [build.js] Pasta shared copiada com sucesso.');
     
     // Corrigir imports nos arquivos compilados
-    console.log('\n🔧 Corrigindo imports nos arquivos compilados...');
+    console.log('\n🔧 [build.js] Corrigindo imports nos arquivos JS compilados...');
     const distPath = join(__dirname, 'server', 'dist');
     fixImportsInDist(distPath);
+    console.log('✅ [build.js] Imports corrigidos com sucesso.');
     
-    console.log('\n✅ Build concluído com sucesso!');
+    console.log('\n\n🎉 [build.js] SCRIPT DE BUILD GERAL CONCLUÍDO COM SUCESSO! A PASTA DIST ESTÁ PRONTA.');
   } catch (error) {
-    console.error('\n❌ Erro durante o build:', error.message);
+    console.error('\n❌ [build.js] ERRO FATAL DURANTE O BUILD:', error.message);
     process.exit(1);
   }
 }
