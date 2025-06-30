@@ -7,6 +7,7 @@ import { storage } from "./storage.js";
 import { generateToken, verifyPassword, hashPassword, rateLimitByIP, authenticateToken } from "./auth.js";
 import "./auth.js"; // Initialize passport strategies
 import pgSession from "connect-pg-simple";
+import 'express-session';
 // Rate limiting
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
