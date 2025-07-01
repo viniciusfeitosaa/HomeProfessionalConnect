@@ -20,11 +20,16 @@ if (!connectionString) {
   );
 }
 
+let pool: Pool;
+let db: any;
+
 try {
-  export const pool = new Pool({ connectionString });
-  export const db = drizzle(pool, { schema });
+  pool = new Pool({ connectionString });
+  db = drizzle(pool, { schema });
   console.log("✅ Database connection established successfully");
 } catch (error) {
   console.error("❌ Database connection failed:", error);
   throw error;
 }
+
+export { pool, db };
