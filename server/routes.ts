@@ -18,7 +18,10 @@ import {
 import "./auth.js"; // Initialize passport strategies
 import { z } from "zod";
 import pgSession from "connect-pg-simple";
+import * as connectRedis from "connect-redis";
+import Redis from "redis";
 import 'express-session';
+import { Request, Response } from "express";
 
 declare module 'express-session' {
   interface SessionData {
@@ -40,6 +43,16 @@ const authLimiter = rateLimit({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint
+  app.get('/api/health', (req: Request, res: Response) => {
+    res.status(200).json({ 
+      status: 'OK', 
+      message: 'Server is healthy',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
+    });
+  });
+
   // Configure trust proxy more securely
   app.set('trust proxy', 1);
   
@@ -74,8 +87,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     cookie: {
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    }
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: 'lax'
+    },
+    name: 'lifebee.sid' // nome personalizado do cookie
   }));
 
   // Initialize passport
