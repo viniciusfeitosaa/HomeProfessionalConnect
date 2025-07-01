@@ -39,19 +39,6 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Health check endpoint
-app.get("/api/health", (req, res) => {
-  console.log("=== HEALTH CHECK ENDPOINT CALLED ===");
-  console.log("Request URL:", req.url);
-  console.log("Request method:", req.method);
-  res.json({ 
-    status: "ok", 
-    message: "Backend is running",
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || "development"
-  });
-});
-
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -87,6 +74,19 @@ app.use((req, res, next) => {
   await seedDatabase();
   
   const server = await registerRoutes(app);
+
+  // Health check endpoint
+  app.get("/api/health", (req, res) => {
+    console.log("=== HEALTH CHECK ENDPOINT CALLED ===");
+    console.log("Request URL:", req.url);
+    console.log("Request method:", req.method);
+    res.json({ 
+      status: "ok", 
+      message: "Backend is running",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || "development"
+    });
+  });
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
