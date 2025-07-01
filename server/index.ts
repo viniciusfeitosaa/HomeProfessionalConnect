@@ -33,8 +33,8 @@ app.use((req, res, next) => {
   if (allowedOrigins.includes(origin as string)) {
     res.setHeader('Access-Control-Allow-Origin', origin as string);
   } else {
-    // Allow any origin for development
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // For development, allow localhost
+    res.setHeader('Access-Control-Allow-Origin', 'https://lifebee.netlify.app');
   }
   
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -51,6 +51,16 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Health check endpoint
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: "ok", 
+    message: "Backend is running",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development"
+  });
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
