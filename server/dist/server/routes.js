@@ -21,6 +21,15 @@ const authLimiter = rateLimit({
     }
 });
 export async function registerRoutes(app) {
+    // Health check endpoint
+    app.get('/api/health', (req, res) => {
+        res.status(200).json({
+            status: 'OK',
+            message: 'Server is healthy',
+            timestamp: new Date().toISOString(),
+            environment: process.env.NODE_ENV || 'development'
+        });
+    });
     // Configure trust proxy more securely
     app.set('trust proxy', 1);
     // Security middleware with CSP configuration for development
@@ -52,8 +61,10 @@ export async function registerRoutes(app) {
         cookie: {
             secure: process.env.NODE_ENV === 'production',
             httpOnly: true,
-            maxAge: 24 * 60 * 60 * 1000 // 24 hours
-        }
+            maxAge: 24 * 60 * 60 * 1000, // 24 hours
+            sameSite: 'lax'
+        },
+        name: 'lifebee.sid' // nome personalizado do cookie
     }));
     // Initialize passport
     app.use(passport.initialize());

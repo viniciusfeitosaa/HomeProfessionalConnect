@@ -81,7 +81,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       tableName: 'sessions', // tabela para armazenar as sessões
       createTableIfMissing: true, // cria a tabela automaticamente se não existir
     }),
-    secret: process.env.JWT_SECRET!,
+    secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'fallback-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: {

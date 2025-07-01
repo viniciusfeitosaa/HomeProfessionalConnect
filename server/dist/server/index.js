@@ -4,22 +4,9 @@ import { seedDatabase } from "./seedData.js";
 const app = express();
 // Configure CORS for Netlify frontend and development
 app.use((req, res, next) => {
-    const allowedOrigins = [
-        'https://spiffy-alpaca-35ad72.netlify.app',
-        'https://home-professional-connect-viniciusalves36.replit.app',
-        'https://lifebee-app.netlify.app',
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'http://localhost:5000'
-    ];
     const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin)) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-    }
-    else {
-        // Allow any origin for development
-        res.setHeader('Access-Control-Allow-Origin', '*');
-    }
+    // Always set the specific origin for Netlify
+    res.setHeader('Access-Control-Allow-Origin', 'https://lifebee.netlify.app');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
