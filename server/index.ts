@@ -41,7 +41,9 @@ app.use(express.urlencoded({ extended: false }));
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
-  console.log("Health check endpoint called");
+  console.log("=== HEALTH CHECK ENDPOINT CALLED ===");
+  console.log("Request URL:", req.url);
+  console.log("Request method:", req.method);
   res.json({ 
     status: "ok", 
     message: "Backend is running",
