@@ -6,33 +6,50 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
-  Star, MapPin, Clock, Calendar, Phone, Mail, Award, Heart, 
+  Star, MapPin, Clock, Calendar, Phone, Award, 
   ArrowLeft, MessageCircle, Video, Share2, BookOpen, Camera,
-  CheckCircle, Users, Target, TrendingUp 
+  CheckCircle, Home, User
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
-
-interface ProfessionalDetailProps {
-  params: { id: string };
-}
+import { Link, useLocation } from "wouter";
+import type { Professional } from "@shared/schema";
 
 export default function ProfessionalDetail({ params }: { params: { id: string } }) {
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | undefined>(undefined);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [message, setMessage] = useState("");
   const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
+  const [, setLocation] = useLocation();
 
-  const { data: professional } = useQuery({
+  const { data: professional } = useQuery<Professional | undefined>({
     queryKey: [`/api/professionals/${params.id}`],
   });
 
-  const { data: professionals = [] } = useQuery({
+  const { data: professionals = [] } = useQuery<Professional[]>({
     queryKey: ["/api/professionals"],
   });
 
   // Find professional from the list if API doesn't work
-  const currentProfessional = professional || professionals.find((p: any) => p.id === parseInt(params.id));
+  const currentProfessional: Professional | undefined = professional || professionals.find((p) => p.id === parseInt(params.id));
+
+  const handleNavigation = (page: string) => {
+    switch (page) {
+      case "Home":
+        setLocation("/");
+        break;
+      case "Chat":
+        setLocation("/messages");
+        break;
+      case "Agenda":
+        setLocation("/agenda");
+        break;
+      case "Perfil":
+        setLocation("/profile");
+        break;
+      default:
+        setLocation("/");
+    }
+  };
 
   if (!currentProfessional) {
     return (
@@ -86,58 +103,11 @@ export default function ProfessionalDetail({ params }: { params: { id: string } 
     }
   };
 
-  // Portfolio items (mock data for demonstration)
-  const portfolioItems = [
-    {
-      id: 1,
-      title: "Reabilitação Respiratória Pós-COVID",
-      description: "Programa especializado para recuperação pulmonar",
-      image: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      category: "Fisioterapia Respiratória"
-    },
-    {
-      id: 2,
-      title: "Reabilitação Neurológica",
-      description: "Tratamento para pacientes com AVC e lesões medulares",
-      image: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      category: "Neurologia"
-    },
-    {
-      id: 3,
-      title: "Fisioterapia Domiciliar",
-      description: "Atendimento personalizado no conforto do lar",
-      image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&h=300&q=80",
-      category: "Domiciliar"
-    }
-  ];
+  // Portfolio items - será carregado da API
+  const portfolioItems: any[] = [];
 
-  // Reviews (mock data)
-  const reviews = [
-    {
-      id: 1,
-      patient: "Maria S.",
-      rating: 5,
-      comment: "Excelente profissional! Muito atenciosa e competente. A fisioterapia respiratória me ajudou muito na recuperação pós-COVID.",
-      date: "2025-06-10",
-      service: "Fisioterapia Respiratória"
-    },
-    {
-      id: 2,
-      patient: "João P.",
-      rating: 5,
-      comment: "Tratamento excepcional para minha reabilitação neurológica. Profissional muito dedicada e experiente.",
-      date: "2025-06-08",
-      service: "Reabilitação Neurológica"
-    },
-    {
-      id: 3,
-      patient: "Ana L.",
-      rating: 4,
-      comment: "Ótimo atendimento domiciliar. Pontual e muito profissional. Recomendo!",
-      date: "2025-06-05",
-      service: "Fisioterapia Domiciliar"
-    }
-  ];
+  // Reviews - será carregado da API
+  const reviews: any[] = [];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -166,7 +136,7 @@ export default function ProfessionalDetail({ params }: { params: { id: string } 
               {/* Profile Image */}
               <div className="flex-shrink-0">
                 <img
-                  src={currentProfessional.imageUrl}
+                  src={currentProfessional.imageUrl || undefined}
                   alt={currentProfessional.name}
                   className="w-24 h-24 sm:w-32 sm:h-32 rounded-full object-cover mx-auto sm:mx-0"
                 />
@@ -484,6 +454,25 @@ export default function ProfessionalDetail({ params }: { params: { id: string } 
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Menu Inferior */}
+      <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around py-2 sm:py-3">
+        {[
+          { icon: Home, label: "Home" },
+          { icon: MessageCircle, label: "Chat" },
+          { icon: Calendar, label: "Agenda" },
+          { icon: User, label: "Perfil" }
+        ].map((item, index) => (
+          <button 
+            key={index} 
+            className="flex flex-col items-center text-xs text-gray-600 hover:text-yellow-500 transition-colors"
+            onClick={() => handleNavigation(item.label)}
+          >
+            <item.icon className="h-5 w-5 sm:h-6 sm:w-6 mb-1" />
+            {item.label}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

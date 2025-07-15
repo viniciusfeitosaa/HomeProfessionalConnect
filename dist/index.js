@@ -984,6 +984,7 @@ async function seedDatabase() {
 }
 
 // server/index.ts
+import { Server as SocketIOServer } from "socket.io";
 var app = express();
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -1026,6 +1027,24 @@ app.use((req, res, next) => {
 (async () => {
   await seedDatabase();
   const server = await registerRoutes(app);
+  const io = new SocketIOServer(server, {
+    cors: {
+      origin: ["http://localhost:5173", "https://lifebee.netlify.app"],
+      credentials: true
+    }
+  });
+  io.on("connection", (socket) => {
+    console.log("Novo usu\xE1rio conectado:", socket.id);
+    socket.on("joinRoom", (roomId) => {
+      socket.join(roomId);
+    });
+    socket.on("chatMessage", ({ roomId, message, sender }) => {
+      io.to(roomId).emit("chatMessage", { message, sender });
+    });
+    socket.on("disconnect", () => {
+      console.log("Usu\xE1rio desconectado:", socket.id);
+    });
+  });
   app.use((err, _req, res, _next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

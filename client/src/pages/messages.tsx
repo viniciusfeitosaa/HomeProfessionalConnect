@@ -1,10 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
 import { 
   ArrowLeft, 
   Send, 
@@ -16,20 +15,18 @@ import {
   Smile,
   Check,
   CheckCheck,
-  Clock,
   Calendar,
   MapPin,
   Star,
-  Image as ImageIcon,
-  File,
   Camera,
-  Mic,
-  Heart
+  MessageSquare,
+  UserIcon,
+  Home
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { safeQueryClient } from "@/lib/safe-query-client";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getApiUrl } from "@/lib/api-config";
+import { useLocation } from "wouter";
 
 interface Message {
   id: number;
@@ -60,167 +57,73 @@ interface Conversation {
 export default function Messages() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = safeQueryClient;
   const [selectedConversation, setSelectedConversation] = useState<number | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
 
-  // Mock data for conversations
-  const mockConversations: Conversation[] = [
-    {
-      id: 1,
-      professionalId: 1,
-      professionalName: "Ana Carolina Silva",
-      professionalAvatar: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300&h=300&fit=crop&crop=face",
-      specialization: "Fisioterapeuta",
-      lastMessage: "Ótimo! Nos vemos na próxima sessão então.",
-      lastMessageTime: new Date(Date.now() - 1000 * 60 * 30),
-      unreadCount: 2,
-      isOnline: true,
-      rating: 4.9,
-      location: "São Paulo, SP",
-      messages: [
-        {
-          id: 1,
-          senderId: 1,
-          content: "Olá! Como você está se sentindo após nossa última sessão?",
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-          isRead: true,
-          type: "text"
+  // Estado para armazenar conversas
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [, setLocation] = useLocation();
+
+  // Função para buscar conversas da API
+  const fetchConversations = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        toast({
+          title: "Erro de autenticação",
+          description: "Faça login para acessar as mensagens",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`${getApiUrl()}/api/messages`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-        {
-          id: 2,
-          senderId: user?.id || 2,
-          content: "Muito melhor! As dores nas costas diminuíram bastante.",
-          timestamp: new Date(Date.now() - 1000 * 60 * 60),
-          isRead: true,
-          type: "text"
-        },
-        {
-          id: 3,
-          senderId: 1,
-          content: "Que bom! Vamos continuar com os exercícios. Você conseguiu fazer em casa?",
-          timestamp: new Date(Date.now() - 1000 * 60 * 45),
-          isRead: true,
-          type: "text"
-        },
-        {
-          id: 4,
-          senderId: user?.id || 2,
-          content: "Sim, fiz todos os dias como você recomendou.",
-          timestamp: new Date(Date.now() - 1000 * 60 * 40),
-          isRead: true,
-          type: "text"
-        },
-        {
-          id: 5,
-          senderId: 1,
-          content: "Perfeito! Vamos agendar nossa próxima sessão para sexta-feira às 14h?",
-          timestamp: new Date(Date.now() - 1000 * 60 * 35),
-          isRead: true,
-          type: "text"
-        },
-        {
-          id: 6,
-          senderId: user?.id || 2,
-          content: "Pode ser! Confirmo o agendamento.",
-          timestamp: new Date(Date.now() - 1000 * 60 * 32),
-          isRead: true,
-          type: "text"
-        },
-        {
-          id: 7,
-          senderId: 1,
-          content: "Ótimo! Nos vemos na próxima sessão então.",
-          timestamp: new Date(Date.now() - 1000 * 60 * 30),
-          isRead: false,
-          type: "text"
-        }
-      ]
-    },
-    {
-      id: 2,
-      professionalId: 2,
-      professionalName: "Dr. João Santos",
-      professionalAvatar: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=300&h=300&fit=crop&crop=face",
-      specialization: "Técnico em Enfermagem",
-      lastMessage: "Medicação aplicada com sucesso. Próxima dose às 18h.",
-      lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 3),
-      unreadCount: 0,
-      isOnline: false,
-      rating: 4.8,
-      location: "Rio de Janeiro, RJ",
-      messages: [
-        {
-          id: 8,
-          senderId: 2,
-          content: "Bom dia! Cheguei para aplicar a medicação.",
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4),
-          isRead: true,
-          type: "text"
-        },
-        {
-          id: 9,
-          senderId: user?.id || 2,
-          content: "Perfeito! Estou te esperando.",
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3.5),
-          isRead: true,
-          type: "text"
-        },
-        {
-          id: 10,
-          senderId: 2,
-          content: "Medicação aplicada com sucesso. Próxima dose às 18h.",
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3),
-          isRead: true,
-          type: "text"
-        }
-      ]
-    },
-    {
-      id: 3,
-      professionalId: 3,
-      professionalName: "Maria Oliveira",
-      professionalAvatar: "https://images.unsplash.com/photo-1594824911330-75490d35b1bb?w=300&h=300&fit=crop&crop=face",
-      specialization: "Acompanhante Hospitalar",
-      lastMessage: "Paciente descansando bem. Sinais vitais normais.",
-      lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 6),
-      unreadCount: 1,
-      isOnline: true,
-      rating: 5.0,
-      location: "Belo Horizonte, MG",
-      messages: [
-        {
-          id: 11,
-          senderId: 3,
-          content: "Boa tarde! Iniciei o acompanhamento do seu pai.",
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8),
-          isRead: true,
-          type: "text"
-        },
-        {
-          id: 12,
-          senderId: user?.id || 2,
-          content: "Obrigado! Como ele está?",
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 7),
-          isRead: true,
-          type: "text"
-        },
-        {
-          id: 13,
-          senderId: 3,
-          content: "Paciente descansando bem. Sinais vitais normais.",
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6),
-          isRead: false,
-          type: "text"
-        }
-      ]
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setConversations(data);
+      } else if (response.status === 401) {
+        toast({
+          title: "Sessão expirada",
+          description: "Faça login novamente",
+          variant: "destructive",
+        });
+      } else {
+        console.error('Erro ao buscar conversas:', response.statusText);
+        toast({
+          title: "Erro de conexão",
+          description: "Não foi possível carregar as conversas",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao buscar conversas:', error);
+      toast({
+        title: "Erro de conexão",
+        description: "Não foi possível carregar as conversas",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const [conversations] = useState<Conversation[]>(mockConversations);
+  // Buscar conversas ao montar o componente
+  useEffect(() => {
+    fetchConversations();
+  }, []);
 
   const filteredConversations = conversations.filter(conv =>
     conv.professionalName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -235,7 +138,13 @@ export default function Messages() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [selectedConv?.messages]);
+  }, [messages]);
+
+  useEffect(() => {
+    if (selectedConv) {
+      setMessages(selectedConv.messages);
+    }
+  }, [selectedConversation, selectedConv]);
 
   const formatTime = (date: Date) => {
     const now = new Date();
@@ -259,27 +168,68 @@ export default function Messages() {
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) return;
+    if (!newMessage.trim() || selectedConversation === null) return;
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast({
+        title: "Erro de autenticação",
+        description: "Faça login para enviar mensagens",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
-      const response = await apiRequest('POST', '/api/messages', {
+      // Adicionar mensagem localmente primeiro (otimisticamente)
+      const newMsg: Message = {
+        id: Date.now(),
+        senderId: user?.id || 0,
+        content: newMessage,
+        timestamp: new Date(),
+        isRead: false,
+        type: "text",
+      };
+
+      setMessages(prev => [...prev, newMsg]);
+      setNewMessage("");
+
+      // Enviar para o backend
+      const response = await fetch(`${getApiUrl()}/api/messages`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
         recipientId: selectedConv?.professionalId,
         content: newMessage,
         type: 'text'
+        }),
       });
 
-      if (response.ok) {
-        setNewMessage("");
-        // In a real app, you would refetch messages or use websockets
+      if (!response.ok) {
+        // Se falhar, remover a mensagem local
+        setMessages(prev => prev.filter(msg => msg.id !== newMsg.id));
         toast({
-          title: "Mensagem enviada",
-          description: "Sua mensagem foi enviada com sucesso.",
+          title: "Erro",
+          description: "Não foi possível enviar a mensagem",
+          variant: "destructive",
         });
+      } else {
+        // Marcar como lida
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === newMsg.id ? { ...msg, isRead: true } : msg
+          )
+        );
       }
     } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
       toast({
-        title: "Erro",
-        description: "Não foi possível enviar a mensagem.",
+        title: "Erro de conexão",
+        description: "Não foi possível enviar a mensagem",
         variant: "destructive",
       });
     }
@@ -313,25 +263,30 @@ export default function Messages() {
     });
   };
 
+
+
   if (!selectedConversation) {
     return (
-      <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-        {/* Conversations List */}
-        <div className="w-full lg:w-96 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-orange-50">
           {/* Header */}
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-3 mb-4">
+        <div className="bg-white border-b px-4 py-3 shadow-sm">
+          <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="sm"
-                className="lg:hidden p-2"
                 onClick={() => window.history.back()}
+              className="lg:hidden"
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Mensagens</h1>
+            <h1 className="text-lg font-semibold text-gray-900">Mensagens</h1>
+          </div>
             </div>
             
+        {/* Conversations List */}
+        <div className="w-full lg:w-96 bg-white border-r border-gray-200 flex flex-col">
+          {/* Search Header */}
+          <div className="p-4 border-b border-gray-200">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <Input
@@ -345,41 +300,65 @@ export default function Messages() {
 
           {/* Conversations */}
           <div className="flex-1 overflow-y-auto">
-            {filteredConversations.map((conversation) => (
+            {loading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto mb-2"></div>
+                  <p className="text-gray-500">Carregando conversas...</p>
+                </div>
+              </div>
+            ) : filteredConversations.length === 0 ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MessageSquare className="h-8 w-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Nenhuma conversa encontrada
+                  </h3>
+                  <p className="text-gray-500">
+                    Você ainda não tem conversas ativas
+                  </p>
+                </div>
+              </div>
+            ) : (
+              filteredConversations.map((conversation) => (
               <div
                 key={conversation.id}
-                className="p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                  className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
                 onClick={() => setSelectedConversation(conversation.id)}
               >
                 <div className="flex items-start gap-3">
                   <div className="relative">
                     <Avatar className="w-12 h-12">
                       <AvatarImage src={conversation.professionalAvatar} alt={conversation.professionalName} />
-                      <AvatarFallback>{conversation.professionalName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                        <AvatarFallback className="bg-yellow-500 text-white">
+                          {conversation.professionalName.split(' ').map(n => n[0]).join('')}
+                        </AvatarFallback>
                     </Avatar>
                     {conversation.isOnline && (
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>
+                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                     )}
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                        <h3 className="font-semibold text-gray-900 truncate">
                         {conversation.professionalName}
                       </h3>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-gray-500">
                         {formatTime(conversation.lastMessageTime)}
                       </span>
                     </div>
                     
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="secondary" className="text-xs px-2 py-0">
+                        <Badge variant="secondary" className="text-xs px-2 py-0 bg-yellow-100 text-yellow-800">
                         {conversation.specialization}
                       </Badge>
                       {conversation.rating && (
                         <div className="flex items-center gap-1">
                           <Star className="h-3 w-3 text-yellow-500 fill-current" />
-                          <span className="text-xs text-gray-600 dark:text-gray-400">
+                            <span className="text-xs text-gray-600">
                             {conversation.rating}
                           </span>
                         </div>
@@ -387,7 +366,7 @@ export default function Messages() {
                     </div>
                     
                     <div className="flex items-center justify-between">
-                      <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                        <p className="text-sm text-gray-600 truncate">
                         {conversation.lastMessage}
                       </p>
                       {conversation.unreadCount > 0 && (
@@ -400,7 +379,7 @@ export default function Messages() {
                     {conversation.location && (
                       <div className="flex items-center gap-1 mt-1">
                         <MapPin className="h-3 w-3 text-gray-400" />
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          <span className="text-xs text-gray-500">
                           {conversation.location}
                         </span>
                       </div>
@@ -408,20 +387,21 @@ export default function Messages() {
                   </div>
                 </div>
               </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
         {/* Empty State */}
-        <div className="hidden lg:flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="hidden lg:flex flex-1 items-center justify-center bg-gray-50">
           <div className="text-center">
-            <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Send className="h-8 w-8 text-yellow-600" />
+            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <MessageSquare className="h-8 w-8 text-yellow-600" />
             </div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
               Selecione uma conversa
             </h2>
-            <p className="text-gray-600 dark:text-gray-300">
+            <p className="text-gray-600">
               Escolha uma conversa para começar a trocar mensagens
             </p>
           </div>
@@ -431,14 +411,25 @@ export default function Messages() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-orange-50">
+      {/* Header */}
+      <div className="bg-white border-b px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => window.history.back()}
+            className="lg:hidden"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-semibold text-gray-900">Mensagens</h1>
+        </div>
+      </div>
+
       {/* Conversations List - Hidden on mobile when conversation is selected */}
-      <div className="hidden lg:block w-96 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3 mb-4">
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Mensagens</h1>
-          </div>
-          
+      <div className="hidden lg:block w-96 bg-white border-r border-gray-200">
+        <div className="p-4 border-b border-gray-200">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
@@ -454,8 +445,8 @@ export default function Messages() {
           {filteredConversations.map((conversation) => (
             <div
               key={conversation.id}
-              className={`p-4 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${
-                conversation.id === selectedConversation ? 'bg-yellow-50 dark:bg-yellow-900/20 border-r-2 border-r-yellow-500' : ''
+              className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${
+                conversation.id === selectedConversation ? 'bg-yellow-50 border-r-2 border-r-yellow-500' : ''
               }`}
               onClick={() => setSelectedConversation(conversation.id)}
             >
@@ -463,31 +454,33 @@ export default function Messages() {
                 <div className="relative">
                   <Avatar className="w-12 h-12">
                     <AvatarImage src={conversation.professionalAvatar} alt={conversation.professionalName} />
-                    <AvatarFallback>{conversation.professionalName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                    <AvatarFallback className="bg-yellow-500 text-white">
+                      {conversation.professionalName.split(' ').map(n => n[0]).join('')}
+                    </AvatarFallback>
                   </Avatar>
                   {conversation.isOnline && (
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                   )}
                 </div>
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">
+                    <h3 className="font-semibold text-gray-900 truncate">
                       {conversation.professionalName}
                     </h3>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-xs text-gray-500">
                       {formatTime(conversation.lastMessageTime)}
                     </span>
                   </div>
                   
                   <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="secondary" className="text-xs px-2 py-0">
+                    <Badge variant="secondary" className="text-xs px-2 py-0 bg-yellow-100 text-yellow-800">
                       {conversation.specialization}
                     </Badge>
                     {conversation.rating && (
                       <div className="flex items-center gap-1">
                         <Star className="h-3 w-3 text-yellow-500 fill-current" />
-                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                        <span className="text-xs text-gray-600">
                           {conversation.rating}
                         </span>
                       </div>
@@ -495,7 +488,7 @@ export default function Messages() {
                   </div>
                   
                   <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                    <p className="text-sm text-gray-600 truncate">
                       {conversation.lastMessage}
                     </p>
                     {conversation.unreadCount > 0 && (
@@ -512,9 +505,9 @@ export default function Messages() {
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-gray-800">
+      <div className="flex-1 flex flex-col bg-white">
         {/* Chat Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="p-4 border-b border-gray-200 bg-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Button
@@ -529,23 +522,25 @@ export default function Messages() {
               <div className="relative">
                 <Avatar className="w-10 h-10">
                   <AvatarImage src={selectedConv?.professionalAvatar} alt={selectedConv?.professionalName} />
-                  <AvatarFallback>{selectedConv?.professionalName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                  <AvatarFallback className="bg-yellow-500 text-white">
+                    {selectedConv?.professionalName.split(' ').map(n => n[0]).join('')}
+                  </AvatarFallback>
                 </Avatar>
                 {selectedConv?.isOnline && (
-                  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full"></div>
+                  <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                 )}
               </div>
               
               <div>
-                <h2 className="font-semibold text-gray-900 dark:text-white">
+                <h2 className="font-semibold text-gray-900">
                   {selectedConv?.professionalName}
                 </h2>
                 <div className="flex items-center gap-2">
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                  <p className="text-sm text-gray-600">
                     {selectedConv?.specialization}
                   </p>
                   {selectedConv?.isOnline && (
-                    <span className="text-xs text-green-600 dark:text-green-400">online</span>
+                    <span className="text-xs text-green-600">online</span>
                   )}
                 </div>
               </div>
@@ -570,7 +565,7 @@ export default function Messages() {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {selectedConv?.messages.map((message) => {
+          {messages.map((message) => {
             const isOwn = message.senderId === user?.id;
             return (
               <div
@@ -580,7 +575,7 @@ export default function Messages() {
                 <div className={`max-w-xs lg:max-w-md ${isOwn ? 'order-2' : ''}`}>
                   {!isOwn && (
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      <span className="text-xs font-medium text-gray-600">
                         {selectedConv?.professionalName}
                       </span>
                     </div>
@@ -589,17 +584,17 @@ export default function Messages() {
                   <div className={`rounded-2xl px-4 py-2 ${
                     isOwn 
                       ? 'bg-yellow-500 text-white' 
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                      : 'bg-gray-100 text-gray-900'
                   }`}>
                     <p className="text-sm">{message.content}</p>
                   </div>
                   
                   <div className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-xs text-gray-500">
                       {formatMessageTime(message.timestamp)}
                     </span>
                     {isOwn && (
-                      <div className="text-gray-500 dark:text-gray-400">
+                      <div className="text-gray-500">
                         {message.isRead ? (
                           <CheckCheck className="h-3 w-3 text-blue-500" />
                         ) : (
@@ -616,7 +611,7 @@ export default function Messages() {
         </div>
 
         {/* Message Input */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+        <div className="p-4 border-t border-gray-200 bg-white">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm">
               <Paperclip className="h-4 w-4" />
@@ -652,6 +647,44 @@ export default function Messages() {
           </div>
         </div>
       </div>
+
+      {/* Menu Inferior Padronizado */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
+        <div className="max-w-md mx-auto flex justify-between items-center py-2 sm:py-3 px-4">
+          {[
+            { icon: Home, label: "Home" },
+            { icon: MessageSquare, label: "Chat" },
+            { icon: Calendar, label: "Agenda" },
+            { icon: UserIcon, label: "Perfil" }
+          ].map((item, index) => {
+            const isActive = item.label === "Chat";
+            return (
+              <button
+                key={index}
+                className={`flex flex-col items-center justify-center flex-1 min-w-0 transition-colors px-1 sm:px-2 ${
+                  isActive 
+                    ? "text-yellow-500" 
+                    : "text-gray-600 hover:text-yellow-500"
+                }`}
+                onClick={() => {
+                  switch (item.label) {
+                    case "Home": setLocation("/"); break;
+                    case "Chat": setLocation("/messages"); break;
+                    case "Agenda": setLocation("/agenda"); break;
+                    case "Perfil": setLocation("/profile"); break;
+                    default: setLocation("/");
+                  }
+                }}
+              >
+                <item.icon className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7 mb-0.5 sm:mb-1 ${
+                  isActive ? "text-yellow-500" : ""
+                }`} />
+                <span className="text-xs sm:text-sm leading-tight">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

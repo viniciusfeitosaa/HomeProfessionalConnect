@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getApiUrl } from '@/lib/api-config';
 
 interface User {
   id: number;
@@ -25,10 +26,41 @@ export function useAuth() {
   });
 
   useEffect(() => {
+    const verifyToken = async () => {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
     
     if (token && userData) {
+        try {
+          // Verify token with backend
+          const response = await fetch(`${getApiUrl()}/api/user`, {
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+          });
+          
+          if (response.ok) {
+            const user = await response.json();
+            setAuthState({
+              user,
+              isLoading: false,
+              isAuthenticated: true,
+            });
+          } else {
+            // Token is invalid, clear storage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setAuthState({
+              user: null,
+              isLoading: false,
+              isAuthenticated: false,
+            });
+          }
+        } catch (error) {
+          console.error('Error verifying token:', error);
+          // Fallback to stored user data if network error
       try {
         const user = JSON.parse(userData);
         setAuthState({
@@ -36,7 +68,7 @@ export function useAuth() {
           isLoading: false,
           isAuthenticated: true,
         });
-      } catch (error) {
+          } catch (parseError) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         setAuthState({
@@ -44,6 +76,7 @@ export function useAuth() {
           isLoading: false,
           isAuthenticated: false,
         });
+          }
       }
     } else {
       setAuthState({
@@ -52,6 +85,9 @@ export function useAuth() {
         isAuthenticated: false,
       });
     }
+    };
+
+    verifyToken();
   }, []);
 
   const login = (token: string, user: User) => {

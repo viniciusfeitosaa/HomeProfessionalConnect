@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Bell, Settings, Search, Home as HomeIcon, MessageCircle, ShoppingBag, Calendar, User as UserIcon } from "lucide-react";
+import { Bell, Settings, Search, Home as HomeIcon, MessageCircle, Calendar, User as UserIcon } from "lucide-react";
 import { useLocation } from "wouter";
 import type { Professional, User } from "@shared/schema";
 
@@ -39,11 +39,11 @@ export default function Home() {
 
   const handleNavigation = (page: string) => {
     switch (page) {
+      case "Home":
+        setLocation("/");
+        break;
       case "Chat":
         setLocation("/messages");
-        break;
-      case "Pedidos":
-        setLocation("/agenda");
         break;
       case "Agenda":
         setLocation("/agenda");
@@ -183,11 +183,10 @@ export default function Home() {
       )}
 
       {/* Menu Inferior */}
-      <nav className="fixed bottom-0 w-full bg-black text-white flex justify-around py-3 border-t border-gray-700">
+      <nav className="fixed bottom-0 w-full bg-black text-white flex justify-around py-2 sm:py-3 border-t border-gray-700">
         {[
-          { icon: HomeIcon, label: "Início" },
+          { icon: HomeIcon, label: "Home" },
           { icon: MessageCircle, label: "Chat" },
-          { icon: ShoppingBag, label: "Pedidos" },
           { icon: Calendar, label: "Agenda" },
           { icon: UserIcon, label: "Perfil" }
         ].map((item, index) => (
@@ -196,7 +195,7 @@ export default function Home() {
             className="flex flex-col items-center text-xs hover:text-yellow-400 transition-colors"
             onClick={() => handleNavigation(item.label)}
           >
-            <item.icon className="h-5 w-5 mb-1" />
+            <item.icon className="h-5 w-5 sm:h-6 sm:w-6 mb-1" />
             {item.label}
           </button>
         ))}

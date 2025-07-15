@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   User, Phone, Mail, MapPin, Award, Clock, DollarSign, 
-  FileText, Camera, CheckCircle, ArrowRight, Upload, Shield 
+  FileText, Camera, CheckCircle, ArrowRight, Upload, Shield, ArrowLeft 
 } from "lucide-react";
 import { LifeBeeLogo } from "@/components/lifebee-logo";
 
@@ -326,7 +326,21 @@ export default function ProviderRegistration({ onComplete }: ProviderRegistratio
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-orange-500 to-secondary flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Header */}
+      <div className="bg-white dark:bg-gray-800 border-b px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => window.history.back()}
+            className="lg:hidden"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Cadastro de Profissional</h1>
+        </div>
+      </div>
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">

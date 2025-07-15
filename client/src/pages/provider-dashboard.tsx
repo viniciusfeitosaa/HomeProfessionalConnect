@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/popover";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/useAuth";
+import { BottomNavigationProvider } from "@/components/bottom-navigation-provider";
 
 export default function ProviderDashboard() {
   const [selectedService, setSelectedService] = useState<number | null>(null);
@@ -37,121 +38,27 @@ export default function ProviderDashboard() {
   const { theme, setTheme } = useTheme();
   const { logout } = useAuth();
 
-  // Dashboard Analytics Data
+  // Dashboard Analytics Data - será carregado da API
   const analytics = {
-    monthlyEarnings: 4850.00,
-    totalServices: 23,
-    averageRating: 4.8,
-    responseTime: "12min",
-    monthlyGrowth: 15.3,
-    servicesThisWeek: 6,
-    nextAppointment: "Hoje às 14:00"
+    monthlyEarnings: 0,
+    totalServices: 0,
+    averageRating: 0,
+    responseTime: "0min",
+    monthlyGrowth: 0,
+    servicesThisWeek: 0,
+    nextAppointment: "Nenhum agendamento"
   };
 
-  // Nearby Service Requests
-  const nearbyServices = [
-    {
-      id: 1,
-      clientName: "Maria Silva",
-      serviceType: "Fisioterapia Respiratória",
-      location: "Vila Madalena, SP",
-      distance: 1.2,
-      urgency: "high",
-      budget: 120,
-      description: "Preciso de fisioterapia respiratória pós-COVID. Tenho dificuldades para respirar e gostaria de um acompanhamento especializado.",
-      timePosted: "15 min atrás",
-      responses: 3
-    },
-    {
-      id: 2,
-      clientName: "João Santos",
-      serviceType: "Acompanhamento Hospitalar",
-      location: "Pinheiros, SP",
-      distance: 2.8,
-      urgency: "medium",
-      budget: 200,
-      description: "Preciso de acompanhante para cirurgia de catarata amanhã no Hospital das Clínicas.",
-      timePosted: "1 hora atrás",
-      responses: 1
-    },
-    {
-      id: 3,
-      clientName: "Ana Costa",
-      serviceType: "Curativo Domiciliar",
-      location: "Jardins, SP",
-      distance: 3.5,
-      urgency: "low",
-      budget: 80,
-      description: "Troca de curativo pós-cirúrgico. Necessário por mais 1 semana, 3x por semana.",
-      timePosted: "2 horas atrás",
-      responses: 5
-    }
-  ];
+  // Nearby Service Requests - será carregado da API
+  const nearbyServices: any[] = [];
 
-  // Recent Performance Data
-  const monthlyData = [
-    { month: "Jan", earnings: 3200, services: 18 },
-    { month: "Fev", earnings: 3800, services: 21 },
-    { month: "Mar", earnings: 4200, services: 25 },
-    { month: "Abr", earnings: 4500, services: 26 },
-    { month: "Mai", earnings: 4850, services: 23 }
-  ];
+  // Recent Performance Data - será carregado da API
+  const monthlyData: any[] = [];
 
-  // Notifications Data
-  const notifications = [
-    {
-      id: 1,
-      type: "service",
-      title: "Nova solicitação de serviço",
-      message: "Maria Silva solicitou fisioterapia respiratória na Vila Madalena",
-      time: "5 min atrás",
-      read: false,
-      icon: Users,
-      color: "text-blue-600"
-    },
-    {
-      id: 2,
-      type: "payment",
-      title: "Pagamento recebido",
-      message: "Você recebeu R$ 120,00 pelo serviço com João Santos",
-      time: "1 hora atrás",
-      read: false,
-      icon: DollarSign,
-      color: "text-green-600"
-    },
-    {
-      id: 3,
-      type: "rating",
-      title: "Nova avaliação",
-      message: "Ana Costa avaliou seu serviço com 5 estrelas",
-      time: "2 horas atrás",
-      read: true,
-      icon: Star,
-      color: "text-yellow-600"
-    },
-    {
-      id: 4,
-      type: "appointment",
-      title: "Lembrete de consulta",
-      message: "Consulta com Pedro Silva amanhã às 14:00",
-      time: "3 horas atrás",
-      read: true,
-      icon: Calendar,
-      color: "text-purple-600"
-    },
-    {
-      id: 5,
-      type: "system",
-      title: "Atualização do sistema",
-      message: "Nova versão do app disponível com melhorias",
-      time: "1 dia atrás",
-      read: true,
-      icon: Info,
-      color: "text-gray-600"
-    }
-  ];
+  // Notifications Data - será carregado da API
+  const notifications: any[] = [];
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = 0;
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
@@ -708,6 +615,9 @@ export default function ProviderDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* Bottom Navigation for Provider */}
+      <BottomNavigationProvider />
     </div>
   );
 }

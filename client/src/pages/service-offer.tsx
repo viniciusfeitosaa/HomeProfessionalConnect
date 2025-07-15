@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
   ArrowLeft, MessageCircle, DollarSign, Clock, MapPin, 
-  Star, Send, Phone, Video, CheckCircle, AlertCircle 
+  Star, Send, CheckCircle, AlertCircle, MessageSquare, Calendar, UserIcon, Home
 } from "lucide-react";
 import { Link, useParams } from "wouter";
 
@@ -20,24 +20,24 @@ export default function ServiceOffer() {
   const [estimatedTime, setEstimatedTime] = useState("");
   const [isOfferSent, setIsOfferSent] = useState(false);
 
-  // Mock service data - in real app would come from API
+  // Dados do serviço serão carregados da API baseado no serviceId
   const serviceRequest = {
-    id: 1,
-    clientName: "Maria Silva",
-    clientAvatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&h=300&q=80",
-    serviceType: "Fisioterapia Respiratória",
-    location: "Vila Madalena, SP",
-    distance: 1.2,
-    urgency: "high",
-    budget: 120,
-    description: "Preciso de fisioterapia respiratória pós-COVID. Tenho dificuldades para respirar e gostaria de um acompanhamento especializado. Prefiro atendimento domiciliar.",
-    timePosted: "15 min atrás",
-    responses: 3,
-    preferredTime: "Manhã (08:00 - 12:00)",
-    clientRating: 4.9,
-    previousServices: 12,
-    additionalDetails: "Paciente tem 65 anos, já teve COVID há 3 meses. Médico recomendou fisioterapia respiratória. Tem equipamentos básicos em casa.",
-    address: "Rua Augusta, 1234 - Vila Madalena"
+    id: parseInt(serviceId || "0"),
+    clientName: "",
+    clientAvatar: "",
+    serviceType: "",
+    location: "",
+    distance: 0,
+    urgency: "low",
+    budget: 0,
+    description: "",
+    timePosted: "",
+    responses: 0,
+    preferredTime: "",
+    clientRating: 0,
+    previousServices: 0,
+    additionalDetails: "",
+    address: ""
   };
 
   const handleSendOffer = () => {
@@ -59,6 +59,25 @@ export default function ServiceOffer() {
       case "medium": return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
       case "low": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
       default: return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
+    }
+  };
+
+  const handleNavigation = (label: string) => {
+    switch (label) {
+      case "Home":
+        window.location.href = "/";
+        break;
+      case "Chat":
+        window.location.href = "/messages";
+        break;
+      case "Agenda":
+        window.location.href = "/agenda";
+        break;
+      case "Perfil":
+        window.location.href = "/profile";
+        break;
+      default:
+        window.location.href = "/";
     }
   };
 
@@ -323,6 +342,24 @@ export default function ServiceOffer() {
           </>
         )}
       </div>
+      {/* Menu Inferior */}
+      <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around py-2 sm:py-3">
+        {[
+          { icon: Home, label: "Home" },
+          { icon: MessageSquare, label: "Chat" },
+          { icon: Calendar, label: "Agenda" },
+          { icon: UserIcon, label: "Perfil" }
+        ].map((item, index) => (
+          <button 
+            key={index} 
+            className="flex flex-col items-center text-xs text-gray-600 hover:text-yellow-500 transition-colors"
+            onClick={() => handleNavigation(item.label)}
+          >
+            <item.icon className="h-5 w-5 sm:h-6 sm:w-6 mb-1" />
+            {item.label}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

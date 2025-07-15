@@ -70,7 +70,7 @@ export function AppointmentCard({ appointment }: AppointmentCardProps) {
               </div>
               
               <p className="text-sm opacity-95 mb-4 leading-relaxed">
-                {appointment.description}
+                {appointment.notes || "Agendamento confirmado"}
               </p>
               
               <div className="space-y-3">

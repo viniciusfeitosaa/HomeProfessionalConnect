@@ -295,20 +295,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/messages', authenticateToken, async (req, res) => {
     try {
       const user = req.user as any;
-      // Return conversations with professionals
-      const conversations = [
-        {
-          id: 1,
-          professionalId: 1,
-          professionalName: "Ana Carolina Silva",
-          specialization: "Fisioterapeuta",
-          lastMessage: "Ótimo! Nos vemos na próxima sessão então.",
-          lastMessageTime: new Date(Date.now() - 1000 * 60 * 30),
-          unreadCount: 2,
-          isOnline: true
-        }
-      ];
-      res.json(conversations);
+      
+      // Buscar conversas do usuário no banco de dados
+      const userConversations = await storage.getConversationsByUser(user.id);
+      
+      if (userConversations && userConversations.length > 0) {
+        // Se há conversas reais, retornar elas
+        const conversationsWithDetails = await Promise.all(
+          userConversations.map(async (conv) => {
+            const professional = await storage.getProfessionalById(conv.professionalId);
+            const lastMessage = await storage.getLastMessageByConversation(conv.id);
+            
+            return {
+              id: conv.id,
+              professionalId: conv.professionalId,
+              professionalName: professional?.name || "Profissional",
+              professionalAvatar: professional?.imageUrl || "",
+              specialization: professional?.specialization || "",
+              lastMessage: lastMessage?.content || "Nenhuma mensagem",
+              lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+              unreadCount: await storage.getUnreadMessageCount(conv.id, user.id),
+              isOnline: Math.random() > 0.5, // Simular status online
+              rating: professional?.rating || 5.0,
+              location: professional?.location || "São Paulo, SP",
+              messages: await storage.getMessagesByConversation(conv.id)
+            };
+          })
+        );
+        
+        res.json(conversationsWithDetails);
+      }       else {
+        // Se não há conversas, retornar array vazio
+        res.json([]);
+      }
     } catch (error) {
       console.error('Get messages error:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
@@ -337,6 +356,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(message);
     } catch (error) {
       console.error('Send message error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Start conversation with professional
+  app.post('/api/messages/start-conversation', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { professionalId, message } = req.body;
+
+      if (!professionalId) {
+        return res.status(400).json({ message: 'ID do profissional é obrigatório' });
+      }
+
+      // Verify if professional exists
+      const professional = await storage.getProfessionalById(professionalId);
+      if (!professional) {
+        return res.status(404).json({ message: 'Profissional não encontrado' });
+      }
+
+      // Check if conversation already exists
+      const existingConversation = await storage.getConversation(user.id, professionalId);
+      
+      if (existingConversation) {
+        // If conversation exists, just send the message
+        const newMessage = await storage.createMessage({
+          conversationId: existingConversation.id,
+          senderId: user.id,
+          recipientId: professionalId,
+          content: message || 'Olá! Gostaria de conversar sobre seus serviços.',
+          type: 'text',
+          timestamp: new Date(),
+          isRead: false
+        });
+
+        return res.status(200).json({
+          message: 'Mensagem enviada com sucesso',
+          conversationId: existingConversation.id,
+          message: newMessage
+        });
+      } else {
+        // Create new conversation
+        const conversation = await storage.createConversation({
+          clientId: user.id,
+          professionalId: professionalId,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+
+        // Send initial message
+        const initialMessage = await storage.createMessage({
+          conversationId: conversation.id,
+          senderId: user.id,
+          recipientId: professionalId,
+          content: message || 'Olá! Gostaria de conversar sobre seus serviços.',
+          type: 'text',
+          timestamp: new Date(),
+          isRead: false
+        });
+
+        return res.status(201).json({
+          message: 'Conversa iniciada com sucesso',
+          conversationId: conversation.id,
+          message: initialMessage
+        });
+      }
+    } catch (error) {
+      console.error('Start conversation error:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });
@@ -413,21 +500,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get appointments - simplified for demo
+  // Get appointments
   app.get('/api/appointments', authenticateToken, async (req, res) => {
     try {
       const user = req.user as any;
-      // Return mock appointments for demo
-      const appointments = [
-        {
-          id: 1,
-          professionalName: "Ana Carolina Silva",
-          specialization: "Fisioterapeuta",
-          date: new Date(),
-          time: "14:00",
-          status: "confirmado"
-        }
-      ];
+      const appointments = await storage.getAppointmentsByUser(user.id);
       res.json(appointments);
     } catch (error) {
       console.error('Get appointments error:', error);
@@ -570,6 +647,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         message: "Error processing payment: " + error.message 
       });
+    }
+  });
+
+  // ===== ROTAS PARA PEDIDOS DO PROFISSIONAL =====
+
+  // Get orders for professional
+  app.get("/api/provider/orders", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      // Verify user is a provider
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+
+      // Buscar pedidos reais do banco de dados
+      const orders = await storage.getAppointmentsByProfessional(user.id) || [];
+      res.json(orders);
+    } catch (error) {
+      console.error('Get provider orders error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Accept order
+  app.post("/api/provider/orders/:id/accept", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const orderId = parseInt(req.params.id);
+      
+      // Verify user is a provider
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+
+      // Mock implementation - will be replaced with real database update
+      console.log(`Professional ${user.id} accepted order ${orderId}`);
+
+      res.json({ 
+        message: "Pedido aceito com sucesso",
+        orderId: orderId,
+        status: "accepted"
+      });
+    } catch (error) {
+      console.error('Accept order error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Reject order
+  app.post("/api/provider/orders/:id/reject", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const orderId = parseInt(req.params.id);
+      
+      // Verify user is a provider
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+
+      // Mock implementation - will be replaced with real database update
+      console.log(`Professional ${user.id} rejected order ${orderId}`);
+
+      res.json({ 
+        message: "Pedido rejeitado com sucesso",
+        orderId: orderId,
+        status: "rejected"
+      });
+    } catch (error) {
+      console.error('Reject order error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Complete order
+  app.post("/api/provider/orders/:id/complete", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const orderId = parseInt(req.params.id);
+      
+      // Verify user is a provider
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+
+      // Mock implementation - will be replaced with real database update
+      console.log(`Professional ${user.id} completed order ${orderId}`);
+
+      res.json({ 
+        message: "Pedido concluído com sucesso",
+        orderId: orderId,
+        status: "completed"
+      });
+    } catch (error) {
+      console.error('Complete order error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ===== ROTAS PARA CONFIGURAÇÕES DO PROFISSIONAL =====
+
+  // Get provider settings
+  app.get("/api/provider/settings", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      // Verify user is a provider
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+
+      // Mock settings data
+      const settings = {
+        profile: {
+          name: "Ana Carolina Silva",
+          email: "ana.carolina@email.com",
+          phone: "(11) 99999-9999",
+          specialization: "Fisioterapeuta"
+        },
+        availability: {
+          isAvailable: true,
+          workStartTime: "08:00",
+          workEndTime: "18:00"
+        },
+        notifications: {
+          newOrders: true,
+          messages: true,
+          payments: true,
+          reminders: true,
+          marketing: false
+        },
+        payments: {
+          bankAccount: "Banco do Brasil •••• 1234",
+          pixKey: "ana.carolina@email.com"
+        }
+      };
+
+      res.json(settings);
+    } catch (error) {
+      console.error('Get provider settings error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Update provider settings
+  app.put("/api/provider/settings", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { profile, availability, notifications, payments } = req.body;
+      
+      // Verify user is a provider
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+
+      // Mock implementation - will be replaced with real database update
+      console.log(`Updating settings for professional ${user.id}:`, {
+        profile,
+        availability,
+        notifications,
+        payments
+      });
+
+      res.json({ 
+        message: "Configurações atualizadas com sucesso",
+        settings: { profile, availability, notifications, payments }
+      });
+    } catch (error) {
+      console.error('Update provider settings error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });
 

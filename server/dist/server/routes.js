@@ -55,7 +55,7 @@ export async function registerRoutes(app) {
             tableName: 'sessions', // tabela para armazenar as sessões
             createTableIfMissing: true, // cria a tabela automaticamente se não existir
         }),
-        secret: process.env.JWT_SECRET,
+        secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'fallback-secret-key',
         resave: false,
         saveUninitialized: false,
         cookie: {
@@ -237,20 +237,106 @@ export async function registerRoutes(app) {
     app.get('/api/messages', authenticateToken, async (req, res) => {
         try {
             const user = req.user;
-            // Return conversations with professionals
-            const conversations = [
-                {
-                    id: 1,
-                    professionalId: 1,
-                    professionalName: "Ana Carolina Silva",
-                    specialization: "Fisioterapeuta",
-                    lastMessage: "Ótimo! Nos vemos na próxima sessão então.",
-                    lastMessageTime: new Date(Date.now() - 1000 * 60 * 30),
-                    unreadCount: 2,
-                    isOnline: true
-                }
-            ];
-            res.json(conversations);
+            // Buscar conversas do usuário no banco de dados
+            const userConversations = await storage.getConversationsByUser(user.id);
+            if (userConversations && userConversations.length > 0) {
+                // Se há conversas reais, retornar elas
+                const conversationsWithDetails = await Promise.all(userConversations.map(async (conv) => {
+                    const professional = await storage.getProfessionalById(conv.professionalId);
+                    const lastMessage = await storage.getLastMessageByConversation(conv.id);
+                    return {
+                        id: conv.id,
+                        professionalId: conv.professionalId,
+                        professionalName: professional?.name || "Profissional",
+                        professionalAvatar: professional?.imageUrl || "",
+                        specialization: professional?.specialization || "",
+                        lastMessage: lastMessage?.content || "Nenhuma mensagem",
+                        lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+                        unreadCount: await storage.getUnreadMessageCount(conv.id, user.id),
+                        isOnline: Math.random() > 0.5, // Simular status online
+                        rating: professional?.rating || 5.0,
+                        location: professional?.location || "São Paulo, SP",
+                        messages: await storage.getMessagesByConversation(conv.id)
+                    };
+                }));
+                res.json(conversationsWithDetails);
+            }
+            else {
+                // Se não há conversas, retornar dados de exemplo
+                const conversations = [
+                    {
+                        id: 1,
+                        professionalId: 1,
+                        professionalName: "Ana Carolina Silva",
+                        professionalAvatar: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300&h=300&fit=crop&crop=face",
+                        specialization: "Fisioterapeuta",
+                        lastMessage: "Ótimo! Nos vemos na próxima sessão então.",
+                        lastMessageTime: new Date(Date.now() - 1000 * 60 * 30),
+                        unreadCount: 2,
+                        isOnline: true,
+                        rating: 4.9,
+                        location: "São Paulo, SP",
+                        messages: [
+                            {
+                                id: 1,
+                                senderId: 1,
+                                content: "Olá! Gostaria de agendar uma sessão de fisioterapia.",
+                                timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
+                                isRead: true,
+                                type: "text"
+                            },
+                            {
+                                id: 2,
+                                senderId: user.id,
+                                content: "Claro! Que horário seria melhor para você?",
+                                timestamp: new Date(Date.now() - 1000 * 60 * 60),
+                                isRead: true,
+                                type: "text"
+                            },
+                            {
+                                id: 3,
+                                senderId: 1,
+                                content: "Ótimo! Nos vemos na próxima sessão então.",
+                                timestamp: new Date(Date.now() - 1000 * 60 * 30),
+                                isRead: false,
+                                type: "text"
+                            }
+                        ]
+                    },
+                    {
+                        id: 2,
+                        professionalId: 2,
+                        professionalName: "Dr. João Santos",
+                        professionalAvatar: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=300&h=300&fit=crop&crop=face",
+                        specialization: "Técnico em Enfermagem",
+                        lastMessage: "Perfeito! Vou preparar tudo para amanhã.",
+                        lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 3),
+                        unreadCount: 0,
+                        isOnline: false,
+                        rating: 4.8,
+                        location: "São Paulo, SP",
+                        messages: [
+                            {
+                                id: 4,
+                                senderId: user.id,
+                                content: "Preciso de um técnico para aplicar medicação amanhã.",
+                                timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4),
+                                isRead: true,
+                                type: "text"
+                            },
+                            {
+                                id: 5,
+                                senderId: 2,
+                                content: "Perfeito! Vou preparar tudo para amanhã.",
+                                timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3),
+                                isRead: true,
+                                type: "text"
+                            }
+                        ]
+                    }
+                ];
+                res.json(conversations);
+            }
         }
         catch (error) {
             console.error('Get messages error:', error);
@@ -277,6 +363,68 @@ export async function registerRoutes(app) {
         }
         catch (error) {
             console.error('Send message error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Start conversation with professional
+    app.post('/api/messages/start-conversation', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const { professionalId, message } = req.body;
+            if (!professionalId) {
+                return res.status(400).json({ message: 'ID do profissional é obrigatório' });
+            }
+            // Verify if professional exists
+            const professional = await storage.getProfessionalById(professionalId);
+            if (!professional) {
+                return res.status(404).json({ message: 'Profissional não encontrado' });
+            }
+            // Check if conversation already exists
+            const existingConversation = await storage.getConversation(user.id, professionalId);
+            if (existingConversation) {
+                // If conversation exists, just send the message
+                const newMessage = await storage.createMessage({
+                    conversationId: existingConversation.id,
+                    senderId: user.id,
+                    recipientId: professionalId,
+                    content: message || 'Olá! Gostaria de conversar sobre seus serviços.',
+                    type: 'text',
+                    timestamp: new Date(),
+                    isRead: false
+                });
+                return res.status(200).json({
+                    message: 'Mensagem enviada com sucesso',
+                    conversationId: existingConversation.id,
+                    message: newMessage
+                });
+            }
+            else {
+                // Create new conversation
+                const conversation = await storage.createConversation({
+                    clientId: user.id,
+                    professionalId: professionalId,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                });
+                // Send initial message
+                const initialMessage = await storage.createMessage({
+                    conversationId: conversation.id,
+                    senderId: user.id,
+                    recipientId: professionalId,
+                    content: message || 'Olá! Gostaria de conversar sobre seus serviços.',
+                    type: 'text',
+                    timestamp: new Date(),
+                    isRead: false
+                });
+                return res.status(201).json({
+                    message: 'Conversa iniciada com sucesso',
+                    conversationId: conversation.id,
+                    message: initialMessage
+                });
+            }
+        }
+        catch (error) {
+            console.error('Start conversation error:', error);
             res.status(500).json({ message: 'Erro interno do servidor' });
         }
     });
@@ -497,6 +645,157 @@ export async function registerRoutes(app) {
             res.status(500).json({
                 message: "Error processing payment: " + error.message
             });
+        }
+    });
+    // ===== ROTAS PARA PEDIDOS DO PROFISSIONAL =====
+    // Get orders for professional
+    app.get("/api/provider/orders", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Buscar pedidos reais do banco de dados
+            const orders = await storage.getAppointmentsByProfessional(user.id) || [];
+            res.json(orders);
+        }
+        catch (error) {
+            console.error('Get provider orders error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Accept order
+    app.post("/api/provider/orders/:id/accept", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const orderId = parseInt(req.params.id);
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Mock implementation - will be replaced with real database update
+            console.log(`Professional ${user.id} accepted order ${orderId}`);
+            res.json({
+                message: "Pedido aceito com sucesso",
+                orderId: orderId,
+                status: "accepted"
+            });
+        }
+        catch (error) {
+            console.error('Accept order error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Reject order
+    app.post("/api/provider/orders/:id/reject", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const orderId = parseInt(req.params.id);
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Mock implementation - will be replaced with real database update
+            console.log(`Professional ${user.id} rejected order ${orderId}`);
+            res.json({
+                message: "Pedido rejeitado com sucesso",
+                orderId: orderId,
+                status: "rejected"
+            });
+        }
+        catch (error) {
+            console.error('Reject order error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Complete order
+    app.post("/api/provider/orders/:id/complete", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const orderId = parseInt(req.params.id);
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Mock implementation - will be replaced with real database update
+            console.log(`Professional ${user.id} completed order ${orderId}`);
+            res.json({
+                message: "Pedido concluído com sucesso",
+                orderId: orderId,
+                status: "completed"
+            });
+        }
+        catch (error) {
+            console.error('Complete order error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // ===== ROTAS PARA CONFIGURAÇÕES DO PROFISSIONAL =====
+    // Get provider settings
+    app.get("/api/provider/settings", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Mock settings data
+            const settings = {
+                profile: {
+                    name: "Ana Carolina Silva",
+                    email: "ana.carolina@email.com",
+                    phone: "(11) 99999-9999",
+                    specialization: "Fisioterapeuta"
+                },
+                availability: {
+                    isAvailable: true,
+                    workStartTime: "08:00",
+                    workEndTime: "18:00"
+                },
+                notifications: {
+                    newOrders: true,
+                    messages: true,
+                    payments: true,
+                    reminders: true,
+                    marketing: false
+                },
+                payments: {
+                    bankAccount: "Banco do Brasil •••• 1234",
+                    pixKey: "ana.carolina@email.com"
+                }
+            };
+            res.json(settings);
+        }
+        catch (error) {
+            console.error('Get provider settings error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Update provider settings
+    app.put("/api/provider/settings", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const { profile, availability, notifications, payments } = req.body;
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Mock implementation - will be replaced with real database update
+            console.log(`Updating settings for professional ${user.id}:`, {
+                profile,
+                availability,
+                notifications,
+                payments
+            });
+            res.json({
+                message: "Configurações atualizadas com sucesso",
+                settings: { profile, availability, notifications, payments }
+            });
+        }
+        catch (error) {
+            console.error('Update provider settings error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
         }
     });
     const httpServer = createServer(app);

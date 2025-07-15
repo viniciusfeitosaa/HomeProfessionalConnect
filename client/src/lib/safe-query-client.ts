@@ -1,7 +1,8 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getApiUrl } from "./api-config";
 
 async function safeApiRequest(url: string): Promise<any> {
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://home-professional-connect-viniciusalves36.replit.app';
+  const baseUrl = getApiUrl();
   const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
   
   const token = localStorage.getItem('token');

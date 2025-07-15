@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { safeQueryClient as queryClient } from "./lib/safe-query-client";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -16,6 +16,8 @@ import Payment from "@/pages/payment";
 import ProfessionalDetail from "@/pages/professional-detail";
 import ProviderDashboard from "@/pages/provider-dashboard";
 import ProviderRegistration from "@/pages/provider-registration";
+import ProviderOrders from "@/pages/provider-orders";
+import ProviderSettings from "@/pages/provider-settings";
 import ServiceOffer from "@/pages/service-offer";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
@@ -34,7 +36,7 @@ function Router() {
 
   // Show login as main screen when not authenticated
   if (!isAuthenticated) {
-    return <Login onLogin={(userType) => {
+    return <Login onLogin={() => {
       // Force reload to ensure auth state is properly updated
       window.location.reload();
     }} />;
@@ -49,8 +51,11 @@ function Router() {
         <Route path="/provider-registration">
           <ProviderRegistration onComplete={() => window.location.reload()} />
         </Route>
+        <Route path="/provider-orders" component={ProviderOrders} />
+        <Route path="/provider-settings" component={ProviderSettings} />
         <Route path="/service-offer/:id" component={ServiceOffer} />
         <Route path="/messages" component={Messages} />
+        <Route path="/agenda" component={Agenda} />
         <Route path="/profile" component={Profile} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

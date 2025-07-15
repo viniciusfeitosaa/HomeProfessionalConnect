@@ -1,12 +1,8 @@
 
-import { User, MapPin, Phone, Mail, Star, Settings, CreditCard, Shield, HelpCircle, LogOut, Edit, Camera, ArrowLeft } from "lucide-react";
+import { MapPin, Phone, Mail, Settings, CreditCard, Shield, HelpCircle, LogOut, Edit, Camera, ArrowLeft, Home, MessageSquare, Calendar, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { BottomNavigation } from "@/components/bottom-navigation";
-import { Sidebar } from "@/components/sidebar";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,7 +20,7 @@ export default function Profile() {
     queryKey: ["/api/appointments"],
   });
 
-  const completedServices = appointments.filter(apt => 
+  const completedServices = (appointments || []).filter(apt => 
     new Date(apt.scheduledFor) <= new Date()
   ).length;
 
@@ -55,126 +51,123 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-      <Sidebar />
-      <div className="lg:pl-64">
         <div className="w-full max-w-sm lg:max-w-none mx-auto lg:mx-0 min-h-screen relative">
-          <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-            <div className="flex items-center mb-6">
+        <div className="px-3 sm:px-4 lg:px-8 py-3 sm:py-4 lg:py-6">
+          <div className="flex items-center mb-4 sm:mb-6">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setLocation("/")}
                 className="mr-2 p-2 lg:hidden"
               >
-                <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Meu Perfil</h1>
+            <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Meu Perfil</h1>
             </div>
 
             {/* Profile Header */}
-            <div className="text-center mb-8">
-              <div className="relative inline-block mb-4">
-                <Avatar className="w-24 h-24 mx-auto">
-                  <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&h=150" />
-                  <AvatarFallback className="text-2xl bg-primary text-white">
+          <div className="text-center mb-6 sm:mb-8">
+            <div className="relative inline-block mb-3 sm:mb-4">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto bg-yellow-500 rounded-full flex items-center justify-center">
+                <span className="text-xl sm:text-2xl font-bold text-white">
                     {user?.name?.charAt(0) || "G"}
-                  </AvatarFallback>
-                </Avatar>
+                </span>
+              </div>
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0 bg-white border-2 border-gray-200"
+                className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 rounded-full w-6 h-6 sm:w-8 sm:h-8 p-0 bg-white border-2 border-gray-200"
                   onClick={handleChangePhoto}
                 >
-                  <Camera className="h-4 w-4" />
+                <Camera className="h-3 w-3 sm:h-4 sm:w-4" />
                 </Button>
               </div>
               
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1 sm:mb-2">
                 {user?.name || "Gustavo Silva"}
               </h1>
-              <p className="text-gray-600 mb-4">
+            <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">
                 Membro desde Janeiro 2024
               </p>
               
-              <div className="flex justify-center space-x-6 mb-6">
+            <div className="flex justify-center space-x-4 sm:space-x-6 mb-4 sm:mb-6">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{appointments.length}</p>
-                  <p className="text-sm text-gray-600">Agendamentos</p>
+                <p className="text-xl sm:text-2xl font-bold text-primary">{appointments?.length || 0}</p>
+                <p className="text-xs sm:text-sm text-gray-600">Agendamentos</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{completedServices}</p>
-                  <p className="text-sm text-gray-600">Concluídos</p>
+                <p className="text-xl sm:text-2xl font-bold text-primary">{completedServices}</p>
+                <p className="text-xs sm:text-sm text-gray-600">Concluídos</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">4.8</p>
-                  <p className="text-sm text-gray-600">Avaliação</p>
+                <p className="text-xl sm:text-2xl font-bold text-primary">4.8</p>
+                <p className="text-xs sm:text-sm text-gray-600">Avaliação</p>
                 </div>
               </div>
 
-              <Button onClick={handleEditProfile} className="w-full mb-6">
+            <Button onClick={handleEditProfile} className="w-full mb-4 sm:mb-6 h-10 sm:h-12 text-sm sm:text-base">
                 <Edit className="h-4 w-4 mr-2" />
                 Editar Perfil
               </Button>
             </div>
 
             {/* Profile Information */}
-            <Card className="mb-6">
-              <CardHeader>
-            <CardTitle className="text-lg">Informações Pessoais</CardTitle>
+          <Card className="mb-4 sm:mb-6">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-base sm:text-lg">Informações Pessoais</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <Mail className="h-5 w-5 text-gray-400" />
-              <div>
-                <p className="text-sm text-gray-600">Email</p>
-                <p className="font-medium">gustavo@email.com</p>
+            <CardContent className="space-y-3 sm:space-y-4">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm text-gray-600">Email</p>
+                  <p className="font-medium text-sm sm:text-base truncate">gustavo@email.com</p>
               </div>
             </div>
             
-            <Separator />
+              <hr className="border-gray-200 dark:border-gray-700" />
             
-            <div className="flex items-center space-x-3">
-              <Phone className="h-5 w-5 text-gray-400" />
-              <div>
-                <p className="text-sm text-gray-600">Telefone</p>
-                <p className="font-medium">(11) 99999-9999</p>
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm text-gray-600">Telefone</p>
+                  <p className="font-medium text-sm sm:text-base">(11) 99999-9999</p>
               </div>
             </div>
             
-            <Separator />
+              <hr className="border-gray-200 dark:border-gray-700" />
             
-            <div className="flex items-center space-x-3">
-              <MapPin className="h-5 w-5 text-gray-400" />
-              <div>
-                <p className="text-sm text-gray-600">Endereço</p>
-                <p className="font-medium">São Paulo, SP</p>
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm text-gray-600">Endereço</p>
+                  <p className="font-medium text-sm sm:text-base">São Paulo, SP</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Account Status */}
-        <Card className="mb-6 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
+          <Card className="mb-4 sm:mb-6 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-center space-x-3 sm:space-x-4">
                 <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
-                    <Shield className="h-6 w-6 text-white" />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                      <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                    </div>
                   </div>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-bold text-gray-900 mb-1">Conta Verificada</h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1">Conta Verificada</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
                     Sua identidade foi confirmada com sucesso
                   </p>
                 </div>
               </div>
-              <div className="flex-shrink-0 ml-4">
-                <Badge className="bg-green-500 text-white shadow-md hover:bg-green-600 transition-colors px-4 py-2 text-sm font-medium border-0">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-lg">✓</span>
+                <div className="flex-shrink-0">
+                  <Badge className="bg-green-500 text-white shadow-md hover:bg-green-600 transition-colors px-3 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm font-medium border-0">
+                    <div className="flex items-center space-x-1 sm:space-x-2">
+                      <span className="text-base sm:text-lg">✓</span>
                     <span>Verificado</span>
                   </div>
                 </Badge>
@@ -184,13 +177,13 @@ export default function Profile() {
         </Card>
 
         {/* Settings Menu */}
-        <div className="space-y-2 mb-20">
+          <div className="space-y-2 mb-16 sm:mb-20">
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handlePaymentMethods}>
-            <CardContent className="p-4">
+              <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <CreditCard className="h-5 w-5 text-gray-600" />
-                  <span className="font-medium">Formas de Pagamento</span>
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 flex-shrink-0" />
+                    <span className="font-medium text-sm sm:text-base">Formas de Pagamento</span>
                 </div>
                 <span className="text-gray-400">→</span>
               </div>
@@ -198,11 +191,11 @@ export default function Profile() {
           </Card>
 
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setLocation("/settings")}>
-            <CardContent className="p-4">
+              <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Settings className="h-5 w-5 text-gray-600" />
-                  <span className="font-medium">Configurações</span>
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <Settings className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 flex-shrink-0" />
+                    <span className="font-medium text-sm sm:text-base">Configurações</span>
                 </div>
                 <span className="text-gray-400">→</span>
               </div>
@@ -210,11 +203,11 @@ export default function Profile() {
           </Card>
 
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handlePrivacy}>
-            <CardContent className="p-4">
+              <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Shield className="h-5 w-5 text-gray-600" />
-                  <span className="font-medium">Privacidade e Segurança</span>
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 flex-shrink-0" />
+                    <span className="font-medium text-sm sm:text-base">Privacidade e Segurança</span>
                 </div>
                 <span className="text-gray-400">→</span>
               </div>
@@ -222,31 +215,66 @@ export default function Profile() {
           </Card>
 
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleHelp}>
-            <CardContent className="p-4">
+              <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <HelpCircle className="h-5 w-5 text-gray-600" />
-                  <span className="font-medium">Ajuda e Suporte</span>
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 flex-shrink-0" />
+                    <span className="font-medium text-sm sm:text-base">Ajuda e Suporte</span>
                 </div>
                 <span className="text-gray-400">→</span>
               </div>
             </CardContent>
           </Card>
 
-          <Separator className="my-4" />
+            <hr className="border-gray-200 dark:border-gray-700 my-3 sm:my-4" />
 
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleLogout}>
-            <CardContent className="p-4">
-              <div className="flex items-center space-x-3">
-                <LogOut className="h-5 w-5 text-red-500" />
-                <span className="font-medium text-red-500">Sair da Conta</span>
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex items-center space-x-2 sm:space-x-3">
+                  <LogOut className="h-4 w-4 sm:h-5 sm:w-5 text-red-500 flex-shrink-0" />
+                  <span className="font-medium text-red-500 text-sm sm:text-base">Sair da Conta</span>
               </div>
             </CardContent>
           </Card>
             </div>
             
-            <BottomNavigation />
+          {/* Menu Inferior Padronizado */}
+          <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
+            <div className="max-w-md mx-auto flex justify-between items-center py-2 sm:py-3 px-4">
+              {[
+                { icon: Home, label: "Home" },
+                { icon: MessageSquare, label: "Chat" },
+                { icon: Calendar, label: "Agenda" },
+                { icon: User, label: "Perfil" }
+              ].map((item, index) => {
+                const isActive = item.label === "Perfil";
+                return (
+                  <button
+                    key={index}
+                    className={`flex flex-col items-center justify-center flex-1 min-w-0 transition-colors px-1 sm:px-2 ${
+                      isActive 
+                        ? "text-yellow-500" 
+                        : "text-gray-600 hover:text-yellow-500"
+                    }`}
+                    onClick={() => {
+                      switch (item.label) {
+                        case "Home": setLocation("/"); break;
+                        case "Chat": setLocation("/messages"); break;
+                        case "Agenda": setLocation("/agenda"); break;
+                        case "Perfil": setLocation("/profile"); break;
+                        default: setLocation("/");
+                      }
+                    }}
+                  >
+                    <item.icon className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7 mb-0.5 sm:mb-1 ${
+                      isActive ? "text-yellow-500" : ""
+                    }`} />
+                    <span className="text-xs sm:text-sm leading-tight">{item.label}</span>
+                  </button>
+                );
+              })}
           </div>
+          </nav>
         </div>
       </div>
     </div>

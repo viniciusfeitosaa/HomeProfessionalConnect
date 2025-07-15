@@ -24,8 +24,8 @@ export function ProfessionalCard({ professional }: ProfessionalCardProps) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 h-full">
           <div className="relative mb-4 sm:mb-0 flex-shrink-0 self-center sm:self-start">
             <img
-              src={professional.imageUrl}
-              alt={`${professional.name} - ${professional.service}`}
+              src={professional.imageUrl || undefined}
+              alt={`${professional.name} - ${professional.specialization}`}
               className="w-16 h-16 sm:w-18 sm:h-18 lg:w-20 lg:h-20 rounded-2xl object-cover shadow-lg mx-auto sm:mx-0"
             />
             <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-800 rounded-full p-1 shadow-md">
@@ -37,7 +37,7 @@ export function ProfessionalCard({ professional }: ProfessionalCardProps) {
               {professional.name}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 leading-relaxed">
-              {professional.service}
+              {professional.specialization}
             </p>
             
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">

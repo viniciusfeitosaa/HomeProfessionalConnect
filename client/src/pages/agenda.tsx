@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -15,8 +15,6 @@ import {
   ChevronRight,
   Plus,
   Filter,
-  Search,
-  MoreVertical,
   CheckCircle,
   XCircle,
   AlertCircle,
@@ -24,14 +22,14 @@ import {
   MessageSquare,
   Navigation,
   User,
-  Stethoscope,
-  Heart,
-  Activity
+  Activity,
+  Calendar,
+  Home
 } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { format, addDays, subDays, startOfWeek, addWeeks, subWeeks, isSameDay, isSameMonth } from "date-fns";
+import { format, addDays, startOfWeek, addWeeks, subWeeks, isSameDay, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
 
 interface Appointment {
   id: number;
@@ -55,112 +53,15 @@ interface Appointment {
 }
 
 export default function Agenda() {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<"month" | "week" | "day">("month");
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showAppointmentDetails, setShowAppointmentDetails] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
-  // Mock appointments data
-  const appointments: Appointment[] = [
-    {
-      id: 1,
-      professionalId: 1,
-      professionalName: "Ana Carolina Silva",
-      professionalAvatar: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300&h=300&fit=crop&crop=face",
-      specialization: "Fisioterapeuta",
-      date: new Date(),
-      time: "14:00",
-      duration: 60,
-      type: "presencial",
-      status: "confirmado",
-      location: "Clínica FisioVida - Rua das Flores, 123",
-      notes: "Sessão de fisioterapia para dores nas costas. Trazer exames de ressonância.",
-      price: 120,
-      rating: 4.9,
-      canReschedule: true,
-      canCancel: true,
-      professionalPhone: "(11) 99999-1234"
-    },
-    {
-      id: 2,
-      professionalId: 2,
-      professionalName: "Dr. João Santos",
-      professionalAvatar: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=300&h=300&fit=crop&crop=face",
-      specialization: "Técnico em Enfermagem",
-      date: addDays(new Date(), 1),
-      time: "10:30",
-      duration: 30,
-      type: "presencial",
-      status: "agendado",
-      location: "Residência do paciente",
-      notes: "Aplicação de medicação intravenosa. Paciente idoso, 75 anos.",
-      price: 80,
-      rating: 4.8,
-      canReschedule: true,
-      canCancel: true,
-      professionalPhone: "(11) 98888-5678"
-    },
-    {
-      id: 3,
-      professionalId: 3,
-      professionalName: "Maria Oliveira",
-      professionalAvatar: "https://images.unsplash.com/photo-1594824911330-75490d35b1bb?w=300&h=300&fit=crop&crop=face",
-      specialization: "Acompanhante Hospitalar",
-      date: addDays(new Date(), 2),
-      time: "08:00",
-      duration: 720, // 12 horas
-      type: "presencial",
-      status: "confirmado",
-      location: "Hospital São Paulo - Quarto 204",
-      notes: "Acompanhamento pós-cirúrgico. Monitorar sinais vitais e administrar medicação conforme prescrição médica.",
-      price: 350,
-      rating: 5.0,
-      canReschedule: false,
-      canCancel: false,
-      professionalPhone: "(11) 97777-9999"
-    },
-    {
-      id: 4,
-      professionalId: 4,
-      professionalName: "Dr. Carlos Mendes",
-      professionalAvatar: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=300&h=300&fit=crop&crop=face",
-      specialization: "Fisioterapeuta",
-      date: addDays(new Date(), 3),
-      time: "16:00",
-      duration: 45,
-      type: "online",
-      status: "agendado",
-      notes: "Consulta de avaliação online. Orientações sobre exercícios domiciliares.",
-      price: 90,
-      canReschedule: true,
-      canCancel: true,
-      meetingLink: "https://meet.google.com/abc-defg-hij",
-      professionalPhone: "(11) 96666-7777"
-    },
-    {
-      id: 5,
-      professionalId: 1,
-      professionalName: "Ana Carolina Silva",
-      professionalAvatar: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300&h=300&fit=crop&crop=face",
-      specialization: "Fisioterapeuta",
-      date: subDays(new Date(), 1),
-      time: "15:00",
-      duration: 60,
-      type: "presencial",
-      status: "concluido",
-      location: "Clínica FisioVida - Rua das Flores, 123",
-      notes: "Sessão completa. Paciente apresentou melhora significativa.",
-      price: 120,
-      rating: 5.0,
-      canReschedule: false,
-      canCancel: false,
-      professionalPhone: "(11) 99999-1234"
-    }
-  ];
+  // Dados de agendamentos serão carregados da API
+  // TODO: Implementar busca de agendamentos reais
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -194,10 +95,7 @@ export default function Agenda() {
     }
   };
 
-  const filteredAppointments = appointments.filter(apt => {
-    if (filterStatus === "all") return true;
-    return apt.status === filterStatus;
-  });
+  const filteredAppointments = [] as Appointment[]; // Placeholder, will be fetched from API
 
   const getAppointmentsForDate = (date: Date) => {
     return filteredAppointments.filter(apt => isSameDay(apt.date, date));
@@ -225,7 +123,7 @@ export default function Agenda() {
     setShowAppointmentDetails(true);
   };
 
-  const handleCancelAppointment = (appointmentId: number) => {
+  const handleCancelAppointment = () => {
     toast({
       title: "Agendamento cancelado",
       description: "Seu agendamento foi cancelado com sucesso.",
@@ -233,7 +131,7 @@ export default function Agenda() {
     setShowAppointmentDetails(false);
   };
 
-  const handleRescheduleAppointment = (appointmentId: number) => {
+  const handleRescheduleAppointment = () => {
     toast({
       title: "Reagendamento",
       description: "Redirecionando para reagendar consulta...",
@@ -264,26 +162,39 @@ export default function Agenda() {
     }
   };
 
+  const handleNavigation = (label: string) => {
+    switch (label) {
+      case "Home":
+        window.location.href = "/";
+        break;
+      case "Chat":
+        window.location.href = "/messages";
+        break;
+      case "Agenda":
+        window.location.href = "/agenda";
+        break;
+      case "Perfil":
+        window.location.href = "/profile";
+        break;
+      default:
+        window.location.href = "/";
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Mobile Header */}
-      <div className="lg:hidden sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
-        <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="bg-white dark:bg-gray-800 border-b px-4 py-3">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="sm"
-              className="p-2"
               onClick={() => window.history.back()}
+            className="lg:hidden"
             >
               <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Agenda</h1>
-          </div>
-          <Button variant="outline" size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Nova Consulta
           </Button>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Minha Agenda</h1>
         </div>
       </div>
 
@@ -659,7 +570,7 @@ export default function Agenda() {
                     {selectedAppointment.canReschedule && (
                       <Button
                         variant="outline"
-                        onClick={() => handleRescheduleAppointment(selectedAppointment.id)}
+                        onClick={() => handleRescheduleAppointment()}
                       >
                         <CalendarIcon className="h-4 w-4 mr-2" />
                         Reagendar
@@ -669,7 +580,7 @@ export default function Agenda() {
                       <Button
                         variant="outline"
                         className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
-                        onClick={() => handleCancelAppointment(selectedAppointment.id)}
+                        onClick={() => handleCancelAppointment()}
                       >
                         <XCircle className="h-4 w-4 mr-2" />
                         Cancelar
@@ -682,6 +593,36 @@ export default function Agenda() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
+        <div className="max-w-md mx-auto flex justify-between items-center py-2 sm:py-3 px-4">
+          {[
+            { icon: Home, label: "Home" },
+            { icon: MessageSquare, label: "Chat" },
+            { icon: Calendar, label: "Agenda" },
+            { icon: User, label: "Perfil" }
+          ].map((item, index) => {
+            const isActive = item.label === "Agenda";
+            return (
+              <button 
+                key={index} 
+                className={`flex flex-col items-center justify-center flex-1 min-w-0 transition-colors px-1 sm:px-2 ${
+                  isActive 
+                    ? "text-yellow-500" 
+                    : "text-gray-600 hover:text-yellow-500"
+                }`}
+                onClick={() => handleNavigation(item.label)}
+              >
+                <item.icon className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7 mb-0.5 sm:mb-1 ${
+                  isActive ? "text-yellow-500" : ""
+                }`} />
+                <span className="text-xs sm:text-sm leading-tight">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

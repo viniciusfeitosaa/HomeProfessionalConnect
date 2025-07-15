@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes.js";
 import { seedDatabase } from "./seedData.js";
+import { Server as SocketIOServer } from "socket.io";
 
 // Extend Express Request type for user property
 declare global {
@@ -23,8 +24,15 @@ const app = express();
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
-  // Always set the specific origin for Netlify
-  res.setHeader('Access-Control-Allow-Origin', 'https://lifebee.netlify.app');
+  // Allow both Netlify and localhost for development
+  const allowedOrigins = ['https://lifebee.netlify.app', 'http://localhost:5173', 'http://localhost:5174'];
+  
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173');
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -75,6 +83,30 @@ app.use((req, res, next) => {
   await seedDatabase();
   
   const server = await registerRoutes(app);
+
+  // Inicializa o Socket.IO junto ao servidor HTTP
+  const io = new SocketIOServer(server, {
+    cors: {
+      origin: ["http://localhost:5173", "http://localhost:5174", "https://lifebee.netlify.app"],
+      credentials: true,
+    },
+  });
+
+  io.on("connection", (socket) => {
+    console.log("Novo usuário conectado:", socket.id);
+
+    socket.on("joinRoom", (roomId) => {
+      socket.join(roomId);
+    });
+
+    socket.on("chatMessage", ({ roomId, message, sender }) => {
+      io.to(roomId).emit("chatMessage", { message, sender });
+    });
+
+    socket.on("disconnect", () => {
+      console.log("Usuário desconectado:", socket.id);
+    });
+  });
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

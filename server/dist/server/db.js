@@ -1,8 +1,28 @@
+// Carrega as variáveis de ambiente
+import 'dotenv/config';
+import path from 'path';
+import { config } from 'dotenv';
+// Carrega o arquivo .env da raiz do projeto
+config({ path: path.resolve(process.cwd(), '../.env') });
+// Define as variáveis manualmente se não estiverem carregadas
+if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = "postgresql://neondb_owner:npg_L9mgJX6UuftC@ep-lingering-pine-a54hc3dj-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require";
+}
+if (!process.env.SESSION_SECRET) {
+    process.env.SESSION_SECRET = "462850e97a4147e11d70bd6bb8675b39855643173f0d0aa8904be81060f506a7";
+}
+if (!process.env.JWT_SECRET) {
+    process.env.JWT_SECRET = "462850e97a4147e11d70bd6bb8675b39855643173f0d0aa8904be81060f506a7";
+}
+console.log("Current directory:", process.cwd());
+console.log("Env file path:", path.resolve(process.cwd(), '../.env'));
+console.log("All env vars:", Object.keys(process.env).filter(key => key.includes('DATABASE')));
+console.log("DATABASE_URL value:", process.env.DATABASE_URL);
 // Conexão com o banco Neon/PostgreSQL usando variável DATABASE_URL definida no ambiente
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
-import * as schema from './shared/schema.js';
+import * as schema from "../shared/schema.js";
 neonConfig.webSocketConstructor = ws;
 const connectionString = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
 console.log("=== DATABASE CONNECTION DEBUG ===");

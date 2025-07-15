@@ -1,0 +1,13 @@
+# Copie este conteúdo para um arquivo .env na raiz do projeto
+
+# Configurações do Banco de Dados (Neon)
+DATABASE_URL=postgresql://seu-usuario:sua-senha@seu-host-neon:5432/seu-banco?sslmode=require
+
+# Configurações JWT
+JWT_SECRET=sua-chave-secreta-jwt-aqui
+
+# Ambiente
+NODE_ENV=development
+
+# Porta do servidor
+PORT=5000 

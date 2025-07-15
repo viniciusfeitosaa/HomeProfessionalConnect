@@ -1,157 +1,108 @@
 
 
-import { useState } from "react";
-import { Bell, Settings, Search, Home as HomeIcon, MessageCircle, ShoppingBag, Calendar, User as UserIcon } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bell, Search, Calendar, User as UserIcon, Star, MapPin, Phone, MessageSquare, Home as HomeIcon } from "lucide-react";
 import { useLocation } from "wouter";
-import type { Professional, User } from "@shared/schema";
+import { getApiUrl } from "@/lib/api-config";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<string>("services");
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [professionals, setProfessionals] = useState<any[]>([]);
+  const [professionalsLoading, setProfessionalsLoading] = useState(true);
   const [, setLocation] = useLocation();
 
-  // Dados locais temporários enquanto conectamos com sua API do Replit
-  const professionals = [
-    {
-      id: 1,
-      name: "Dr. Maria Silva",
-      specialty: "Fisioterapeuta",
-      category: "fisioterapeuta",
-      rating: 4.8,
-      reviews: 124,
-      distance: "1.2 km",
-      price: "R$ 80/sessão",
-      available: true,
-      profileImage: "/api/placeholder/300/300",
-      description: "Especialista em reabilitação ortopédica"
-    },
-    {
-      id: 2,
-      name: "Ana Costa",
-      specialty: "Acompanhante Hospitalar", 
-      category: "acompanhante_hospitalar",
-      rating: 4.9,
-      reviews: 89,
-      distance: "0.8 km",
-      price: "R$ 120/dia",
-      available: true,
-      profileImage: "/api/placeholder/300/300",
-      description: "Cuidados especializados para idosos"
-    },
-    {
-      id: 3,
-      name: "Carlos Santos",
-      specialty: "Técnico em Enfermagem",
-      category: "tecnico_enfermagem", 
-      rating: 4.7,
-      reviews: 156,
-      distance: "2.1 km",
-      price: "R$ 60/visita",
-      available: true,
-      profileImage: "/api/placeholder/300/300",
-      description: "Curativos e medicação domiciliar"
+  // Buscar profissionais da API
+  useEffect(() => {
+    fetchProfessionals();
+  }, []);
+
+  const fetchProfessionals = async () => {
+    try {
+      setProfessionalsLoading(true);
+      const response = await fetch(`${getApiUrl()}/api/professionals`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const responseData = await response.json();
+        setProfessionals(responseData);
+      } else {
+        console.error('Erro ao buscar profissionais:', response.statusText);
+        setProfessionals([]);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar os profissionais",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao buscar profissionais:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os profissionais",
+        variant: "destructive",
+      });
+    } finally {
+      setProfessionalsLoading(false);
     }
-  ];
+  };
 
-  const professionalsLoading = false;
-  const notificationData = { count: 3 };
-  const user = { name: "Usuário" };
+  // Função para iniciar conversa diretamente
+  const startConversation = async (professionalId: number, professionalName: string) => {
+    try {
+      const response = await fetch(`${getApiUrl()}/api/messages/start-conversation`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          professionalId,
+          message: `Olá! Gostaria de conversar sobre seus serviços.`
+        }),
+      });
+      
+      if (response.ok) {
+        await response.json();
+        toast({
+          title: "Conversa iniciada!",
+          description: `Você pode conversar com ${professionalName} agora`,
+        });
+        setLocation('/messages');
+      } else {
+        toast({
+          title: "Erro",
+          description: "Não foi possível iniciar a conversa",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao iniciar conversa:', error);
+      toast({
+        title: "Erro",
+        description: "Erro de conexão ao iniciar conversa",
+        variant: "destructive",
+      });
+    }
+  };
 
-  const notificationCount = notificationData?.count || 0;
-  const topProfessional = professionals && professionals.length > 0 
-    ? professionals.find(prof => prof.rating && parseFloat(prof.rating) >= 4.8)
-    : null;
-
-  const services = [
-    { icon: "🏠", label: "Gestão do Lar", category: "acompanhante_hospitalar" },
-    { icon: "🤝", label: "Cuidados Paliativos", category: "acompanhante_hospitalar" },
-    { icon: "🧑‍🦽", label: "Acompanhante Hospitalar", category: "acompanhante_hospitalar" },
-    { icon: "🧑‍⚕️", label: "Fisioterapia", category: "fisioterapeuta" },
-    { icon: "🧑‍🤝‍🧑", label: "Apoio Emocional", category: "acompanhante_hospitalar" },
-    { icon: "🩺", label: "Exames Domiciliares", category: "tecnico_enfermagem" },
-  ];
-
-  // Show loading state only briefly
-  if (professionalsLoading) {
-    return (
-      <div className="bg-black text-white min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p>Carregando profissionais...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show offline mode if there's no data
-  if (professionals.length === 0) {
-    return (
-      <div className="bg-black text-white min-h-screen">
-        <div className="flex justify-between items-center p-4 bg-black">
-          <div>
-            <p className="text-sm text-gray-400">Olá,</p>
-            <p className="font-semibold text-lg">Usuário</p>
-          </div>
-          <div className="flex gap-4 items-center">
-            <div className="relative">
-              <Bell className="h-6 w-6 text-gray-300" />
-            </div>
-            <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
-              <UserIcon className="h-5 w-5 text-black" />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <div className="text-center max-w-md px-4">
-            <div className="w-16 h-16 bg-gray-800 rounded-full mx-auto mb-4 flex items-center justify-center">
-              <Search className="h-8 w-8 text-gray-500" />
-            </div>
-            <h2 className="text-xl font-bold mb-2">Modo Offline</h2>
-            <p className="text-gray-400 mb-4">
-              Não foi possível conectar com o servidor. Verifique sua conexão ou tente novamente.
-            </p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="bg-yellow-500 text-black px-6 py-2 rounded-lg font-medium"
-            >
-              Tentar novamente
-            </button>
-          </div>
-        </div>
-
-        <nav className="fixed bottom-0 w-full bg-black text-white flex justify-around py-3 border-t border-gray-700">
-          {[
-            { icon: HomeIcon, label: "Início" },
-            { icon: MessageCircle, label: "Chat" },
-            { icon: ShoppingBag, label: "Pedidos" },
-            { icon: Calendar, label: "Agenda" },
-            { icon: UserIcon, label: "Perfil" }
-          ].map((item, index) => (
-            <button 
-              key={index} 
-              className="flex flex-col items-center text-xs text-gray-500"
-            >
-              <item.icon className="h-5 w-5 mb-1" />
-              {item.label}
-            </button>
-          ))}
-        </nav>
-      </div>
-    );
-  }
-
-  const handleServiceClick = (category: string) => {
-    console.log("Navegando para categoria:", category);
+  // Função para fazer ligação direta
+  const makeCall = (phone: string) => {
+    window.location.href = `tel:${phone}`;
   };
 
   const handleNavigation = (page: string) => {
     switch (page) {
+      case "Home":
+        setLocation("/");
+        break;
       case "Chat":
         setLocation("/messages");
-        break;
-      case "Pedidos":
-        setLocation("/agenda");
         break;
       case "Agenda":
         setLocation("/agenda");
@@ -164,150 +115,231 @@ export default function Home() {
     }
   };
 
+  // Show loading state
+  if (professionalsLoading) {
+    return (
+      <div className="bg-gradient-to-br from-yellow-50 to-orange-50 min-h-screen flex items-center justify-center px-4">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium text-sm sm:text-base">Carregando profissionais...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show offline mode if there's no data
+  if (professionals.length === 0) {
+    return (
+      <div className="bg-gradient-to-br from-yellow-50 to-orange-50 min-h-screen">
+        <div className="flex justify-between items-center p-4">
+          <div>
+            <p className="text-xs sm:text-sm text-gray-600">Olá,</p>
+            <p className="font-semibold text-base sm:text-lg text-gray-900">Usuário</p>
+          </div>
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+            <UserIcon className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center min-h-[60vh] px-4">
+          <div className="text-center max-w-md">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gray-200 rounded-full mx-auto mb-4 sm:mb-6 flex items-center justify-center">
+              <Search className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400" />
+            </div>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 sm:mb-3">Nenhum profissional disponível</h2>
+            <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
+              No momento não há profissionais cadastrados na sua região. Tente novamente mais tarde.
+            </p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="bg-yellow-500 text-white px-6 sm:px-8 py-2 sm:py-3 rounded-full font-medium hover:bg-yellow-600 transition-colors text-sm sm:text-base"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        </div>
+
+        {/* Menu Inferior */}
+        <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around py-2 sm:py-3">
+          {[
+            { icon: HomeIcon, label: "Home" },
+            { icon: MessageSquare, label: "Chat" },
+            { icon: Calendar, label: "Agenda" },
+            { icon: UserIcon, label: "Perfil" }
+          ].map((item, index) => (
+            <button 
+              key={index} 
+              className="flex flex-col items-center text-xs text-gray-600 hover:text-yellow-500 transition-colors"
+              onClick={() => handleNavigation(item.label)}
+            >
+              <item.icon className="h-5 w-5 sm:h-6 sm:w-6 mb-1" />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+    );
+  }
+
+  // Filtrar profissionais por busca
+  const filteredProfessionals = professionals.filter(professional =>
+    professional.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    professional.specialization.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div className="bg-black text-white min-h-screen">
-      {/* Header */}
-      <div className="flex justify-between items-center p-4 bg-black">
+    <div className="bg-gradient-to-br from-yellow-50 to-orange-50 min-h-screen">
+      {/* Header Simplificado */}
+      <div className="flex justify-between items-center p-3 sm:p-4">
         <div>
-          <p className="text-sm text-gray-400">Olá,</p>
-          <p className="font-semibold text-lg">{user?.name || "Usuário"}</p>
+          <p className="text-xs sm:text-sm text-gray-600">Olá,</p>
+          <p className="font-semibold text-base sm:text-lg text-gray-900">Usuário</p>
         </div>
-        <div className="flex gap-4 items-center">
+        <div className="flex gap-2 sm:gap-3 items-center">
           <div className="relative">
-            <Bell className="h-6 w-6 text-gray-300 hover:text-white cursor-pointer" />
-            {notificationCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                {notificationCount}
+            <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600" />
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center font-bold">
+              3
               </span>
-            )}
           </div>
-          <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
-            <UserIcon className="h-5 w-5 text-black" />
+          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+            <UserIcon className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
           </div>
         </div>
       </div>
 
-      {/* Botões Serviços e Lojas */}
-      <div className="flex justify-around mt-2 px-4">
-        <button 
-          className={`flex-1 mx-2 py-3 rounded-full font-medium transition-colors ${
-            activeTab === "services" 
-              ? "bg-yellow-500 text-black" 
-              : "bg-gray-800 text-white"
-          }`}
-          onClick={() => setActiveTab("services")}
-        >
-          Serviços
-        </button>
-        <button 
-          className={`flex-1 mx-2 py-3 rounded-full font-medium transition-colors ${
-            activeTab === "stores" 
-              ? "bg-yellow-500 text-black" 
-              : "bg-gray-800 text-white"
-          }`}
-          onClick={() => setActiveTab("stores")}
-        >
-          Lojas
-        </button>
-      </div>
-
-      {/* Busca */}
-      <div className="p-4">
-        <div className="flex items-center bg-white text-black rounded-full px-4 py-3">
-          <Search className="h-5 w-5 text-gray-400 mr-3" />
+      {/* Busca Simplificada */}
+      <div className="px-3 sm:px-4 mb-4 sm:mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Qual serviço precisa hoje?"
-            className="flex-1 outline-none bg-transparent"
+            placeholder="Buscar profissional..."
+            className="w-full bg-white rounded-full px-10 sm:px-12 py-3 sm:py-4 text-sm sm:text-base text-gray-900 placeholder-gray-500 border-0 shadow-lg focus:ring-2 focus:ring-yellow-400 focus:outline-none"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-          <Settings className="h-5 w-5 text-gray-400 ml-3" />
         </div>
       </div>
 
-      {/* Banner */}
-      <div className="overflow-x-scroll flex space-x-4 px-4 mb-4">
-        <div className="w-80 h-32 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center flex-shrink-0">
-          <div className="text-center">
-            <h3 className="text-black font-bold text-lg">LifeBee Premium</h3>
-            <p className="text-black text-sm">Atendimento prioritário</p>
+      {/* Banner de Emergência */}
+      <div className="px-3 sm:px-4 mb-4 sm:mb-6">
+        <div className="bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl p-3 sm:p-4 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-base sm:text-lg">Emergência 24h</h3>
+              <p className="text-xs sm:text-sm opacity-90">Profissionais disponíveis agora</p>
           </div>
-        </div>
-        <div className="w-80 h-32 bg-gradient-to-r from-blue-400 to-purple-500 rounded-xl flex items-center justify-center flex-shrink-0">
-          <div className="text-center">
-            <h3 className="text-white font-bold text-lg">Emergência 24h</h3>
-            <p className="text-white text-sm">Profissionais disponíveis</p>
+            <div className="text-2xl sm:text-3xl">🚨</div>
           </div>
         </div>
       </div>
 
-      {/* Serviços mais procurados */}
-      <div className="px-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-bold">Serviços mais procurados</h2>
-          <button className="text-yellow-400 text-sm font-medium">Ver tudo</button>
+      {/* Lista de Profissionais */}
+      <div className="px-3 sm:px-4 pb-20 sm:pb-24">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 sm:mb-4">
+          {searchQuery ? `Resultados para "${searchQuery}"` : "Profissionais Disponíveis"}
+        </h2>
+        
+        <div className="space-y-3 sm:space-y-4">
+          {filteredProfessionals.map((professional) => (
+            <div key={professional.id} className="bg-white rounded-2xl p-3 sm:p-4 shadow-lg border border-gray-100">
+              <div className="flex items-start gap-3 sm:gap-4">
+                {/* Avatar */}
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {professional.imageUrl ? (
+                    <img 
+                      src={professional.imageUrl} 
+                      alt={professional.name}
+                      className="w-12 h-12 sm:w-16 sm:h-16 object-cover"
+                    />
+                  ) : (
+                    <UserIcon className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+                  )}
+                </div>
+
+                {/* Informações */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-base sm:text-lg text-gray-900 mb-1">{professional.name}</h3>
+                  <p className="text-sm sm:text-base text-gray-600 mb-2">{professional.specialization}</p>
+                  
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-3">
+                    <div className="flex items-center">
+                      <Star className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-500 fill-current mr-1" />
+                      <span className="text-xs sm:text-sm font-medium text-gray-700">
+                        {professional.rating}
+                      </span>
+                    </div>
+                    <div className="flex items-center text-xs sm:text-sm text-gray-500">
+                      <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                      <span className="truncate">{professional.location}</span>
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          {services.map((item, index) => (
-            <button
-              key={index}
-              className="bg-yellow-400 text-black rounded-xl flex flex-col items-center p-3 hover:bg-yellow-300 transition-colors"
-              onClick={() => handleServiceClick(item.category)}
-            >
-              <div className="text-2xl mb-1">{item.icon}</div>
-              <p className="text-center text-xs font-medium leading-tight">{item.label}</p>
-            </button>
-          ))}
+                    <div className="text-xs sm:text-sm font-medium text-green-600">
+                      R$ {professional.hourlyRate}/h
         </div>
       </div>
 
-      {/* Top Bees */}
-      {topProfessional && (
-        <div className="px-4 mt-6 mb-20">
-          <h2 className="text-lg font-bold mb-3">Top Bees</h2>
-          <div className="bg-white text-black rounded-xl flex items-center p-4 shadow-lg">
-            <div className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center mr-4">
-              <UserIcon className="h-8 w-8 text-white" />
+                  {/* Botões de Ação */}
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button 
+                      className="flex-1 bg-yellow-500 text-white py-2 px-3 sm:px-4 rounded-full font-medium hover:bg-yellow-600 transition-colors flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm"
+                      onClick={() => startConversation(professional.id, professional.name)}
+                    >
+                      <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
+                      Conversar
+                    </button>
+                    {professional.phone && (
+                      <button 
+                        className="bg-green-500 text-white py-2 px-3 sm:px-4 rounded-full font-medium hover:bg-green-600 transition-colors flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm"
+                        onClick={() => makeCall(professional.phone)}
+                      >
+                        <Phone className="h-3 w-3 sm:h-4 sm:w-4" />
+                        Ligar
+                      </button>
+                    )}
+                  </div>
             </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-lg">{topProfessional.name}</h3>
-              <p className="text-sm text-gray-600 mb-1">{topProfessional.specialty}</p>
-              <div className="flex items-center">
-                <span className="text-yellow-500 mr-1">⭐</span>
-                <span className="text-sm font-medium">
-                  {topProfessional.rating} ({topProfessional.reviews} Avaliações)
-                </span>
               </div>
             </div>
-            <button 
-              className="bg-yellow-500 text-black px-4 py-2 rounded-lg font-medium text-sm"
-              onClick={() => setLocation(`/professional/${topProfessional.id.toString()}`)}
-            >
-              Ver perfil
-            </button>
-          </div>
+          ))}
         </div>
-      )}
+
+        {filteredProfessionals.length === 0 && searchQuery && (
+          <div className="text-center py-8 sm:py-12">
+            <Search className="h-10 w-10 sm:h-12 sm:w-12 text-gray-300 mx-auto mb-3 sm:mb-4" />
+            <p className="text-sm sm:text-base text-gray-500">Nenhum profissional encontrado</p>
+          </div>
+        )}
+        </div>
 
       {/* Menu Inferior */}
-      <nav className="fixed bottom-0 w-full bg-black text-white flex justify-around py-3 border-t border-gray-700">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
+        <div className="max-w-md mx-auto flex justify-between items-center py-2 sm:py-3 px-4">
         {[
-          { icon: HomeIcon, label: "Início" },
-          { icon: MessageCircle, label: "Chat" },
-          { icon: ShoppingBag, label: "Pedidos" },
+            { icon: HomeIcon, label: "Home" },
+            { icon: MessageSquare, label: "Chat" },
           { icon: Calendar, label: "Agenda" },
           { icon: UserIcon, label: "Perfil" }
-        ].map((item, index) => (
+          ].map((item, index) => {
+            const isActive = item.label === "Home";
+            return (
           <button 
             key={index} 
-            className="flex flex-col items-center text-xs hover:text-yellow-400 transition-colors"
+                className={`flex flex-col items-center justify-center flex-1 min-w-0 transition-colors px-1 sm:px-2 ${
+                  isActive 
+                    ? "text-yellow-500" 
+                    : "text-gray-600 hover:text-yellow-500"
+                }`}
             onClick={() => handleNavigation(item.label)}
           >
-            <item.icon className="h-5 w-5 mb-1" />
-            {item.label}
+                <item.icon className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7 mb-0.5 sm:mb-1 ${
+                  isActive ? "text-yellow-500" : ""
+                }`} />
+                <span className="text-xs sm:text-sm leading-tight">{item.label}</span>
           </button>
-        ))}
+            );
+          })}
+        </div>
       </nav>
     </div>
   );

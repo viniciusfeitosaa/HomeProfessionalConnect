@@ -93,3 +93,20 @@ export const verificationCodes = pgTable("verification_codes", {
     used: boolean("used").default(false),
     createdAt: timestamp("created_at").defaultNow(),
 });
+export const conversations = pgTable("conversations", {
+    id: serial("id").primaryKey(),
+    clientId: integer("client_id").notNull(),
+    professionalId: integer("professional_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
+export const messages = pgTable("messages", {
+    id: serial("id").primaryKey(),
+    conversationId: integer("conversation_id").notNull(),
+    senderId: integer("sender_id").notNull(),
+    recipientId: integer("recipient_id").notNull(),
+    content: text("content").notNull(),
+    type: text("type", { enum: ["text", "image", "file"] }).default("text"),
+    timestamp: timestamp("timestamp").defaultNow(),
+    isRead: boolean("is_read").default(false),
+});

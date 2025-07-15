@@ -100,6 +100,25 @@ export const verificationCodes = pgTable("verification_codes", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  professionalId: integer("professional_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").notNull(),
+  senderId: integer("sender_id").notNull(),
+  recipientId: integer("recipient_id").notNull(),
+  content: text("content").notNull(),
+  type: text("type", { enum: ["text", "image", "file"] }).default("text"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  isRead: boolean("is_read").default(false),
+});
+
 // Tipos TypeScript inferidos das tabelas
 export type User = typeof users.$inferSelect;
 export type Professional = typeof professionals.$inferSelect;
@@ -107,6 +126,8 @@ export type Appointment = typeof appointments.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type LoginAttempt = typeof loginAttempts.$inferSelect;
 export type VerificationCode = typeof verificationCodes.$inferSelect;
+export type Conversation = typeof conversations.$inferSelect;
+export type Message = typeof messages.$inferSelect;
 
 // Tipos para inserção (sem campos auto-gerados)
 export type InsertUser = Omit<User, 'id' | 'createdAt' | 'updatedAt'>;
@@ -115,3 +136,5 @@ export type InsertAppointment = Omit<Appointment, 'id'>;
 export type InsertNotification = Omit<Notification, 'id' | 'createdAt'>;
 export type InsertLoginAttempt = Omit<LoginAttempt, 'id' | 'attemptedAt'>;
 export type InsertVerificationCode = Omit<VerificationCode, 'id' | 'createdAt'>;
+export type InsertConversation = Omit<Conversation, 'id' | 'createdAt' | 'updatedAt'>;
+export type InsertMessage = Omit<Message, 'id' | 'timestamp'>;

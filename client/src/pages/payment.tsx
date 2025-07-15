@@ -45,51 +45,55 @@ const CheckoutForm = ({ amount }: { amount: number }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+      <div className="space-y-3 sm:space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-2">Nome no Cartão</label>
+          <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Nome no Cartão</label>
           <Input
             type="text"
             placeholder="João da Silva"
             value={cardHolder}
             onChange={(e) => setCardHolder(e.target.value)}
+            className="h-10 sm:h-12 text-sm sm:text-base"
             required
           />
         </div>
         
         <div>
-          <label className="block text-sm font-medium mb-2">Número do Cartão</label>
+          <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Número do Cartão</label>
           <Input
             type="text"
             placeholder="0000 0000 0000 0000"
             value={cardNumber}
             onChange={(e) => setCardNumber(e.target.value)}
             maxLength={19}
+            className="h-10 sm:h-12 text-sm sm:text-base"
             required
           />
         </div>
         
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Validade</label>
+            <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">Validade</label>
             <Input
               type="text"
               placeholder="MM/AA"
               value={expiryDate}
               onChange={(e) => setExpiryDate(e.target.value)}
               maxLength={5}
+              className="h-10 sm:h-12 text-sm sm:text-base"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">CVV</label>
+            <label className="block text-xs sm:text-sm font-medium mb-1 sm:mb-2">CVV</label>
             <Input
               type="text"
               placeholder="123"
               value={cvv}
               onChange={(e) => setCvv(e.target.value)}
               maxLength={4}
+              className="h-10 sm:h-12 text-sm sm:text-base"
               required
             />
           </div>
@@ -99,7 +103,7 @@ const CheckoutForm = ({ amount }: { amount: number }) => {
       <Button 
         type="submit" 
         disabled={isLoading}
-        className="w-full py-3 text-lg font-semibold"
+        className="w-full h-10 sm:h-12 text-sm sm:text-base font-semibold"
       >
         {isLoading ? "Processando..." : `Pagar R$ ${amount.toFixed(2)}`}
       </Button>
@@ -115,47 +119,45 @@ export default function Payment() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 shadow-sm border-b">
-        <div className="max-w-lg mx-auto px-4 py-4">
+        <div className="max-w-lg mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setLocation("/")}
-              className="flex items-center gap-2"
+              className="flex items-center gap-1 sm:gap-2 text-sm sm:text-base"
             >
-              <ArrowLeft className="h-5 w-5" />
-              Voltar
+              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="hidden sm:inline">Voltar</span>
             </Button>
-            <h1 className="text-lg font-semibold">Pagamento</h1>
-            <div className="w-16"></div>
+            <h1 className="text-base sm:text-lg font-semibold">Pagamento</h1>
+            <div className="w-12 sm:w-16"></div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-lg mx-auto p-4 space-y-6">
+      <div className="max-w-lg mx-auto p-3 sm:p-4 space-y-4 sm:space-y-6">
         {/* Service Summary */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
+          <CardHeader className="pb-3 sm:pb-4">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
               Resumo do Serviço
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between">
+          <CardContent className="space-y-2 sm:space-y-3">
+            <div className="flex justify-between text-sm sm:text-base">
                 <span>Consulta Fisioterapia</span>
                 <span>R$ 120,00</span>
               </div>
-              <div className="flex justify-between">
+            <div className="flex justify-between text-sm sm:text-base">
                 <span>Taxa de serviço</span>
                 <span>R$ 30,00</span>
               </div>
-              <div className="border-t pt-3">
-                <div className="flex justify-between font-semibold text-lg">
+            <div className="border-t pt-2 sm:pt-3">
+              <div className="flex justify-between font-semibold text-base sm:text-lg">
                   <span>Total</span>
                   <span>R$ {amount.toFixed(2)}</span>
-                </div>
               </div>
             </div>
           </CardContent>
@@ -163,8 +165,8 @@ export default function Payment() {
 
         {/* Payment Form */}
         <Card>
-          <CardHeader>
-            <CardTitle>Informações de Pagamento</CardTitle>
+          <CardHeader className="pb-3 sm:pb-4">
+            <CardTitle className="text-base sm:text-lg">Informações de Pagamento</CardTitle>
           </CardHeader>
           <CardContent>
             <CheckoutForm amount={amount} />
@@ -172,17 +174,17 @@ export default function Payment() {
         </Card>
 
         {/* Security Notice */}
-        <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-          <Shield className="h-5 w-5 text-green-600" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-green-800 dark:text-green-300">
+        <div className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+          <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs sm:text-sm font-medium text-green-800 dark:text-green-300">
               Pagamento Seguro
             </p>
             <p className="text-xs text-green-600 dark:text-green-400">
               Suas informações são protegidas com criptografia SSL
             </p>
           </div>
-          <Check className="h-5 w-5 text-green-600" />
+          <Check className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
         </div>
       </div>
     </div>

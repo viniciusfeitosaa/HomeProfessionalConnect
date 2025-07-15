@@ -11,32 +11,8 @@ interface Ad {
   ctaLink: string;
 }
 
-const adsData: Ad[] = [
-  {
-    id: 1,
-    title: "Consulta Médica Domiciliar",
-    description: "Médicos especialistas na sua casa. Agende agora!",
-    imageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=800&h=400&fit=crop",
-    ctaText: "Agendar Consulta",
-    ctaLink: "#"
-  },
-  {
-    id: 2,
-    title: "Fisioterapia em Casa",
-    description: "Recupere-se no conforto do seu lar com nossos fisioterapeutas",
-    imageUrl: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800&h=400&fit=crop",
-    ctaText: "Saiba Mais",
-    ctaLink: "#"
-  },
-  {
-    id: 3,
-    title: "Cuidadores Especializados",
-    description: "Cuidado 24h para seus entes queridos",
-    imageUrl: "https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=800&h=400&fit=crop",
-    ctaText: "Contratar",
-    ctaLink: "#"
-  }
-];
+// Dados de anúncios serão carregados da API
+const adsData: Ad[] = [];
 
 export function AdsCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
