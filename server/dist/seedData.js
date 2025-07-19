@@ -1,5 +1,5 @@
 import { db } from "./db.js";
-import { professionals, users, serviceRequests } from "../shared/schema.js";
+import { professionals, users, serviceRequests } from "./schema.js";
 export async function seedDatabase() {
     console.log("=== SEED DATABASE DEBUG ===");
     console.log("Starting seedDatabase function...");

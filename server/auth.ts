@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { Request, Response, NextFunction } from 'express';
 import { storage } from './storage.js';
-import { User } from '../shared/schema.js';
+import { User } from './schema.js';
 /*
 // Google OAuth Strategy
 passport.use(new GoogleStrategy({

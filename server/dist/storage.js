@@ -1,4 +1,4 @@
-import { users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, } from "../shared/schema.js";
+import { users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, } from "./schema.js";
 import { db } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
 // Database Storage Implementation

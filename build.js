@@ -12,6 +12,10 @@ try {
   process.chdir(path.join(__dirname, 'server'));
   console.log('📁 Diretório atual:', process.cwd());
 
+  // Instalar dependências do servidor
+  console.log('📦 Instalando dependências do servidor...');
+  execSync('npm install', { stdio: 'inherit' });
+
   // Executar build do Render
   console.log('🔨 Executando build do Render...');
   execSync('npm run build:render', { stdio: 'inherit' });

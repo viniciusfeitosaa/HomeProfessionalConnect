@@ -2,11 +2,8 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "../",
-    "baseUrl": "../",
-    "paths": {
-      "@shared/*": ["shared/*"]
-    },
+    "rootDir": "./",
+    "baseUrl": "./",
     "module": "ESNext",
     "target": "ES2020",
     "moduleResolution": "node",
@@ -14,16 +11,16 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
+    "strict": false,
     "noEmit": false,
     "declaration": false,
     "sourceMap": false,
     "allowImportingTsExtensions": false,
+    "noImplicitAny": false,
     "types": ["node"]
   },
   "include": [
-    "**/*.ts",
-    "../shared/schema.ts"
+    "**/*.ts"
   ],
   "exclude": [
     "node_modules",

@@ -26,7 +26,7 @@ console.log("DATABASE_URL value:", process.env.DATABASE_URL);
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import ws from "ws";
-import * as schema from "../shared/schema.js";
+import * as schema from "./schema.js";
 
 neonConfig.webSocketConstructor = ws;
 

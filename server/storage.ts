@@ -26,7 +26,7 @@ import {
   type InsertConversation,
   type InsertMessage,
   type InsertServiceRequest,
-} from "../shared/schema.js";
+} from "./schema.js";
 import { db } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
 
