@@ -23,6 +23,7 @@ import Servico from "@/pages/servico";
 import MyRequests from "@/pages/my-requests";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
+import AgendaProfissional from "@/pages/agenda-profissional";
 
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -58,6 +59,7 @@ function Router() {
         <Route path="/service-offer/:id" component={ServiceOffer} />
         <Route path="/messages" component={Messages} />
         <Route path="/agenda" component={Agenda} />
+        <Route path="/agenda-profissional" component={AgendaProfissional} />
         <Route path="/profile" component={Profile} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

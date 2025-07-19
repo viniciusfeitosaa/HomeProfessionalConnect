@@ -7,7 +7,8 @@ export function BottomNavigationProvider() {
 
   const isActive = (path: string) => {
     if (path === "/provider-dashboard" && location === "/provider-dashboard") return true;
-    if (path !== "/provider-dashboard" && location.startsWith(path)) return true;
+    if (path === "/agenda-profissional" && location === "/agenda-profissional") return true;
+    if (path !== "/provider-dashboard" && path !== "/agenda-profissional" && location.startsWith(path)) return true;
     return false;
   };
 
@@ -31,18 +32,18 @@ export function BottomNavigationProvider() {
           </Button>
         </Link>
 
-        <Link href="/agenda">
+        <Link href="/agenda-profissional">
           <Button
             variant="ghost"
             size="sm"
             className={`flex flex-col items-center py-2 px-4 ${
-              isActive("/agenda")
+              isActive("/agenda-profissional")
                 ? "text-primary hover:text-primary/80"
                 : "text-gray-400 dark:text-gray-500 hover:text-primary dark:hover:text-primary"
             }`}
           >
             <Calendar className="h-5 w-5 mb-1" />
-            <span className={`text-xs ${isActive("/agenda") ? "font-medium" : ""}`}>
+            <span className={`text-xs ${isActive("/agenda-profissional") ? "font-medium" : ""}`}>
               Agenda
             </span>
           </Button>

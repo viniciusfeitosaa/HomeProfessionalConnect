@@ -79,8 +79,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize database with sample data
-  await seedDatabase();
+  // await seedDatabase(); // REMOVIDO: não limpar mais o banco automaticamente
   
   const server = await registerRoutes(app);
 

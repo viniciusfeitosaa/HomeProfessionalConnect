@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import express from "express";
 import { registerRoutes } from "./routes.js";
-import { seedDatabase } from "./seedData.js";
 import { Server as SocketIOServer } from "socket.io";
 const app = express();
 // Configure CORS for Netlify frontend and development
@@ -51,8 +50,7 @@ app.use((req, res, next) => {
     next();
 });
 (async () => {
-    // Initialize database with sample data
-    await seedDatabase();
+    // await seedDatabase(); // REMOVIDO: não limpar mais o banco automaticamente
     const server = await registerRoutes(app);
     // Inicializa o Socket.IO junto ao servidor HTTP
     const io = new SocketIOServer(server, {

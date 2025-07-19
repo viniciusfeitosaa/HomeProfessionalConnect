@@ -21,13 +21,11 @@ export async function clearDatabase() {
         console.error("❌ Erro ao limpar banco de dados:", error);
     }
 }
-// Executar se chamado diretamente
-if (import.meta.url === `file://${process.argv[1]}`) {
-    clearDatabase().then(() => {
-        console.log("🏁 Script de limpeza concluído.");
-        process.exit(0);
-    }).catch((error) => {
-        console.error("💥 Erro fatal:", error);
-        process.exit(1);
-    });
-}
+// Executar diretamente
+clearDatabase().then(() => {
+    console.log("🏁 Script de limpeza concluído.");
+    process.exit(0);
+}).catch((error) => {
+    console.error("💥 Erro fatal:", error);
+    process.exit(1);
+});

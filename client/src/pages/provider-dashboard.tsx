@@ -852,7 +852,9 @@ export default function ProviderDashboard() {
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="opportunities">Oportunidades</TabsTrigger>
               <TabsTrigger value="performance">Performance</TabsTrigger>
-              <TabsTrigger value="schedule">Agenda</TabsTrigger>
+              <Link href="/agenda-profissional">
+                <button type="button" className="shadcn-tabs-trigger">Agenda</button>
+              </Link>
               <TabsTrigger value="earnings">Ganhos</TabsTrigger>
             </TabsList>
 
