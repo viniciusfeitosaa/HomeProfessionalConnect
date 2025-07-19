@@ -454,25 +454,6 @@ export default function ProfessionalDetail({ params }: { params: { id: string } 
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Menu Inferior */}
-      <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around py-2 sm:py-3">
-        {[
-          { icon: Home, label: "Home" },
-          { icon: MessageCircle, label: "Chat" },
-          { icon: Calendar, label: "Agenda" },
-          { icon: User, label: "Perfil" }
-        ].map((item, index) => (
-          <button 
-            key={index} 
-            className="flex flex-col items-center text-xs text-gray-600 hover:text-yellow-500 transition-colors"
-            onClick={() => handleNavigation(item.label)}
-          >
-            <item.icon className="h-5 w-5 sm:h-6 sm:w-6 mb-1" />
-            {item.label}
-          </button>
-        ))}
-      </nav>
     </div>
   );
 }

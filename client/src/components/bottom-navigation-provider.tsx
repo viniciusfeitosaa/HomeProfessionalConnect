@@ -12,8 +12,8 @@ export function BottomNavigationProvider() {
   };
 
   return (
-    <div className="fixed bottom-0 left-1/2 transform -translate-x-1/2 w-full max-w-sm lg:max-w-4xl xl:max-w-6xl bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-gray-200/50 dark:border-gray-800/50 shadow-2xl lg:hidden z-50">
-      <div className="flex justify-around py-2 sm:py-3">
+    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-[95vw] max-w-md bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border border-gray-200/70 dark:border-gray-800/70 shadow-xl rounded-2xl z-50 flex justify-center items-center">
+      <div className="flex justify-around w-full py-2 sm:py-3">
         <Link href="/provider-dashboard">
           <Button
             variant="ghost"

@@ -32,13 +32,13 @@ declare module 'express-session' {
 // Rate limiting
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Increased limit for development
+  max: 100, // Increased limit for development
   message: 'Muitas tentativas de login. Tente novamente em 15 minutos.',
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
     // Skip rate limiting for development
-    return process.env.NODE_ENV === 'development';
+    return process.env.NODE_ENV === 'development' || true; // Always skip for now
   }
 });
 
@@ -264,6 +264,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phoneVerified: true,
         isVerified: true
       });
+
+      // Se for provider, cria também na tabela professionals
+      if ((userType || 'client') === 'provider') {
+        await storage.createProfessional({
+          userId: updatedUser.id,
+          name: name,
+          specialization: '', // Pode ser preenchido depois
+          category: '',        // Pode ser preenchido depois
+          subCategory: '',     // Pode ser preenchido depois
+          description: '',
+          experience: '',
+          certifications: '',
+          availableHours: '',
+          hourlyRate: '0',
+          rating: '5.0',
+          totalReviews: 0,
+          location: '',
+          distance: '0',
+          available: true,
+          imageUrl: '',
+          createdAt: new Date()
+        });
+      }
 
       // Create welcome notification for new user
       await storage.createNotification({
@@ -816,6 +839,219 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Update provider settings error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ===== ROTAS PARA SOLICITAÇÕES DE SERVIÇO =====
+
+  // Get my service requests (alias for client) - DEVE VIR ANTES de todas as outras rotas
+  app.get("/api/service-requests/my-requests", authenticateToken, async (req, res) => {
+    console.log('🔍 Rota /api/service-requests/my-requests foi chamada');
+    try {
+      const user = req.user as any;
+      console.log('👤 Usuário:', user);
+      
+      // Verify user is a client
+      if (user.userType !== 'client') {
+        console.log('❌ Usuário não é cliente:', user.userType);
+        return res.status(403).json({ message: "Apenas clientes podem acessar suas solicitações" });
+      }
+
+      console.log('✅ Buscando solicitações para cliente ID:', user.id);
+      const serviceRequests = await storage.getServiceRequestsByClient(user.id);
+      console.log('📋 Solicitações encontradas:', serviceRequests.length);
+      res.json(serviceRequests);
+    } catch (error) {
+      console.error('💥 Get my service requests error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Create service request
+  app.post("/api/service-request", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { serviceType, category, description, address, scheduledDate, scheduledTime, urgency, budget } = req.body;
+
+      // Verify user is a client
+      if (user.userType !== 'client') {
+        return res.status(403).json({ message: "Apenas clientes podem solicitar serviços" });
+      }
+
+      // Validate required fields
+      if (!serviceType || !category || !description || !address || !scheduledDate || !scheduledTime) {
+        return res.status(400).json({ message: "Todos os campos obrigatórios devem ser preenchidos" });
+      }
+
+      // Validate category
+      const validCategories = ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"];
+      if (!validCategories.includes(category)) {
+        return res.status(400).json({ message: "Categoria inválida" });
+      }
+
+      // Create service request
+      const serviceRequest = await storage.createServiceRequest({
+        clientId: user.id,
+        serviceType,
+        category,
+        description,
+        address,
+        scheduledDate: new Date(scheduledDate),
+        scheduledTime,
+        urgency: urgency || "medium",
+        budget: budget ? parseFloat(budget) : null,
+        status: "open"
+      });
+
+      // Create notification for professionals in the category
+      const professionals = await storage.getProfessionalsByCategory(category);
+      for (const professional of professionals) {
+        await storage.createNotification({
+          userId: professional.userId,
+          message: `Nova solicitação de ${serviceType} disponível na sua área`,
+          read: false
+        });
+      }
+
+      res.status(201).json({
+        message: "Solicitação criada com sucesso",
+        serviceRequest
+      });
+    } catch (error) {
+      console.error('Create service request error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Get service requests by client
+  app.get("/api/service-requests/client", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      // Verify user is a client
+      if (user.userType !== 'client') {
+        return res.status(403).json({ message: "Apenas clientes podem acessar suas solicitações" });
+      }
+
+      const serviceRequests = await storage.getServiceRequestsByClient(user.id);
+      res.json(serviceRequests);
+    } catch (error) {
+      console.error('Get client service requests error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Test endpoint to check authentication
+  app.get("/api/test-auth", authenticateToken, async (req, res) => {
+    console.log('🔍 Rota de teste de autenticação foi chamada');
+    const user = req.user as any;
+    console.log('👤 Usuário autenticado:', user);
+    res.json({ 
+      message: "Autenticação funcionando", 
+      user: {
+        id: user.id,
+        email: user.email,
+        userType: user.userType
+      }
+    });
+  });
+
+  // Get service requests by category (for professionals)
+  app.get("/api/service-requests/category/:category", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { category } = req.params;
+      
+      // Verify user is a provider
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: "Apenas profissionais podem acessar solicitações" });
+      }
+
+      const serviceRequests = await storage.getServiceRequestsByCategory(category);
+      res.json(serviceRequests);
+    } catch (error) {
+      console.error('Get service requests by category error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Get specific service request
+  app.get("/api/service-request/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const requestId = parseInt(req.params.id);
+
+      const serviceRequest = await storage.getServiceRequest(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicitação não encontrada" });
+      }
+
+      // Verify user has access to this request
+      if (user.userType === 'client' && serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+
+      res.json(serviceRequest);
+    } catch (error) {
+      console.error('Get service request error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Update service request status
+  app.put("/api/service-request/:id/status", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const requestId = parseInt(req.params.id);
+      const { status } = req.body;
+
+      const serviceRequest = await storage.getServiceRequest(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicitação não encontrada" });
+      }
+
+      // Verify user has access to this request
+      if (user.userType === 'client' && serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+
+      const updatedRequest = await storage.updateServiceRequest(requestId, { status });
+      res.json({
+        message: "Status atualizado com sucesso",
+        serviceRequest: updatedRequest
+      });
+    } catch (error) {
+      console.error('Update service request status error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Delete service request
+  app.delete("/api/service-requests/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const requestId = parseInt(req.params.id);
+
+      const serviceRequest = await storage.getServiceRequest(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicitação não encontrada" });
+      }
+
+      // Verify user is the owner of this request
+      if (user.userType !== 'client' || serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ message: "Apenas o cliente que criou a solicitação pode excluí-la" });
+      }
+
+      // Only allow deletion of open requests
+      if (serviceRequest.status !== 'open') {
+        return res.status(400).json({ message: "Apenas solicitações abertas podem ser excluídas" });
+      }
+
+      await storage.deleteServiceRequest(requestId);
+      res.json({ message: "Solicitação excluída com sucesso" });
+    } catch (error) {
+      console.error('Delete service request error:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });

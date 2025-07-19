@@ -27,6 +27,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { getApiUrl } from "@/lib/api-config";
 import { useLocation } from "wouter";
+import { BottomNavigation } from "@/components/bottom-navigation";
 
 interface Message {
   id: number;
@@ -647,44 +648,7 @@ export default function Messages() {
           </div>
         </div>
       </div>
-
-      {/* Menu Inferior Padronizado */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
-        <div className="max-w-md mx-auto flex justify-between items-center py-2 sm:py-3 px-4">
-          {[
-            { icon: Home, label: "Home" },
-            { icon: MessageSquare, label: "Chat" },
-            { icon: Calendar, label: "Agenda" },
-            { icon: UserIcon, label: "Perfil" }
-          ].map((item, index) => {
-            const isActive = item.label === "Chat";
-            return (
-              <button
-                key={index}
-                className={`flex flex-col items-center justify-center flex-1 min-w-0 transition-colors px-1 sm:px-2 ${
-                  isActive 
-                    ? "text-yellow-500" 
-                    : "text-gray-600 hover:text-yellow-500"
-                }`}
-                onClick={() => {
-                  switch (item.label) {
-                    case "Home": setLocation("/"); break;
-                    case "Chat": setLocation("/messages"); break;
-                    case "Agenda": setLocation("/agenda"); break;
-                    case "Perfil": setLocation("/profile"); break;
-                    default: setLocation("/");
-                  }
-                }}
-              >
-                <item.icon className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7 mb-0.5 sm:mb-1 ${
-                  isActive ? "text-yellow-500" : ""
-                }`} />
-                <span className="text-xs sm:text-sm leading-tight">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </nav>
+      <BottomNavigation />
     </div>
   );
 }

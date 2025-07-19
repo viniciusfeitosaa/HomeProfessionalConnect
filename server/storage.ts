@@ -7,6 +7,7 @@ import {
   verificationCodes,
   conversations,
   messages,
+  serviceRequests,
   type User,
   type Professional,
   type Appointment,
@@ -15,6 +16,7 @@ import {
   type VerificationCode,
   type Conversation,
   type Message,
+  type ServiceRequest,
   type InsertUser,
   type InsertProfessional,
   type InsertAppointment,
@@ -23,6 +25,7 @@ import {
   type InsertVerificationCode,
   type InsertConversation,
   type InsertMessage,
+  type InsertServiceRequest,
 } from "../shared/schema.js";
 import { db } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
@@ -77,6 +80,15 @@ export interface IStorage {
   getLastMessageByConversation(conversationId: number): Promise<Message | undefined>;
   getUnreadMessageCount(conversationId: number, userId: number): Promise<number>;
   markMessagesAsRead(conversationId: number, userId: number): Promise<void>;
+  
+  // Service Requests
+  getServiceRequestsByClient(clientId: number): Promise<ServiceRequest[]>;
+  getServiceRequestsByCategory(category: string): Promise<ServiceRequest[]>;
+  getServiceRequest(id: number): Promise<ServiceRequest | undefined>;
+  createServiceRequest(serviceRequest: InsertServiceRequest): Promise<ServiceRequest>;
+  updateServiceRequest(id: number, updates: Partial<ServiceRequest>): Promise<ServiceRequest>;
+  deleteServiceRequest(id: number): Promise<void>;
+  assignProfessionalToRequest(requestId: number, professionalId: number): Promise<void>;
 }
 
 // Database Storage Implementation
@@ -387,6 +399,65 @@ export class DatabaseStorage implements IStorage {
           eq(messages.isRead, false)
         )
       );
+  }
+
+  // Service Requests
+  async getServiceRequestsByClient(clientId: number): Promise<ServiceRequest[]> {
+    return await db
+      .select()
+      .from(serviceRequests)
+      .where(eq(serviceRequests.clientId, clientId))
+      .orderBy(desc(serviceRequests.createdAt));
+  }
+
+  async getServiceRequestsByCategory(category: string): Promise<ServiceRequest[]> {
+    return await db
+      .select()
+      .from(serviceRequests)
+      .where(eq(serviceRequests.category, category as any))
+      .orderBy(desc(serviceRequests.createdAt));
+  }
+
+  async getServiceRequest(id: number): Promise<ServiceRequest | undefined> {
+    const [serviceRequest] = await db
+      .select()
+      .from(serviceRequests)
+      .where(eq(serviceRequests.id, id));
+    return serviceRequest || undefined;
+  }
+
+  async createServiceRequest(insertServiceRequest: InsertServiceRequest): Promise<ServiceRequest> {
+    const [serviceRequest] = await db
+      .insert(serviceRequests)
+      .values(insertServiceRequest)
+      .returning();
+    return serviceRequest;
+  }
+
+  async updateServiceRequest(id: number, updates: Partial<ServiceRequest>): Promise<ServiceRequest> {
+    const [serviceRequest] = await db
+      .update(serviceRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(serviceRequests.id, id))
+      .returning();
+    return serviceRequest;
+  }
+
+  async deleteServiceRequest(id: number): Promise<void> {
+    await db
+      .delete(serviceRequests)
+      .where(eq(serviceRequests.id, id));
+  }
+
+  async assignProfessionalToRequest(requestId: number, professionalId: number): Promise<void> {
+    await db
+      .update(serviceRequests)
+      .set({ 
+        assignedProfessionalId: professionalId, 
+        status: "assigned",
+        updatedAt: new Date() 
+      })
+      .where(eq(serviceRequests.id, requestId));
   }
 }
 

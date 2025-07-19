@@ -1,5 +1,5 @@
 
-import { MapPin, Phone, Mail, Settings, CreditCard, Shield, HelpCircle, LogOut, Edit, Camera, ArrowLeft, Home, MessageSquare, Calendar, User } from "lucide-react";
+import { MapPin, Phone, Mail, Settings, CreditCard, Shield, HelpCircle, LogOut, Edit, Camera, ArrowLeft, Home, MessageSquare, Calendar, User, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import type { User as UserType, Appointment } from "@shared/schema";
+import { BottomNavigation } from "@/components/bottom-navigation";
 
 export default function Profile() {
   const [, setLocation] = useLocation();
@@ -42,6 +43,10 @@ export default function Profile() {
 
   const handleHelp = () => {
     console.log("Opening help center");
+  };
+
+  const handleMyRequests = () => {
+    setLocation("/my-requests");
   };
 
   const handleLogout = () => {
@@ -178,6 +183,18 @@ export default function Profile() {
 
         {/* Settings Menu */}
           <div className="space-y-2 mb-16 sm:mb-20">
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handleMyRequests}>
+              <CardContent className="p-3 sm:p-4">
+              <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 flex-shrink-0" />
+                    <span className="font-medium text-sm sm:text-base">Minhas Solicitações</span>
+                </div>
+                <span className="text-gray-400">→</span>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handlePaymentMethods}>
               <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
@@ -239,42 +256,7 @@ export default function Profile() {
             </div>
             
           {/* Menu Inferior Padronizado */}
-          <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
-            <div className="max-w-md mx-auto flex justify-between items-center py-2 sm:py-3 px-4">
-              {[
-                { icon: Home, label: "Home" },
-                { icon: MessageSquare, label: "Chat" },
-                { icon: Calendar, label: "Agenda" },
-                { icon: User, label: "Perfil" }
-              ].map((item, index) => {
-                const isActive = item.label === "Perfil";
-                return (
-                  <button
-                    key={index}
-                    className={`flex flex-col items-center justify-center flex-1 min-w-0 transition-colors px-1 sm:px-2 ${
-                      isActive 
-                        ? "text-yellow-500" 
-                        : "text-gray-600 hover:text-yellow-500"
-                    }`}
-                    onClick={() => {
-                      switch (item.label) {
-                        case "Home": setLocation("/"); break;
-                        case "Chat": setLocation("/messages"); break;
-                        case "Agenda": setLocation("/agenda"); break;
-                        case "Perfil": setLocation("/profile"); break;
-                        default: setLocation("/");
-                      }
-                    }}
-                  >
-                    <item.icon className={`h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7 mb-0.5 sm:mb-1 ${
-                      isActive ? "text-yellow-500" : ""
-                    }`} />
-                    <span className="text-xs sm:text-sm leading-tight">{item.label}</span>
-                  </button>
-                );
-              })}
-          </div>
-          </nav>
+          <BottomNavigation />
         </div>
       </div>
     </div>

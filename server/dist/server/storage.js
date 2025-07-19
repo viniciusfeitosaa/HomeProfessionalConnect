@@ -1,4 +1,4 @@
-import { users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, } from "../shared/schema.js";
+import { users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, } from "../shared/schema.js";
 import { db } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
 // Database Storage Implementation
@@ -236,6 +236,58 @@ export class DatabaseStorage {
             .update(messages)
             .set({ isRead: true })
             .where(and(eq(messages.conversationId, conversationId), ne(messages.senderId, userId), eq(messages.isRead, false)));
+    }
+    // Service Requests
+    async getServiceRequestsByClient(clientId) {
+        return await db
+            .select()
+            .from(serviceRequests)
+            .where(eq(serviceRequests.clientId, clientId))
+            .orderBy(desc(serviceRequests.createdAt));
+    }
+    async getServiceRequestsByCategory(category) {
+        return await db
+            .select()
+            .from(serviceRequests)
+            .where(eq(serviceRequests.category, category))
+            .orderBy(desc(serviceRequests.createdAt));
+    }
+    async getServiceRequest(id) {
+        const [serviceRequest] = await db
+            .select()
+            .from(serviceRequests)
+            .where(eq(serviceRequests.id, id));
+        return serviceRequest || undefined;
+    }
+    async createServiceRequest(insertServiceRequest) {
+        const [serviceRequest] = await db
+            .insert(serviceRequests)
+            .values(insertServiceRequest)
+            .returning();
+        return serviceRequest;
+    }
+    async updateServiceRequest(id, updates) {
+        const [serviceRequest] = await db
+            .update(serviceRequests)
+            .set({ ...updates, updatedAt: new Date() })
+            .where(eq(serviceRequests.id, id))
+            .returning();
+        return serviceRequest;
+    }
+    async deleteServiceRequest(id) {
+        await db
+            .delete(serviceRequests)
+            .where(eq(serviceRequests.id, id));
+    }
+    async assignProfessionalToRequest(requestId, professionalId) {
+        await db
+            .update(serviceRequests)
+            .set({
+            assignedProfessionalId: professionalId,
+            status: "assigned",
+            updatedAt: new Date()
+        })
+            .where(eq(serviceRequests.id, requestId));
     }
 }
 export const storage = new DatabaseStorage();

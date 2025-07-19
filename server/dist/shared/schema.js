@@ -110,3 +110,22 @@ export const messages = pgTable("messages", {
     timestamp: timestamp("timestamp").defaultNow(),
     isRead: boolean("is_read").default(false),
 });
+export const serviceRequests = pgTable("service_requests", {
+    id: serial("id").primaryKey(),
+    clientId: integer("client_id").notNull(), // Cliente que solicitou
+    serviceType: text("service_type").notNull(), // Tipo de serviço (ex: fisioterapia, enfermagem)
+    category: text("category", {
+        enum: ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"]
+    }).notNull(),
+    description: text("description").notNull(),
+    address: text("address").notNull(),
+    scheduledDate: timestamp("scheduled_date").notNull(),
+    scheduledTime: text("scheduled_time").notNull(), // Hora no formato HH:MM
+    urgency: text("urgency", { enum: ["low", "medium", "high"] }).default("medium"),
+    budget: decimal("budget", { precision: 8, scale: 2 }), // Orçamento opcional
+    status: text("status", { enum: ["open", "in_progress", "assigned", "completed", "cancelled"] }).default("open"),
+    assignedProfessionalId: integer("assigned_professional_id"), // Profissional designado
+    responses: integer("responses").default(0), // Número de profissionais que responderam
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});

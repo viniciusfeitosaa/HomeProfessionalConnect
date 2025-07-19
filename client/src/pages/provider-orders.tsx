@@ -9,7 +9,7 @@ import {
   User, Calendar, Star, CheckCircle, XCircle, AlertCircle,
   MessageCircle, Phone, CalendarDays, Navigation, Loader2
 } from "lucide-react";
-import { BottomNavigationProvider } from "@/components/bottom-navigation-provider";
+import { ProviderLayout } from "@/components/ProviderLayout";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { getApiUrl } from "@/lib/api-config";
@@ -206,222 +206,222 @@ export default function ProviderOrders() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => window.history.back()}
-            className="lg:hidden"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Meus Pedidos</h1>
-        </div>
-      </div>
-
-      <div className="p-4 space-y-6">
-        {/* Search and Filters */}
-        <div className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Buscar pedidos..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          <div className="flex gap-2 overflow-x-auto pb-2">
+    <ProviderLayout>
+      {/* Conteúdo da página original */}
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Header */}
+        <div className="bg-white dark:bg-gray-800 border-b px-4 py-3">
+          <div className="flex items-center gap-3">
             <Button
-              variant={selectedFilter === "all" ? "default" : "outline"}
+              variant="ghost"
               size="sm"
-              onClick={() => setSelectedFilter("all")}
+              onClick={() => window.history.back()}
+              className="lg:hidden"
             >
-              Todos
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-            <Button
-              variant={selectedFilter === "pending" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedFilter("pending")}
-            >
-              Pendentes
-            </Button>
-            <Button
-              variant={selectedFilter === "accepted" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedFilter("accepted")}
-            >
-              Aceitos
-            </Button>
-            <Button
-              variant={selectedFilter === "completed" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedFilter("completed")}
-            >
-              Concluídos
-            </Button>
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Meus Pedidos</h1>
           </div>
         </div>
 
-        {/* Orders List */}
-        <div className="space-y-4">
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Carregando pedidos...
-              </h3>
+        <div className="p-4 space-y-6">
+          {/* Search and Filters */}
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Buscar pedidos..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
-          ) : filteredOrders.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertCircle className="h-8 w-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Nenhum pedido encontrado
-              </h3>
-              <p className="text-gray-500 dark:text-gray-400">
-                {searchQuery ? "Tente ajustar sua busca" : "Você ainda não tem pedidos"}
-              </p>
+
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              <Button
+                variant={selectedFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedFilter("all")}
+              >
+                Todos
+              </Button>
+              <Button
+                variant={selectedFilter === "pending" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedFilter("pending")}
+              >
+                Pendentes
+              </Button>
+              <Button
+                variant={selectedFilter === "accepted" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedFilter("accepted")}
+              >
+                Aceitos
+              </Button>
+              <Button
+                variant={selectedFilter === "completed" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSelectedFilter("completed")}
+              >
+                Concluídos
+              </Button>
             </div>
-          ) : (
-            filteredOrders.map((order) => (
-              <Card key={order.id} className="overflow-hidden">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                          {order.clientName}
-                        </h3>
-                        <Badge className={getStatusColor(order.status)}>
-                          {getStatusText(order.status)}
-                        </Badge>
+          </div>
+
+          {/* Orders List */}
+          <div className="space-y-4">
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Carregando pedidos...
+                </h3>
+              </div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Nenhum pedido encontrado
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400">
+                  {searchQuery ? "Tente ajustar sua busca" : "Você ainda não tem pedidos"}
+                </p>
+              </div>
+            ) : (
+              filteredOrders.map((order) => (
+                <Card key={order.id} className="overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-gray-900 dark:text-white">
+                            {order.clientName}
+                          </h3>
+                          <Badge className={getStatusColor(order.status)}>
+                            {getStatusText(order.status)}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {order.serviceType}
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {order.serviceType}
-                      </p>
+                      <div className="text-right">
+                        <p className="font-semibold text-green-600">
+                          R$ {order.budget}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {order.timePosted}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-green-600">
-                        R$ {order.budget}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {order.timePosted}
-                      </p>
-                    </div>
-                  </div>
-                </CardHeader>
+                  </CardHeader>
 
-                <CardContent className="pt-0">
-                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
-                    {order.description}
-                  </p>
+                  <CardContent className="pt-0">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+                      {order.description}
+                    </p>
 
-                  <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>{order.location}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Navigation className="h-4 w-4" />
-                      <span>{order.distance}km</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>{order.responses} respostas</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 mb-4">
-                    <Badge className={getUrgencyColor(order.urgency)}>
-                      {getUrgencyText(order.urgency)}
-                    </Badge>
-                    {order.clientRating && (
+                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
                       <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                        <span className="text-sm">{order.clientRating}</span>
+                        <MapPin className="h-4 w-4" />
+                        <span>{order.location}</span>
                       </div>
-                    )}
-                  </div>
+                      <div className="flex items-center gap-1">
+                        <Navigation className="h-4 w-4" />
+                        <span>{order.distance}km</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        <span>{order.responses} respostas</span>
+                      </div>
+                    </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex gap-2">
-                    {order.status === "pending" && (
-                      <>
+                    <div className="flex items-center gap-2 mb-4">
+                      <Badge className={getUrgencyColor(order.urgency)}>
+                        {getUrgencyText(order.urgency)}
+                      </Badge>
+                      {order.clientRating && (
+                        <div className="flex items-center gap-1">
+                          <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                          <span className="text-sm">{order.clientRating}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      {order.status === "pending" && (
+                        <>
+                          <Button
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => handleAcceptOrder(order.id)}
+                            disabled={actionLoading === order.id}
+                          >
+                            {actionLoading === order.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                            )}
+                            Aceitar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRejectOrder(order.id)}
+                            disabled={actionLoading === order.id}
+                          >
+                            {actionLoading === order.id ? (
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                              <XCircle className="h-4 w-4 mr-2" />
+                            )}
+                            Rejeitar
+                          </Button>
+                        </>
+                      )}
+                      
+                      {order.status === "accepted" && (
                         <Button
                           size="sm"
                           className="flex-1"
-                          onClick={() => handleAcceptOrder(order.id)}
-                          disabled={actionLoading === order.id}
+                          onClick={() => handleContactClient(order.id)}
                         >
-                          {actionLoading === order.id ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                          )}
-                          Aceitar
+                          <MessageCircle className="h-4 w-4 mr-2" />
+                          Entrar em Contato
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRejectOrder(order.id)}
-                          disabled={actionLoading === order.id}
-                        >
-                          {actionLoading === order.id ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <XCircle className="h-4 w-4 mr-2" />
-                          )}
-                          Rejeitar
+                      )}
+
+                      {order.clientPhone && (
+                        <Button variant="outline" size="sm">
+                          <Phone className="h-4 w-4 mr-2" />
+                          Ligar
                         </Button>
-                      </>
-                    )}
-                    
-                    {order.status === "accepted" && (
-                      <Button
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => handleContactClient(order.id)}
-                      >
-                        <MessageCircle className="h-4 w-4 mr-2" />
-                        Entrar em Contato
-                      </Button>
-                    )}
-
-                    {order.clientPhone && (
-                      <Button variant="outline" size="sm">
-                        <Phone className="h-4 w-4 mr-2" />
-                        Ligar
-                      </Button>
-                    )}
-                  </div>
-
-                  {order.scheduledDate && (
-                    <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <CalendarDays className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                          Agendado para: {order.scheduledDate}
-                        </span>
-                      </div>
+                      )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))
-          )}
+
+                    {order.scheduledDate && (
+                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <CalendarDays className="h-4 w-4 text-blue-600" />
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                            Agendado para: {order.scheduledDate}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Bottom Navigation */}
-      <BottomNavigationProvider />
-    </div>
+    </ProviderLayout>
   );
 } 

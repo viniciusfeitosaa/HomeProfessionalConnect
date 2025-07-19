@@ -10,6 +10,7 @@ import {
   FileText, Camera, CheckCircle, ArrowRight, Upload, Shield, ArrowLeft 
 } from "lucide-react";
 import { LifeBeeLogo } from "@/components/lifebee-logo";
+import { ProviderLayout } from "@/components/ProviderLayout";
 
 const serviceCategories = {
   fisioterapeuta: {
@@ -326,65 +327,68 @@ export default function ProviderRegistration({ onComplete }: ProviderRegistratio
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b px-4 py-3">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => window.history.back()}
-            className="lg:hidden"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Cadastro de Profissional</h1>
-        </div>
-      </div>
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="bg-white/20 backdrop-blur-sm rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-            <LifeBeeLogo size={40} />
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-2">Cadastro do Profissional</h1>
-          <p className="text-white/80 text-sm">Junte-se à nossa rede de profissionais de saúde</p>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-white/80 text-sm">Etapa {step} de {totalSteps}</span>
-            <span className="text-white/80 text-sm">{Math.round((step / totalSteps) * 100)}%</span>
-          </div>
-          <div className="w-full bg-white/20 rounded-full h-2">
-            <div 
-              className="bg-white h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(step / totalSteps) * 100}%` }}
-            />
+    <ProviderLayout>
+      {/* Conteúdo da página original */}
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        {/* Header */}
+        <div className="bg-white dark:bg-gray-800 border-b px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.history.back()}
+              className="lg:hidden"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Cadastro de Profissional</h1>
           </div>
         </div>
-
-        {/* Form Card */}
-        <Card className="bg-white/95 backdrop-blur-sm">
-          <CardContent className="p-6">
-            {renderStepContent()}
-
-            {/* Navigation Buttons */}
-            <div className="flex gap-3 mt-8">
-              {step > 1 && (
-                <Button variant="outline" onClick={handleBack} className="flex-1">
-                  Voltar
-                </Button>
-              )}
-              <Button onClick={handleNext} className="flex-1">
-                {step === totalSteps ? "Finalizar Cadastro" : "Continuar"}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+        <div className="w-full max-w-md">
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <div className="bg-white/20 backdrop-blur-sm rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+              <LifeBeeLogo size={40} />
             </div>
-          </CardContent>
-        </Card>
+            <h1 className="text-2xl font-bold text-white mb-2">Cadastro do Profissional</h1>
+            <p className="text-white/80 text-sm">Junte-se à nossa rede de profissionais de saúde</p>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-white/80 text-sm">Etapa {step} de {totalSteps}</span>
+              <span className="text-white/80 text-sm">{Math.round((step / totalSteps) * 100)}%</span>
+            </div>
+            <div className="w-full bg-white/20 rounded-full h-2">
+              <div 
+                className="bg-white h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(step / totalSteps) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Form Card */}
+          <Card className="bg-white/95 backdrop-blur-sm">
+            <CardContent className="p-6">
+              {renderStepContent()}
+
+              {/* Navigation Buttons */}
+              <div className="flex gap-3 mt-8">
+                {step > 1 && (
+                  <Button variant="outline" onClick={handleBack} className="flex-1">
+                    Voltar
+                  </Button>
+                )}
+                <Button onClick={handleNext} className="flex-1">
+                  {step === totalSteps ? "Finalizar Cadastro" : "Continuar"}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+    </ProviderLayout>
   );
 }

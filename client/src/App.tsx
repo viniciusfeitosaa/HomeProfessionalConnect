@@ -19,6 +19,8 @@ import ProviderRegistration from "@/pages/provider-registration";
 import ProviderOrders from "@/pages/provider-orders";
 import ProviderSettings from "@/pages/provider-settings";
 import ServiceOffer from "@/pages/service-offer";
+import Servico from "@/pages/servico";
+import MyRequests from "@/pages/my-requests";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 
@@ -73,6 +75,8 @@ function Router() {
       <Route path="/settings" component={Settings} />
       <Route path="/payment" component={Payment} />
       <Route path="/professional/:id" component={ProfessionalDetail} />
+      <Route path="/servico" component={Servico} />
+      <Route path="/my-requests" component={MyRequests} />
       <Route component={NotFound} />
     </Switch>
   );
