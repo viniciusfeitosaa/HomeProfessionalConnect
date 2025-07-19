@@ -109,9 +109,8 @@ export default function ProviderDashboard() {
     return R * c;
   };
 
-  // Mapeamento local de endereços conhecidos de São Paulo (sem duplicatas)
+  // Mapeamento local de endereços conhecidos de São Paulo
   const saoPauloAddresses: {[key: string]: [number, number]} = {
-    // Endereços de teste reais
     'rua das flores, 150, vila madalena, são paulo, sp': [-23.5500, -46.6800],
     'av. albert einstein, 627, morumbi, são paulo, sp': [-23.6200, -46.7200],
     'rua harmonia, 456, vila madalena, são paulo, sp': [-23.5500, -46.6800],
@@ -585,14 +584,19 @@ export default function ProviderDashboard() {
           setLocationLoading(false);
         },
         (error) => {
-          console.error("Erro ao obter localização:", error);
+          // Log mais discreto para erros comuns de geolocalização
+          if (error.code === 2) {
+            console.log("📍 Localização em rede indisponível, usando localização padrão");
+          } else {
+            console.log("📍 Usando localização padrão de São Paulo");
+          }
           setLocationLoading(false);
           // Mantém São Paulo como fallback
         },
         {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000 // 5 minutos
+          enableHighAccuracy: false, // Menos agressivo
+          timeout: 5000, // Timeout menor
+          maximumAge: 600000 // 10 minutos
         }
       );
     } else {
@@ -623,7 +627,7 @@ export default function ProviderDashboard() {
               <LifeBeeLogo size={32} />
               <div>
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Painel do Profissional</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Bem-vindo de volta, Ana Carolina!</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Bem-vindo de volta, {user?.name || 'Profissional'}!</p>
               </div>
             </div>
             
