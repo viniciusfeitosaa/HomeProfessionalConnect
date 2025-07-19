@@ -13,7 +13,7 @@ import { Link, useParams } from "wouter";
 
 export default function ServiceOffer() {
   const params = useParams();
-  const serviceId = params.id;
+  const serviceId = (params as any)?.id;
   
   const [offerMessage, setOfferMessage] = useState("");
   const [proposedPrice, setProposedPrice] = useState("");
