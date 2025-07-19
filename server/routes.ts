@@ -270,10 +270,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.createProfessional({
           userId: updatedUser.id,
           name: name,
-          specialization: '', // Pode ser preenchido depois
-          category: '',        // Pode ser preenchido depois
-          subCategory: '',     // Pode ser preenchido depois
-          description: '',
+          specialization: 'A definir', // Pode ser preenchido depois
+          category: 'fisioterapeuta',        // Pode ser preenchido depois
+          subCategory: 'companhia_apoio_emocional',     // Pode ser preenchido depois
+          description: 'Descrição a ser preenchida',
           experience: '',
           certifications: '',
           availableHours: '',
@@ -367,12 +367,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const message = {
-        id: Date.now(),
         senderId: user.id,
         recipientId,
         content,
         type: type || 'text',
-        timestamp: new Date(),
         isRead: false
       };
 
@@ -410,22 +408,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           recipientId: professionalId,
           content: message || 'Olá! Gostaria de conversar sobre seus serviços.',
           type: 'text',
-          timestamp: new Date(),
           isRead: false
         });
 
         return res.status(200).json({
           message: 'Mensagem enviada com sucesso',
           conversationId: existingConversation.id,
-          message: newMessage
+          messageData: newMessage
         });
       } else {
         // Create new conversation
         const conversation = await storage.createConversation({
           clientId: user.id,
-          professionalId: professionalId,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          professionalId: professionalId
         });
 
         // Send initial message
@@ -435,14 +430,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           recipientId: professionalId,
           content: message || 'Olá! Gostaria de conversar sobre seus serviços.',
           type: 'text',
-          timestamp: new Date(),
           isRead: false
         });
 
         return res.status(201).json({
           message: 'Conversa iniciada com sucesso',
           conversationId: conversation.id,
-          message: initialMessage
+          messageData: initialMessage
         });
       }
     } catch (error) {
@@ -900,8 +894,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         scheduledDate: new Date(scheduledDate),
         scheduledTime,
         urgency: urgency || "medium",
-        budget: budget ? parseFloat(budget) : null,
-        status: "open"
+        budget: budget ? parseFloat(budget).toString() : null,
+        status: "open",
+        assignedProfessionalId: null,
+        responses: 0
       });
 
       // Create notification for professionals in the category

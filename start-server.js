@@ -1,34 +1,35 @@
 import { spawn } from 'child_process';
+import path from 'path';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = path.dirname(__filename);
 
-// Caminho para o arquivo compilado do server
-const serverPath = join(__dirname, 'server', 'dist', 'index.js');
+console.log('🚀 Iniciando servidor no Render...');
 
-console.log('🚀 Iniciando servidor...');
-console.log(`📁 Caminho do servidor: ${serverPath}`);
+try {
+  // Navegar para o diretório server
+  process.chdir(path.join(__dirname, 'server'));
+  console.log('📁 Diretório atual:', process.cwd());
 
-// Inicia o servidor diretamente
-const child = spawn('node', [serverPath], {
-  stdio: 'inherit',
-  shell: true,
-  env: {
-    ...process.env,
-    NODE_ENV: 'production'
-  }
-});
+  // Executar o servidor
+  console.log('🌐 Iniciando servidor...');
+  const server = spawn('npm', ['run', 'render-start'], {
+    stdio: 'inherit',
+    shell: true
+  });
 
-child.on('error', (error) => {
-  console.error('❌ Erro ao iniciar o servidor:', error);
+  server.on('error', (error) => {
+    console.error('❌ Erro ao iniciar servidor:', error);
+    process.exit(1);
+  });
+
+  server.on('exit', (code) => {
+    console.log(`🔄 Servidor encerrado com código ${code}`);
+    process.exit(code);
+  });
+
+} catch (error) {
+  console.error('❌ Erro durante inicialização:', error.message);
   process.exit(1);
-});
-
-child.on('exit', (code) => {
-  if (code !== 0) {
-    console.error(`❌ Servidor encerrado com código ${code}`);
-  }
-  process.exit(code);
-}); 
+} 

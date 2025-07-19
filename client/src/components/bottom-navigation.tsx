@@ -1,4 +1,4 @@
-import { Home, Calendar, MessageCircle, User, ClipboardList, Plus } from "lucide-react";
+import { Home, Calendar, MessageCircle, User, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
 

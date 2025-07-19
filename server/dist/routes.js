@@ -6,19 +6,30 @@ import helmet from "helmet";
 import { storage } from "./storage.js";
 import { generateToken, verifyPassword, hashPassword, rateLimitByIP, authenticateToken } from "./auth.js";
 import "./auth.js"; // Initialize passport strategies
+import pgSession from "connect-pg-simple";
+import 'express-session';
 // Rate limiting
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // Increased limit for development
+    max: 100, // Increased limit for development
     message: 'Muitas tentativas de login. Tente novamente em 15 minutos.',
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => {
         // Skip rate limiting for development
-        return process.env.NODE_ENV === 'development';
+        return process.env.NODE_ENV === 'development' || true; // Always skip for now
     }
 });
 export async function registerRoutes(app) {
+    // Health check endpoint
+    app.get('/api/health', (req, res) => {
+        res.status(200).json({
+            status: 'OK',
+            message: 'Server is healthy',
+            timestamp: new Date().toISOString(),
+            environment: process.env.NODE_ENV || 'development'
+        });
+    });
     // Configure trust proxy more securely
     app.set('trust proxy', 1);
     // Security middleware with CSP configuration for development
@@ -36,16 +47,24 @@ export async function registerRoutes(app) {
         },
         crossOriginEmbedderPolicy: false
     }));
-    // Session configuration
+    // Session configuration with PostgreSQL store
+    const PgSession = pgSession(session);
     app.use(session({
-        secret: process.env.JWT_SECRET,
+        store: new PgSession({
+            conString: process.env.DATABASE_URL || process.env.NETLIFY_DATABASE_URL,
+            tableName: 'sessions', // tabela para armazenar as sessões
+            createTableIfMissing: true, // cria a tabela automaticamente se não existir
+        }),
+        secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || 'fallback-secret-key',
         resave: false,
         saveUninitialized: false,
         cookie: {
             secure: process.env.NODE_ENV === 'production',
             httpOnly: true,
-            maxAge: 24 * 60 * 60 * 1000 // 24 hours
-        }
+            maxAge: 24 * 60 * 60 * 1000, // 24 hours
+            sameSite: 'lax'
+        },
+        name: 'lifebee.sid' // nome personalizado do cookie
     }));
     // Initialize passport
     app.use(passport.initialize());
@@ -189,6 +208,28 @@ export async function registerRoutes(app) {
                 phoneVerified: true,
                 isVerified: true
             });
+            // Se for provider, cria também na tabela professionals
+            if ((userType || 'client') === 'provider') {
+                await storage.createProfessional({
+                    userId: updatedUser.id,
+                    name: name,
+                    specialization: 'A definir', // Pode ser preenchido depois
+                    category: 'fisioterapeuta', // Pode ser preenchido depois
+                    subCategory: 'companhia_apoio_emocional', // Pode ser preenchido depois
+                    description: 'Descrição a ser preenchida',
+                    experience: '',
+                    certifications: '',
+                    availableHours: '',
+                    hourlyRate: '0',
+                    rating: '5.0',
+                    totalReviews: 0,
+                    location: '',
+                    distance: '0',
+                    available: true,
+                    imageUrl: '',
+                    createdAt: new Date()
+                });
+            }
             // Create welcome notification for new user
             await storage.createNotification({
                 userId: user.id,
@@ -218,20 +259,34 @@ export async function registerRoutes(app) {
     app.get('/api/messages', authenticateToken, async (req, res) => {
         try {
             const user = req.user;
-            // Return conversations with professionals
-            const conversations = [
-                {
-                    id: 1,
-                    professionalId: 1,
-                    professionalName: "Ana Carolina Silva",
-                    specialization: "Fisioterapeuta",
-                    lastMessage: "Ótimo! Nos vemos na próxima sessão então.",
-                    lastMessageTime: new Date(Date.now() - 1000 * 60 * 30),
-                    unreadCount: 2,
-                    isOnline: true
-                }
-            ];
-            res.json(conversations);
+            // Buscar conversas do usuário no banco de dados
+            const userConversations = await storage.getConversationsByUser(user.id);
+            if (userConversations && userConversations.length > 0) {
+                // Se há conversas reais, retornar elas
+                const conversationsWithDetails = await Promise.all(userConversations.map(async (conv) => {
+                    const professional = await storage.getProfessionalById(conv.professionalId);
+                    const lastMessage = await storage.getLastMessageByConversation(conv.id);
+                    return {
+                        id: conv.id,
+                        professionalId: conv.professionalId,
+                        professionalName: professional?.name || "Profissional",
+                        professionalAvatar: professional?.imageUrl || "",
+                        specialization: professional?.specialization || "",
+                        lastMessage: lastMessage?.content || "Nenhuma mensagem",
+                        lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+                        unreadCount: await storage.getUnreadMessageCount(conv.id, user.id),
+                        isOnline: Math.random() > 0.5, // Simular status online
+                        rating: professional?.rating || 5.0,
+                        location: professional?.location || "São Paulo, SP",
+                        messages: await storage.getMessagesByConversation(conv.id)
+                    };
+                }));
+                res.json(conversationsWithDetails);
+            }
+            else {
+                // Se não há conversas, retornar array vazio
+                res.json([]);
+            }
         }
         catch (error) {
             console.error('Get messages error:', error);
@@ -246,18 +301,74 @@ export async function registerRoutes(app) {
                 return res.status(400).json({ message: 'Destinatário e conteúdo são obrigatórios' });
             }
             const message = {
-                id: Date.now(),
                 senderId: user.id,
                 recipientId,
                 content,
                 type: type || 'text',
-                timestamp: new Date(),
                 isRead: false
             };
             res.status(201).json(message);
         }
         catch (error) {
             console.error('Send message error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Start conversation with professional
+    app.post('/api/messages/start-conversation', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const { professionalId, message } = req.body;
+            if (!professionalId) {
+                return res.status(400).json({ message: 'ID do profissional é obrigatório' });
+            }
+            // Verify if professional exists
+            const professional = await storage.getProfessionalById(professionalId);
+            if (!professional) {
+                return res.status(404).json({ message: 'Profissional não encontrado' });
+            }
+            // Check if conversation already exists
+            const existingConversation = await storage.getConversation(user.id, professionalId);
+            if (existingConversation) {
+                // If conversation exists, just send the message
+                const newMessage = await storage.createMessage({
+                    conversationId: existingConversation.id,
+                    senderId: user.id,
+                    recipientId: professionalId,
+                    content: message || 'Olá! Gostaria de conversar sobre seus serviços.',
+                    type: 'text',
+                    isRead: false
+                });
+                return res.status(200).json({
+                    message: 'Mensagem enviada com sucesso',
+                    conversationId: existingConversation.id,
+                    messageData: newMessage
+                });
+            }
+            else {
+                // Create new conversation
+                const conversation = await storage.createConversation({
+                    clientId: user.id,
+                    professionalId: professionalId
+                });
+                // Send initial message
+                const initialMessage = await storage.createMessage({
+                    conversationId: conversation.id,
+                    senderId: user.id,
+                    recipientId: professionalId,
+                    content: message || 'Olá! Gostaria de conversar sobre seus serviços.',
+                    type: 'text',
+                    isRead: false
+                });
+                return res.status(201).json({
+                    message: 'Conversa iniciada com sucesso',
+                    conversationId: conversation.id,
+                    messageData: initialMessage
+                });
+            }
+        }
+        catch (error) {
+            console.error('Start conversation error:', error);
             res.status(500).json({ message: 'Erro interno do servidor' });
         }
     });
@@ -325,21 +436,11 @@ export async function registerRoutes(app) {
             res.status(500).json({ message: 'Erro interno do servidor' });
         }
     });
-    // Get appointments - simplified for demo
+    // Get appointments
     app.get('/api/appointments', authenticateToken, async (req, res) => {
         try {
             const user = req.user;
-            // Return mock appointments for demo
-            const appointments = [
-                {
-                    id: 1,
-                    professionalName: "Ana Carolina Silva",
-                    specialization: "Fisioterapeuta",
-                    date: new Date(),
-                    time: "14:00",
-                    status: "confirmado"
-                }
-            ];
+            const appointments = await storage.getAppointmentsByUser(user.id);
             res.json(appointments);
         }
         catch (error) {
@@ -478,6 +579,348 @@ export async function registerRoutes(app) {
             res.status(500).json({
                 message: "Error processing payment: " + error.message
             });
+        }
+    });
+    // ===== ROTAS PARA PEDIDOS DO PROFISSIONAL =====
+    // Get orders for professional
+    app.get("/api/provider/orders", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Buscar pedidos reais do banco de dados
+            const orders = await storage.getAppointmentsByProfessional(user.id) || [];
+            res.json(orders);
+        }
+        catch (error) {
+            console.error('Get provider orders error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Accept order
+    app.post("/api/provider/orders/:id/accept", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const orderId = parseInt(req.params.id);
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Mock implementation - will be replaced with real database update
+            console.log(`Professional ${user.id} accepted order ${orderId}`);
+            res.json({
+                message: "Pedido aceito com sucesso",
+                orderId: orderId,
+                status: "accepted"
+            });
+        }
+        catch (error) {
+            console.error('Accept order error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Reject order
+    app.post("/api/provider/orders/:id/reject", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const orderId = parseInt(req.params.id);
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Mock implementation - will be replaced with real database update
+            console.log(`Professional ${user.id} rejected order ${orderId}`);
+            res.json({
+                message: "Pedido rejeitado com sucesso",
+                orderId: orderId,
+                status: "rejected"
+            });
+        }
+        catch (error) {
+            console.error('Reject order error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Complete order
+    app.post("/api/provider/orders/:id/complete", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const orderId = parseInt(req.params.id);
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Mock implementation - will be replaced with real database update
+            console.log(`Professional ${user.id} completed order ${orderId}`);
+            res.json({
+                message: "Pedido concluído com sucesso",
+                orderId: orderId,
+                status: "completed"
+            });
+        }
+        catch (error) {
+            console.error('Complete order error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // ===== ROTAS PARA CONFIGURAÇÕES DO PROFISSIONAL =====
+    // Get provider settings
+    app.get("/api/provider/settings", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Mock settings data
+            const settings = {
+                profile: {
+                    name: "Ana Carolina Silva",
+                    email: "ana.carolina@email.com",
+                    phone: "(11) 99999-9999",
+                    specialization: "Fisioterapeuta"
+                },
+                availability: {
+                    isAvailable: true,
+                    workStartTime: "08:00",
+                    workEndTime: "18:00"
+                },
+                notifications: {
+                    newOrders: true,
+                    messages: true,
+                    payments: true,
+                    reminders: true,
+                    marketing: false
+                },
+                payments: {
+                    bankAccount: "Banco do Brasil •••• 1234",
+                    pixKey: "ana.carolina@email.com"
+                }
+            };
+            res.json(settings);
+        }
+        catch (error) {
+            console.error('Get provider settings error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Update provider settings
+    app.put("/api/provider/settings", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const { profile, availability, notifications, payments } = req.body;
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Mock implementation - will be replaced with real database update
+            console.log(`Updating settings for professional ${user.id}:`, {
+                profile,
+                availability,
+                notifications,
+                payments
+            });
+            res.json({
+                message: "Configurações atualizadas com sucesso",
+                settings: { profile, availability, notifications, payments }
+            });
+        }
+        catch (error) {
+            console.error('Update provider settings error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // ===== ROTAS PARA SOLICITAÇÕES DE SERVIÇO =====
+    // Get my service requests (alias for client) - DEVE VIR ANTES de todas as outras rotas
+    app.get("/api/service-requests/my-requests", authenticateToken, async (req, res) => {
+        console.log('🔍 Rota /api/service-requests/my-requests foi chamada');
+        try {
+            const user = req.user;
+            console.log('👤 Usuário:', user);
+            // Verify user is a client
+            if (user.userType !== 'client') {
+                console.log('❌ Usuário não é cliente:', user.userType);
+                return res.status(403).json({ message: "Apenas clientes podem acessar suas solicitações" });
+            }
+            console.log('✅ Buscando solicitações para cliente ID:', user.id);
+            const serviceRequests = await storage.getServiceRequestsByClient(user.id);
+            console.log('📋 Solicitações encontradas:', serviceRequests.length);
+            res.json(serviceRequests);
+        }
+        catch (error) {
+            console.error('💥 Get my service requests error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Create service request
+    app.post("/api/service-request", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const { serviceType, category, description, address, scheduledDate, scheduledTime, urgency, budget } = req.body;
+            // Verify user is a client
+            if (user.userType !== 'client') {
+                return res.status(403).json({ message: "Apenas clientes podem solicitar serviços" });
+            }
+            // Validate required fields
+            if (!serviceType || !category || !description || !address || !scheduledDate || !scheduledTime) {
+                return res.status(400).json({ message: "Todos os campos obrigatórios devem ser preenchidos" });
+            }
+            // Validate category
+            const validCategories = ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"];
+            if (!validCategories.includes(category)) {
+                return res.status(400).json({ message: "Categoria inválida" });
+            }
+            // Create service request
+            const serviceRequest = await storage.createServiceRequest({
+                clientId: user.id,
+                serviceType,
+                category,
+                description,
+                address,
+                scheduledDate: new Date(scheduledDate),
+                scheduledTime,
+                urgency: urgency || "medium",
+                budget: budget ? parseFloat(budget).toString() : null,
+                status: "open",
+                assignedProfessionalId: null,
+                responses: 0
+            });
+            // Create notification for professionals in the category
+            const professionals = await storage.getProfessionalsByCategory(category);
+            for (const professional of professionals) {
+                await storage.createNotification({
+                    userId: professional.userId,
+                    message: `Nova solicitação de ${serviceType} disponível na sua área`,
+                    read: false
+                });
+            }
+            res.status(201).json({
+                message: "Solicitação criada com sucesso",
+                serviceRequest
+            });
+        }
+        catch (error) {
+            console.error('Create service request error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Get service requests by client
+    app.get("/api/service-requests/client", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            // Verify user is a client
+            if (user.userType !== 'client') {
+                return res.status(403).json({ message: "Apenas clientes podem acessar suas solicitações" });
+            }
+            const serviceRequests = await storage.getServiceRequestsByClient(user.id);
+            res.json(serviceRequests);
+        }
+        catch (error) {
+            console.error('Get client service requests error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Test endpoint to check authentication
+    app.get("/api/test-auth", authenticateToken, async (req, res) => {
+        console.log('🔍 Rota de teste de autenticação foi chamada');
+        const user = req.user;
+        console.log('👤 Usuário autenticado:', user);
+        res.json({
+            message: "Autenticação funcionando",
+            user: {
+                id: user.id,
+                email: user.email,
+                userType: user.userType
+            }
+        });
+    });
+    // Get service requests by category (for professionals)
+    app.get("/api/service-requests/category/:category", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const { category } = req.params;
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Apenas profissionais podem acessar solicitações" });
+            }
+            const serviceRequests = await storage.getServiceRequestsByCategory(category);
+            res.json(serviceRequests);
+        }
+        catch (error) {
+            console.error('Get service requests by category error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Get specific service request
+    app.get("/api/service-request/:id", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const requestId = parseInt(req.params.id);
+            const serviceRequest = await storage.getServiceRequest(requestId);
+            if (!serviceRequest) {
+                return res.status(404).json({ message: "Solicitação não encontrada" });
+            }
+            // Verify user has access to this request
+            if (user.userType === 'client' && serviceRequest.clientId !== user.id) {
+                return res.status(403).json({ message: "Acesso negado" });
+            }
+            res.json(serviceRequest);
+        }
+        catch (error) {
+            console.error('Get service request error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Update service request status
+    app.put("/api/service-request/:id/status", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const requestId = parseInt(req.params.id);
+            const { status } = req.body;
+            const serviceRequest = await storage.getServiceRequest(requestId);
+            if (!serviceRequest) {
+                return res.status(404).json({ message: "Solicitação não encontrada" });
+            }
+            // Verify user has access to this request
+            if (user.userType === 'client' && serviceRequest.clientId !== user.id) {
+                return res.status(403).json({ message: "Acesso negado" });
+            }
+            const updatedRequest = await storage.updateServiceRequest(requestId, { status });
+            res.json({
+                message: "Status atualizado com sucesso",
+                serviceRequest: updatedRequest
+            });
+        }
+        catch (error) {
+            console.error('Update service request status error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Delete service request
+    app.delete("/api/service-requests/:id", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const requestId = parseInt(req.params.id);
+            const serviceRequest = await storage.getServiceRequest(requestId);
+            if (!serviceRequest) {
+                return res.status(404).json({ message: "Solicitação não encontrada" });
+            }
+            // Verify user is the owner of this request
+            if (user.userType !== 'client' || serviceRequest.clientId !== user.id) {
+                return res.status(403).json({ message: "Apenas o cliente que criou a solicitação pode excluí-la" });
+            }
+            // Only allow deletion of open requests
+            if (serviceRequest.status !== 'open') {
+                return res.status(400).json({ message: "Apenas solicitações abertas podem ser excluídas" });
+            }
+            await storage.deleteServiceRequest(requestId);
+            res.json({ message: "Solicitação excluída com sucesso" });
+        }
+        catch (error) {
+            console.error('Delete service request error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
         }
     });
     const httpServer = createServer(app);
