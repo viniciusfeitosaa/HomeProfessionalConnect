@@ -1,25 +1,20 @@
 import { db } from "./db.js";
 import { professionals, users, serviceRequests } from "./schema.js";
+import { clearDatabase } from "./clearDatabase.js";
 
 export async function seedDatabase() {
   console.log("=== SEED DATABASE DEBUG ===");
   console.log("Starting seedDatabase function...");
   
   try {
-    // Verificar se já existem dados
-    console.log("Checking if data already exists...");
-    const existingUsers = await db.select().from(users).limit(1);
-    console.log("Existing users count:", existingUsers.length);
+    // Limpar TODOS os dados existentes para garantir um banco limpo
+    console.log("🧹 Limpando todos os dados existentes...");
+    await clearDatabase();
     
-    if (existingUsers.length > 0) {
-      console.log('Database already has data, skipping seed');
-      return;
-    }
-
-    console.log('Database is empty. No test data will be created.');
-    console.log('Users can register normally through the application.');
+    console.log('✅ Banco de dados limpo. Apenas usuários reais podem se registrar.');
+    console.log('📝 Não serão criados dados de exemplo.');
     
   } catch (error) {
-    console.error("Error checking database:", error);
+    console.error("Error clearing database:", error);
   }
 }
