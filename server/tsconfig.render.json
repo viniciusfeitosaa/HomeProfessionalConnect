@@ -17,6 +17,10 @@
     "sourceMap": false,
     "allowImportingTsExtensions": false,
     "noImplicitAny": false,
+    "noImplicitReturns": false,
+    "noImplicitThis": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "types": ["node"]
   },
   "include": [

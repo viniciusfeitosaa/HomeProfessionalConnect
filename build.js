@@ -23,7 +23,7 @@ try {
 
   // Executar build do servidor
   console.log('🔨 Executando build do servidor...');
-  execSync('npm run build', { stdio: 'inherit' });
+  execSync('npm run build:render', { stdio: 'inherit' });
 
   console.log('✅ Build concluído com sucesso!');
 } catch (error) {
