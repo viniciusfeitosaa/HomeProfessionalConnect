@@ -15,13 +15,16 @@ import passport2 from "passport";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 
-// shared/schema.js
+// server/schema.ts
 var schema_exports = {};
 __export(schema_exports, {
   appointments: () => appointments,
+  conversations: () => conversations,
   loginAttempts: () => loginAttempts,
+  messages: () => messages,
   notifications: () => notifications,
   professionals: () => professionals,
+  serviceRequests: () => serviceRequests,
   users: () => users,
   verificationCodes: () => verificationCodes
 });
@@ -124,11 +127,72 @@ var verificationCodes = pgTable("verification_codes", {
   used: boolean("used").default(false),
   createdAt: timestamp("created_at").defaultNow()
 });
+var conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  professionalId: integer("professional_id").notNull(),
+  deletedByClient: boolean("deleted_by_client").default(false),
+  deletedByProfessional: boolean("deleted_by_professional").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").notNull(),
+  senderId: integer("sender_id").notNull(),
+  recipientId: integer("recipient_id").notNull(),
+  content: text("content").notNull(),
+  type: text("type", { enum: ["text", "image", "file"] }).default("text"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  isRead: boolean("is_read").default(false)
+});
+var serviceRequests = pgTable("service_requests", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  // Cliente que solicitou
+  serviceType: text("service_type").notNull(),
+  // Tipo de serviço (ex: fisioterapia, enfermagem)
+  category: text("category", {
+    enum: ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"]
+  }).notNull(),
+  description: text("description").notNull(),
+  address: text("address").notNull(),
+  scheduledDate: timestamp("scheduled_date").notNull(),
+  scheduledTime: text("scheduled_time").notNull(),
+  // Hora no formato HH:MM
+  urgency: text("urgency", { enum: ["low", "medium", "high"] }).default("medium"),
+  budget: decimal("budget", { precision: 8, scale: 2 }),
+  // Orçamento opcional
+  status: text("status", { enum: ["open", "in_progress", "assigned", "completed", "cancelled"] }).default("open"),
+  assignedProfessionalId: integer("assigned_professional_id"),
+  // Profissional designado
+  responses: integer("responses").default(0),
+  // Número de profissionais que responderam
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
 
 // server/db.ts
+import "dotenv/config";
+import path from "path";
+import { config } from "dotenv";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import ws from "ws";
+config({ path: path.resolve(process.cwd(), "../.env") });
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "postgresql://neondb_owner:npg_L9mgJX6UuftC@ep-lingering-pine-a54hc3dj-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require";
+}
+if (!process.env.SESSION_SECRET) {
+  process.env.SESSION_SECRET = "462850e97a4147e11d70bd6bb8675b39855643173f0d0aa8904be81060f506a7";
+}
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = "462850e97a4147e11d70bd6bb8675b39855643173f0d0aa8904be81060f506a7";
+}
+console.log("Current directory:", process.cwd());
+console.log("Env file path:", path.resolve(process.cwd(), "../.env"));
+console.log("All env vars:", Object.keys(process.env).filter((key) => key.includes("DATABASE")));
+console.log("DATABASE_URL value:", process.env.DATABASE_URL);
 neonConfig.webSocketConstructor = ws;
 var connectionString = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
 console.log("=== DATABASE CONNECTION DEBUG ===");
@@ -153,7 +217,7 @@ try {
 }
 
 // server/storage.ts
-import { eq, and, or, gte, ilike, sql } from "drizzle-orm";
+import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
 var DatabaseStorage = class {
   // Users
   async getUser(id) {
@@ -215,13 +279,70 @@ var DatabaseStorage = class {
   }
   // Professionals
   async getAllProfessionals() {
-    return await db.select().from(professionals).where(eq(professionals.available, true));
+    return await db.select({
+      id: professionals.id,
+      userId: professionals.userId,
+      name: professionals.name,
+      specialization: professionals.specialization,
+      category: professionals.category,
+      subCategory: professionals.subCategory,
+      description: professionals.description,
+      experience: professionals.experience,
+      certifications: professionals.certifications,
+      availableHours: professionals.availableHours,
+      hourlyRate: professionals.hourlyRate,
+      rating: professionals.rating,
+      totalReviews: professionals.totalReviews,
+      location: professionals.location,
+      distance: professionals.distance,
+      available: professionals.available,
+      imageUrl: professionals.imageUrl,
+      createdAt: professionals.createdAt
+    }).from(professionals).where(eq(professionals.available, true));
   }
   async getProfessionalsByCategory(category) {
-    return await db.select().from(professionals).where(and(eq(professionals.category, category), eq(professionals.available, true)));
+    return await db.select({
+      id: professionals.id,
+      userId: professionals.userId,
+      name: professionals.name,
+      specialization: professionals.specialization,
+      category: professionals.category,
+      subCategory: professionals.subCategory,
+      description: professionals.description,
+      experience: professionals.experience,
+      certifications: professionals.certifications,
+      availableHours: professionals.availableHours,
+      hourlyRate: professionals.hourlyRate,
+      rating: professionals.rating,
+      totalReviews: professionals.totalReviews,
+      location: professionals.location,
+      distance: professionals.distance,
+      available: professionals.available,
+      imageUrl: professionals.imageUrl,
+      createdAt: professionals.createdAt
+    }).from(professionals).where(and(eq(professionals.category, category), eq(professionals.available, true)));
   }
   async searchProfessionals(query) {
-    return await db.select().from(professionals).where(
+    return await db.select({
+      id: professionals.id,
+      userId: professionals.userId,
+      name: professionals.name,
+      specialization: professionals.specialization,
+      category: professionals.category,
+      subCategory: professionals.subCategory,
+      description: professionals.description,
+      experience: professionals.experience,
+      certifications: professionals.certifications,
+      availableHours: professionals.availableHours,
+      hourlyRate: professionals.hourlyRate,
+      rating: professionals.rating,
+      totalReviews: professionals.totalReviews,
+      location: professionals.location,
+      distance: professionals.distance,
+      available: professionals.available,
+      imageUrl: professionals.imageUrl,
+      createdAt: professionals.createdAt
+    }).from(professionals).where(
       and(
         eq(professionals.available, true),
         or(
@@ -305,6 +426,175 @@ var DatabaseStorage = class {
   }
   async markCodeAsUsed(id) {
     await db.update(verificationCodes).set({ [verificationCodes.used.name]: true }).where(eq(verificationCodes.id, id));
+  }
+  // Conversations & Messages
+  async getProfessionalById(userId) {
+    const result = await db.select().from(professionals).where(eq(professionals.userId, userId)).limit(1);
+    return result[0];
+  }
+  async getConversation(clientId, professionalId) {
+    const result = await db.select().from(conversations).where(
+      and(
+        eq(conversations.clientId, clientId),
+        eq(conversations.professionalId, professionalId)
+      )
+    ).limit(1);
+    return result[0];
+  }
+  // Verificar se uma conversa foi deletada pelo usuário
+  async isConversationDeletedByUser(conversationId, userId) {
+    const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
+    if (!conversation[0]) {
+      return false;
+    }
+    const conv = conversation[0];
+    if (conv.clientId === userId) {
+      return conv.deletedByClient === true;
+    } else if (conv.professionalId === userId) {
+      return conv.deletedByProfessional === true;
+    }
+    return false;
+  }
+  // Restaurar conversa (marcar como não deletada pelo usuário)
+  async restoreConversation(conversationId, userId) {
+    const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
+    if (!conversation[0]) {
+      throw new Error("Conversa n\xE3o encontrada");
+    }
+    const conv = conversation[0];
+    const updates = {};
+    if (conv.clientId === userId) {
+      updates.deletedByClient = false;
+    } else if (conv.professionalId === userId) {
+      updates.deletedByProfessional = false;
+    } else {
+      throw new Error("Usu\xE1rio n\xE3o \xE9 participante da conversa");
+    }
+    await db.update(conversations).set(updates).where(eq(conversations.id, conversationId));
+  }
+  async getConversationsByUser(userId) {
+    console.log(`\u{1F50D} getConversationsByUser(${userId}) - Iniciando busca...`);
+    const allUserConversations = await db.select().from(conversations).where(
+      or(
+        eq(conversations.clientId, userId),
+        eq(conversations.professionalId, userId)
+      )
+    );
+    console.log(`\u{1F4CB} Todas as conversas do usu\xE1rio ${userId}:`, allUserConversations.map((c) => ({
+      id: c.id,
+      clientId: c.clientId,
+      professionalId: c.professionalId,
+      deletedByClient: c.deletedByClient,
+      deletedByProfessional: c.deletedByProfessional
+    })));
+    const asClient = allUserConversations.filter((c) => c.clientId === userId);
+    const asProfessional = allUserConversations.filter((c) => c.professionalId === userId);
+    console.log(`\u{1F4CA} Usu\xE1rio ${userId} - Como cliente: ${asClient.length}, Como profissional: ${asProfessional.length}`);
+    const result = await db.select().from(conversations).where(
+      and(
+        or(
+          eq(conversations.clientId, userId),
+          eq(conversations.professionalId, userId)
+        ),
+        // Não mostrar conversas deletadas pelo usuário
+        or(
+          and(eq(conversations.clientId, userId), eq(conversations.deletedByClient, false)),
+          and(eq(conversations.professionalId, userId), eq(conversations.deletedByProfessional, false))
+        )
+      )
+    );
+    console.log(`\u2705 Conversas filtradas para usu\xE1rio ${userId}:`, result.map((c) => ({
+      id: c.id,
+      clientId: c.clientId,
+      professionalId: c.professionalId,
+      deletedByClient: c.deletedByClient,
+      deletedByProfessional: c.deletedByProfessional
+    })));
+    return result;
+  }
+  async createConversation(conversation) {
+    const result = await db.insert(conversations).values(conversation).returning();
+    return result[0];
+  }
+  async createMessage(message) {
+    const result = await db.insert(messages).values(message).returning();
+    return result[0];
+  }
+  async getMessagesByConversation(conversationId) {
+    return await db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(messages.timestamp);
+  }
+  async getLastMessageByConversation(conversationId) {
+    const result = await db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(desc(messages.timestamp)).limit(1);
+    return result[0];
+  }
+  async getUnreadMessageCount(conversationId, userId) {
+    const [result] = await db.select({ count: sql`cast(count(*) as int)` }).from(messages).where(
+      and(
+        eq(messages.conversationId, conversationId),
+        ne(messages.senderId, userId),
+        eq(messages.isRead, false)
+      )
+    );
+    return result?.count || 0;
+  }
+  async markMessagesAsRead(conversationId, userId) {
+    await db.update(messages).set({ isRead: true }).where(
+      and(
+        eq(messages.conversationId, conversationId),
+        ne(messages.senderId, userId),
+        eq(messages.isRead, false)
+      )
+    );
+  }
+  // Excluir todas as mensagens de uma conversa
+  async deleteMessagesByConversation(conversationId) {
+    await db.delete(messages).where(eq(messages.conversationId, conversationId));
+  }
+  // Marcar conversa como deletada pelo usuário (exclusão individual)
+  async deleteConversation(conversationId, userId) {
+    const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
+    if (!conversation[0]) {
+      throw new Error("Conversa n\xE3o encontrada");
+    }
+    const conv = conversation[0];
+    const updates = {};
+    if (conv.clientId === userId) {
+      updates.deletedByClient = true;
+    } else if (conv.professionalId === userId) {
+      updates.deletedByProfessional = true;
+    } else {
+      throw new Error("Usu\xE1rio n\xE3o \xE9 participante da conversa");
+    }
+    await db.update(conversations).set(updates).where(eq(conversations.id, conversationId));
+  }
+  // Service Requests
+  async getServiceRequestsByClient(clientId) {
+    return await db.select().from(serviceRequests).where(eq(serviceRequests.clientId, clientId)).orderBy(desc(serviceRequests.createdAt));
+  }
+  async getServiceRequestsByCategory(category) {
+    return await db.select().from(serviceRequests).where(eq(serviceRequests.category, category)).orderBy(desc(serviceRequests.createdAt));
+  }
+  async getServiceRequest(id) {
+    const [serviceRequest] = await db.select().from(serviceRequests).where(eq(serviceRequests.id, id));
+    return serviceRequest || void 0;
+  }
+  async createServiceRequest(insertServiceRequest) {
+    const [serviceRequest] = await db.insert(serviceRequests).values(insertServiceRequest).returning();
+    return serviceRequest;
+  }
+  async updateServiceRequest(id, updates) {
+    const [serviceRequest] = await db.update(serviceRequests).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceRequests.id, id)).returning();
+    return serviceRequest;
+  }
+  async deleteServiceRequest(id) {
+    await db.delete(serviceRequests).where(eq(serviceRequests.id, id));
+  }
+  async assignProfessionalToRequest(requestId, professionalId) {
+    await db.update(serviceRequests).set({
+      assignedProfessionalId: professionalId,
+      status: "assigned",
+      updatedAt: /* @__PURE__ */ new Date()
+    }).where(eq(serviceRequests.id, requestId));
   }
 };
 var storage = new DatabaseStorage();
@@ -402,13 +692,13 @@ import "express-session";
 var authLimiter = rateLimit({
   windowMs: 15 * 60 * 1e3,
   // 15 minutes
-  max: 10,
+  max: 100,
   // Increased limit for development
   message: "Muitas tentativas de login. Tente novamente em 15 minutos.",
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    return process.env.NODE_ENV === "development";
+    return process.env.NODE_ENV === "development" || true;
   }
 });
 async function registerRoutes(app2) {
@@ -582,6 +872,30 @@ async function registerRoutes(app2) {
         phoneVerified: true,
         isVerified: true
       });
+      if ((userType || "client") === "provider") {
+        await storage.createProfessional({
+          userId: updatedUser.id,
+          name,
+          specialization: "A definir",
+          // Pode ser preenchido depois
+          category: "fisioterapeuta",
+          // Pode ser preenchido depois
+          subCategory: "companhia_apoio_emocional",
+          // Pode ser preenchido depois
+          description: "Descri\xE7\xE3o a ser preenchida",
+          experience: "",
+          certifications: "",
+          availableHours: "",
+          hourlyRate: "0",
+          rating: "5.0",
+          totalReviews: 0,
+          location: "",
+          distance: "0",
+          available: true,
+          imageUrl: "",
+          createdAt: /* @__PURE__ */ new Date()
+        });
+      }
       await storage.createNotification({
         userId: user.id,
         message: `Bem-vindo \xE0 LifeBee, ${user.name}! Sua conta foi criada com sucesso.`,
@@ -608,19 +922,64 @@ async function registerRoutes(app2) {
   app2.get("/api/messages", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
-      const conversations = [
-        {
-          id: 1,
-          professionalId: 1,
-          professionalName: "Ana Carolina Silva",
-          specialization: "Fisioterapeuta",
-          lastMessage: "\xD3timo! Nos vemos na pr\xF3xima sess\xE3o ent\xE3o.",
-          lastMessageTime: new Date(Date.now() - 1e3 * 60 * 30),
-          unreadCount: 2,
-          isOnline: true
-        }
-      ];
-      res.json(conversations);
+      console.log("\u{1F50D} GET /api/messages - Usu\xE1rio autenticado:", user.id, user.userType);
+      console.log("\u{1F50D} Headers da requisi\xE7\xE3o:", req.headers.authorization ? "Token presente" : "Token ausente");
+      const userConversations = await storage.getConversationsByUser(user.id);
+      console.log("\u{1F4CB} Conversas retornadas para usu\xE1rio", user.id, ":", userConversations.length);
+      console.log("\u{1F4CB} Detalhes das conversas:", userConversations.map((c) => ({
+        id: c.id,
+        clientId: c.clientId,
+        professionalId: c.professionalId,
+        deletedByClient: c.deletedByClient,
+        deletedByProfessional: c.deletedByProfessional
+      })));
+      if (userConversations.length === 0) {
+        console.log("\u26A0\uFE0F Nenhuma conversa encontrada para o usu\xE1rio", user.id);
+      }
+      if (userConversations && userConversations.length > 0) {
+        const conversationsWithDetails = await Promise.all(
+          userConversations.map(async (conv) => {
+            let otherUser, otherName, otherAvatar;
+            let specialization = "";
+            let rating = 5;
+            let location = "";
+            if (user.userType === "provider") {
+              otherUser = await storage.getUser(conv.clientId);
+              otherName = otherUser?.name || "Cliente";
+              otherAvatar = otherUser?.profileImage || "";
+            } else {
+              otherUser = await storage.getProfessionalById(conv.professionalId);
+              otherName = otherUser?.name || "Profissional";
+              otherAvatar = otherUser?.imageUrl || "";
+              specialization = otherUser?.specialization || "";
+              rating = Number(otherUser?.rating) || 5;
+              location = otherUser?.location || "";
+            }
+            const lastMessage = await storage.getLastMessageByConversation(conv.id);
+            return {
+              id: conv.id,
+              clientId: conv.clientId,
+              clientName: user.userType === "provider" ? otherName : void 0,
+              clientAvatar: user.userType === "provider" ? otherAvatar : void 0,
+              professionalId: conv.professionalId,
+              professionalName: user.userType === "client" ? otherName : void 0,
+              professionalAvatar: user.userType === "client" ? otherAvatar : void 0,
+              specialization,
+              lastMessage: lastMessage?.content || "Nenhuma mensagem",
+              lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+              unreadCount: await storage.getUnreadMessageCount(conv.id, user.id),
+              isOnline: Math.random() > 0.5,
+              // Simular status online
+              rating,
+              location,
+              messages: await storage.getMessagesByConversation(conv.id)
+            };
+          })
+        );
+        res.json(conversationsWithDetails);
+      } else {
+        res.json([]);
+      }
     } catch (error) {
       console.error("Get messages error:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
@@ -629,22 +988,109 @@ async function registerRoutes(app2) {
   app2.post("/api/messages", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
-      const { recipientId, content, type } = req.body;
-      if (!recipientId || !content) {
-        return res.status(400).json({ message: "Destinat\xE1rio e conte\xFAdo s\xE3o obrigat\xF3rios" });
+      const { recipientId, content, type, conversationId } = req.body;
+      console.log("\u{1F4E8} POST /api/messages - Usu\xE1rio:", user.id, user.userType);
+      console.log("\u{1F4E8} Dados da mensagem:", { recipientId, content, type, conversationId });
+      if (!recipientId || !content || !conversationId) {
+        return res.status(400).json({ message: "Destinat\xE1rio, conversa e conte\xFAdo s\xE3o obrigat\xF3rios" });
       }
-      const message = {
-        id: Date.now(),
+      const conversations2 = await storage.getConversationsByUser(user.id);
+      console.log("\u{1F4E8} Conversas do usu\xE1rio:", conversations2.map((c) => ({ id: c.id, deletedByClient: c.deletedByClient, deletedByProfessional: c.deletedByProfessional })));
+      const isParticipant = conversations2.some((conv) => conv.id === conversationId);
+      console.log("\u{1F4E8} Usu\xE1rio \xE9 participante?", isParticipant);
+      if (!isParticipant) {
+        console.log("\u{1F4E8} Usu\xE1rio n\xE3o \xE9 participante, verificando se conversa foi deletada...");
+        const isDeletedByUser = await storage.isConversationDeletedByUser(conversationId, user.id);
+        console.log("\u{1F4E8} Conversa foi deletada pelo usu\xE1rio?", isDeletedByUser);
+        if (isDeletedByUser) {
+          await storage.restoreConversation(conversationId, user.id);
+          console.log(`\u2705 Conversa ${conversationId} restaurada automaticamente para usu\xE1rio ${user.id}`);
+        } else {
+          console.log("\u274C Acesso negado \xE0 conversa");
+          return res.status(403).json({ message: "Acesso negado \xE0 conversa" });
+        }
+      }
+      const isDeletedByRecipient = await storage.isConversationDeletedByUser(conversationId, recipientId);
+      if (isDeletedByRecipient) {
+        await storage.restoreConversation(conversationId, recipientId);
+        console.log(`\u2705 Conversa ${conversationId} restaurada automaticamente para destinat\xE1rio ${recipientId}`);
+      }
+      const message = await storage.createMessage({
+        conversationId,
         senderId: user.id,
         recipientId,
         content,
         type: type || "text",
-        timestamp: /* @__PURE__ */ new Date(),
         isRead: false
-      };
+      });
+      console.log("\u2705 Mensagem criada com sucesso:", message.id);
       res.status(201).json(message);
     } catch (error) {
-      console.error("Send message error:", error);
+      console.error("\u274C Send message error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/messages/start-conversation", authenticateToken, async (req, res) => {
+    console.log("\u{1F680} POST /api/messages/start-conversation chamada");
+    console.log("\u{1F4E8} Body recebido:", JSON.stringify(req.body));
+    console.log("\u{1F464} Usu\xE1rio autenticado:", req.user);
+    try {
+      const user = req.user;
+      const { professionalId, message } = req.body;
+      console.log("professionalId recebido:", professionalId);
+      const professional = await storage.getProfessionalById(professionalId);
+      console.log("Resultado da busca do profissional:", professional);
+      if (!professional) {
+        return res.status(404).json({ message: "Profissional n\xE3o encontrado" });
+      }
+      const existingConversation = await storage.getConversation(user.id, professionalId);
+      if (existingConversation) {
+        const isDeletedByUser = await storage.isConversationDeletedByUser(existingConversation.id, user.id);
+        if (isDeletedByUser) {
+          await storage.restoreConversation(existingConversation.id, user.id);
+          console.log(`\u2705 Conversa ${existingConversation.id} restaurada automaticamente para usu\xE1rio ${user.id} (start-conversation)`);
+        }
+        const isDeletedByProfessional = await storage.isConversationDeletedByUser(existingConversation.id, professionalId);
+        if (isDeletedByProfessional) {
+          await storage.restoreConversation(existingConversation.id, professionalId);
+          console.log(`\u2705 Conversa ${existingConversation.id} restaurada automaticamente para profissional ${professionalId} (start-conversation)`);
+        }
+        const newMessage = await storage.createMessage({
+          conversationId: existingConversation.id,
+          senderId: user.id,
+          recipientId: professionalId,
+          content: message || "Ol\xE1! Gostaria de conversar sobre seus servi\xE7os.",
+          type: "text",
+          isRead: false
+        });
+        return res.status(200).json({
+          message: "Mensagem enviada com sucesso",
+          conversationId: existingConversation.id,
+          messageData: newMessage
+        });
+      } else {
+        const conversation = await storage.createConversation({
+          clientId: user.id,
+          professionalId,
+          deletedByClient: false,
+          deletedByProfessional: false
+        });
+        const initialMessage = await storage.createMessage({
+          conversationId: conversation.id,
+          senderId: user.id,
+          recipientId: professionalId,
+          content: message || "Ol\xE1! Gostaria de conversar sobre seus servi\xE7os.",
+          type: "text",
+          isRead: false
+        });
+        return res.status(201).json({
+          message: "Conversa iniciada com sucesso",
+          conversationId: conversation.id,
+          messageData: initialMessage
+        });
+      }
+    } catch (error) {
+      console.error("Start conversation error:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
@@ -704,16 +1150,7 @@ async function registerRoutes(app2) {
   app2.get("/api/appointments", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
-      const appointments2 = [
-        {
-          id: 1,
-          professionalName: "Ana Carolina Silva",
-          specialization: "Fisioterapeuta",
-          date: /* @__PURE__ */ new Date(),
-          time: "14:00",
-          status: "confirmado"
-        }
-      ];
+      const appointments2 = await storage.getAppointmentsByUser(user.id);
       res.json(appointments2);
     } catch (error) {
       console.error("Get appointments error:", error);
@@ -833,162 +1270,361 @@ async function registerRoutes(app2) {
       });
     }
   });
+  app2.get("/api/provider/orders", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      const orders = await storage.getAppointmentsByProfessional(user.id) || [];
+      res.json(orders);
+    } catch (error) {
+      console.error("Get provider orders error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/provider/orders/:id/accept", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const orderId = parseInt(req.params.id);
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      console.log(`Professional ${user.id} accepted order ${orderId}`);
+      res.json({
+        message: "Pedido aceito com sucesso",
+        orderId,
+        status: "accepted"
+      });
+    } catch (error) {
+      console.error("Accept order error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/provider/orders/:id/reject", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const orderId = parseInt(req.params.id);
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      console.log(`Professional ${user.id} rejected order ${orderId}`);
+      res.json({
+        message: "Pedido rejeitado com sucesso",
+        orderId,
+        status: "rejected"
+      });
+    } catch (error) {
+      console.error("Reject order error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/provider/orders/:id/complete", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const orderId = parseInt(req.params.id);
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      console.log(`Professional ${user.id} completed order ${orderId}`);
+      res.json({
+        message: "Pedido conclu\xEDdo com sucesso",
+        orderId,
+        status: "completed"
+      });
+    } catch (error) {
+      console.error("Complete order error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/provider/settings", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      const settings = {
+        profile: {
+          name: "Ana Carolina Silva",
+          email: "ana.carolina@email.com",
+          phone: "(11) 99999-9999",
+          specialization: "Fisioterapeuta"
+        },
+        availability: {
+          isAvailable: true,
+          workStartTime: "08:00",
+          workEndTime: "18:00"
+        },
+        notifications: {
+          newOrders: true,
+          messages: true,
+          payments: true,
+          reminders: true,
+          marketing: false
+        },
+        payments: {
+          bankAccount: "Banco do Brasil \u2022\u2022\u2022\u2022 1234",
+          pixKey: "ana.carolina@email.com"
+        }
+      };
+      res.json(settings);
+    } catch (error) {
+      console.error("Get provider settings error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.put("/api/provider/settings", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const { profile, availability, notifications: notifications2, payments } = req.body;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      console.log(`Updating settings for professional ${user.id}:`, {
+        profile,
+        availability,
+        notifications: notifications2,
+        payments
+      });
+      res.json({
+        message: "Configura\xE7\xF5es atualizadas com sucesso",
+        settings: { profile, availability, notifications: notifications2, payments }
+      });
+    } catch (error) {
+      console.error("Update provider settings error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/service-requests/my-requests", authenticateToken, async (req, res) => {
+    console.log("\u{1F50D} Rota /api/service-requests/my-requests foi chamada");
+    try {
+      const user = req.user;
+      console.log("\u{1F464} Usu\xE1rio:", user);
+      if (user.userType !== "client") {
+        console.log("\u274C Usu\xE1rio n\xE3o \xE9 cliente:", user.userType);
+        return res.status(403).json({ message: "Apenas clientes podem acessar suas solicita\xE7\xF5es" });
+      }
+      console.log("\u2705 Buscando solicita\xE7\xF5es para cliente ID:", user.id);
+      const serviceRequests2 = await storage.getServiceRequestsByClient(user.id);
+      console.log("\u{1F4CB} Solicita\xE7\xF5es encontradas:", serviceRequests2.length);
+      res.json(serviceRequests2);
+    } catch (error) {
+      console.error("\u{1F4A5} Get my service requests error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/service-request", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const { serviceType, category, description, address, scheduledDate, scheduledTime, urgency, budget } = req.body;
+      if (user.userType !== "client") {
+        return res.status(403).json({ message: "Apenas clientes podem solicitar servi\xE7os" });
+      }
+      if (!serviceType || !category || !description || !address || !scheduledDate || !scheduledTime) {
+        return res.status(400).json({ message: "Todos os campos obrigat\xF3rios devem ser preenchidos" });
+      }
+      const validCategories = ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"];
+      if (!validCategories.includes(category)) {
+        return res.status(400).json({ message: "Categoria inv\xE1lida" });
+      }
+      const serviceRequest = await storage.createServiceRequest({
+        clientId: user.id,
+        serviceType,
+        category,
+        description,
+        address,
+        scheduledDate: new Date(scheduledDate),
+        scheduledTime,
+        urgency: urgency || "medium",
+        budget: budget ? parseFloat(budget).toString() : null,
+        status: "open",
+        assignedProfessionalId: null,
+        responses: 0
+      });
+      const professionals2 = await storage.getProfessionalsByCategory(category);
+      for (const professional of professionals2) {
+        await storage.createNotification({
+          userId: professional.userId,
+          message: `Nova solicita\xE7\xE3o de ${serviceType} dispon\xEDvel na sua \xE1rea`,
+          read: false
+        });
+      }
+      res.status(201).json({
+        message: "Solicita\xE7\xE3o criada com sucesso",
+        serviceRequest
+      });
+    } catch (error) {
+      console.error("Create service request error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/service-requests/client", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "client") {
+        return res.status(403).json({ message: "Apenas clientes podem acessar suas solicita\xE7\xF5es" });
+      }
+      const serviceRequests2 = await storage.getServiceRequestsByClient(user.id);
+      res.json(serviceRequests2);
+    } catch (error) {
+      console.error("Get client service requests error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/test-auth", authenticateToken, async (req, res) => {
+    console.log("\u{1F50D} Rota de teste de autentica\xE7\xE3o foi chamada");
+    const user = req.user;
+    console.log("\u{1F464} Usu\xE1rio autenticado:", user);
+    res.json({
+      message: "Autentica\xE7\xE3o funcionando",
+      user: {
+        id: user.id,
+        email: user.email,
+        userType: user.userType
+      }
+    });
+  });
+  app2.get("/api/service-requests/category/:category", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const { category } = req.params;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Apenas profissionais podem acessar solicita\xE7\xF5es" });
+      }
+      const serviceRequests2 = await storage.getServiceRequestsByCategory(category);
+      res.json(serviceRequests2);
+    } catch (error) {
+      console.error("Get service requests by category error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/service-request/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      const serviceRequest = await storage.getServiceRequest(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicita\xE7\xE3o n\xE3o encontrada" });
+      }
+      if (user.userType === "client" && serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      res.json(serviceRequest);
+    } catch (error) {
+      console.error("Get service request error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.put("/api/service-request/:id/status", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      const { status } = req.body;
+      const serviceRequest = await storage.getServiceRequest(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicita\xE7\xE3o n\xE3o encontrada" });
+      }
+      if (user.userType === "client" && serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      const updatedRequest = await storage.updateServiceRequest(requestId, { status });
+      res.json({
+        message: "Status atualizado com sucesso",
+        serviceRequest: updatedRequest
+      });
+    } catch (error) {
+      console.error("Update service request status error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.delete("/api/service-requests/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      const serviceRequest = await storage.getServiceRequest(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicita\xE7\xE3o n\xE3o encontrada" });
+      }
+      if (user.userType !== "client" || serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ message: "Apenas o cliente que criou a solicita\xE7\xE3o pode exclu\xED-la" });
+      }
+      if (serviceRequest.status !== "open") {
+        return res.status(400).json({ message: "Apenas solicita\xE7\xF5es abertas podem ser exclu\xEDdas" });
+      }
+      await storage.deleteServiceRequest(requestId);
+      res.json({ message: "Solicita\xE7\xE3o exclu\xEDda com sucesso" });
+    } catch (error) {
+      console.error("Delete service request error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/messages/:conversationId", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const conversationId = parseInt(req.params.conversationId, 10);
+      if (isNaN(conversationId)) {
+        return res.status(400).json({ message: "ID da conversa inv\xE1lido" });
+      }
+      const conversations2 = await storage.getConversationsByUser(user.id);
+      const isParticipant = conversations2.some((conv) => conv.id === conversationId);
+      if (!isParticipant) {
+        const isDeleted = await storage.isConversationDeletedByUser(conversationId, user.id);
+        if (isDeleted) {
+          await storage.restoreConversation(conversationId, user.id);
+          console.log(`Conversa ${conversationId} restaurada automaticamente para usu\xE1rio ${user.id} (buscar mensagens)`);
+        } else {
+          return res.status(403).json({ message: "Acesso negado \xE0 conversa" });
+        }
+      }
+      const messages2 = await storage.getMessagesByConversation(conversationId);
+      res.json(messages2);
+    } catch (error) {
+      console.error("Erro ao buscar mensagens da conversa:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.delete("/api/messages/conversation/:conversationId", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const conversationId = parseInt(req.params.conversationId, 10);
+      console.log("\u{1F5D1}\uFE0F DELETE /api/messages/conversation - Usu\xE1rio:", user.id, user.userType);
+      console.log("\u{1F5D1}\uFE0F conversationId para exclus\xE3o:", conversationId);
+      if (isNaN(conversationId)) {
+        return res.status(400).json({ message: "ID da conversa inv\xE1lido" });
+      }
+      const conversations2 = await storage.getConversationsByUser(user.id);
+      console.log("\u{1F5D1}\uFE0F Conversas do usu\xE1rio antes da exclus\xE3o:", conversations2.map((c) => c.id));
+      const isParticipant = conversations2.some((conv) => conv.id === conversationId);
+      if (!isParticipant) {
+        console.log("\u274C Usu\xE1rio n\xE3o \xE9 participante da conversa");
+        return res.status(403).json({ message: "Acesso negado \xE0 conversa" });
+      }
+      await storage.deleteConversation(conversationId, user.id);
+      console.log("\u2705 Conversa marcada como deletada");
+      const conversationsAfter = await storage.getConversationsByUser(user.id);
+      console.log("\u{1F5D1}\uFE0F Conversas do usu\xE1rio ap\xF3s exclus\xE3o:", conversationsAfter.map((c) => c.id));
+      res.json({ message: "Conversa removida com sucesso" });
+    } catch (error) {
+      console.error("\u274C Erro ao excluir conversa:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
   const httpServer = createServer(app2);
   return httpServer;
-}
-
-// server/seedData.ts
-async function seedDatabase() {
-  console.log("=== SEED DATABASE DEBUG ===");
-  console.log("Starting seedDatabase function...");
-  try {
-    console.log("Checking if data already exists...");
-    const existingProfessionals = await db.select().from(professionals).limit(1);
-    console.log("Existing professionals count:", existingProfessionals.length);
-    if (existingProfessionals.length > 0) {
-      console.log("Database already seeded");
-      return;
-    }
-    console.log("Seeding database with initial data...");
-    const sampleProfessionals = [
-      {
-        userId: 1,
-        name: "Ana Carolina Silva",
-        specialization: "Fisioterapeuta Especializada",
-        category: "fisioterapeuta",
-        subCategory: "terapias_especializadas",
-        description: "Especialista em reabilita\xE7\xE3o neurol\xF3gica e ortop\xE9dica com mais de 8 anos de experi\xEAncia.",
-        experience: "8 anos de experi\xEAncia em fisioterapia",
-        certifications: "CREFITO-3, Especializa\xE7\xE3o em Neurologia",
-        availableHours: JSON.stringify({
-          monday: ["08:00", "17:00"],
-          tuesday: ["08:00", "17:00"],
-          wednesday: ["08:00", "17:00"],
-          thursday: ["08:00", "17:00"],
-          friday: ["08:00", "15:00"]
-        }),
-        hourlyRate: "85.00",
-        rating: "4.9",
-        totalReviews: 127,
-        location: "Vila Madalena, S\xE3o Paulo",
-        distance: "2.3",
-        available: true,
-        imageUrl: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300&h=300&fit=crop&crop=face"
-      },
-      {
-        userId: 2,
-        name: "Carlos Eduardo Santos",
-        specialization: "T\xE9cnico em Enfermagem",
-        category: "tecnico_enfermagem",
-        subCategory: "curativos_medicacao",
-        description: "T\xE9cnico experiente em cuidados domiciliares, curativos e administra\xE7\xE3o de medicamentos.",
-        experience: "6 anos de experi\xEAncia em enfermagem",
-        certifications: "COREN-SP, Curso de Urg\xEAncia e Emerg\xEAncia",
-        availableHours: JSON.stringify({
-          monday: ["06:00", "18:00"],
-          tuesday: ["06:00", "18:00"],
-          wednesday: ["06:00", "18:00"],
-          thursday: ["06:00", "18:00"],
-          friday: ["06:00", "18:00"],
-          saturday: ["08:00", "14:00"]
-        }),
-        hourlyRate: "45.00",
-        rating: "4.8",
-        totalReviews: 89,
-        location: "Ipiranga, S\xE3o Paulo",
-        distance: "1.8",
-        available: true,
-        imageUrl: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=300&h=300&fit=crop&crop=face"
-      },
-      {
-        userId: 3,
-        name: "Maria Fernanda Costa",
-        specialization: "Acompanhante Hospitalar",
-        category: "acompanhante_hospitalar",
-        subCategory: "acompanhamento_hospitalar",
-        description: "Acompanhante especializada em cuidados com idosos e pacientes em recupera\xE7\xE3o.",
-        experience: "5 anos de experi\xEAncia",
-        certifications: "Curso de Cuidador de Idosos, Primeiros Socorros",
-        availableHours: JSON.stringify({
-          monday: ["24h"],
-          tuesday: ["24h"],
-          wednesday: ["24h"],
-          thursday: ["24h"],
-          friday: ["24h"],
-          saturday: ["24h"],
-          sunday: ["24h"]
-        }),
-        hourlyRate: "38.00",
-        rating: "4.7",
-        totalReviews: 156,
-        location: "Moema, S\xE3o Paulo",
-        distance: "3.1",
-        available: true,
-        imageUrl: "https://images.unsplash.com/photo-1594824475953-2b2bb7f37b95?w=300&h=300&fit=crop&crop=face"
-      },
-      {
-        userId: 4,
-        name: "Roberto Lima",
-        specialization: "Fisioterapeuta Respirat\xF3rio",
-        category: "fisioterapeuta",
-        subCategory: "terapias_especializadas",
-        description: "Especialista em fisioterapia respirat\xF3ria e reabilita\xE7\xE3o card\xEDaca.",
-        experience: "10 anos de experi\xEAncia",
-        certifications: "CREFITO-3, Especializa\xE7\xE3o em Fisioterapia Respirat\xF3ria",
-        availableHours: JSON.stringify({
-          monday: ["07:00", "19:00"],
-          tuesday: ["07:00", "19:00"],
-          wednesday: ["07:00", "19:00"],
-          thursday: ["07:00", "19:00"],
-          friday: ["07:00", "16:00"]
-        }),
-        hourlyRate: "95.00",
-        rating: "4.9",
-        totalReviews: 98,
-        location: "Pinheiros, S\xE3o Paulo",
-        distance: "1.5",
-        available: true,
-        imageUrl: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=300&h=300&fit=crop&crop=face"
-      },
-      {
-        userId: 5,
-        name: "Juliana Oliveira",
-        specialization: "Acompanhante Domiciliar",
-        category: "acompanhante_hospitalar",
-        subCategory: "companhia_apoio_emocional",
-        description: "Cuidadora especializada em apoio emocional e atividades da vida di\xE1ria.",
-        experience: "7 anos de experi\xEAncia",
-        certifications: "Curso de Psicologia Aplicada, Cuidados com Idosos",
-        availableHours: JSON.stringify({
-          monday: ["08:00", "20:00"],
-          tuesday: ["08:00", "20:00"],
-          wednesday: ["08:00", "20:00"],
-          thursday: ["08:00", "20:00"],
-          friday: ["08:00", "20:00"],
-          saturday: ["10:00", "18:00"]
-        }),
-        hourlyRate: "42.00",
-        rating: "4.8",
-        totalReviews: 203,
-        location: "Vila Ol\xEDmpia, S\xE3o Paulo",
-        distance: "2.8",
-        available: true,
-        imageUrl: "https://images.unsplash.com/photo-1638202993928-7267aad84c31?w=300&h=300&fit=crop&crop=face"
-      }
-    ];
-    await db.insert(professionals).values(sampleProfessionals);
-    console.log(`Successfully seeded ${sampleProfessionals.length} professionals`);
-  } catch (error) {
-    console.error("Error seeding database:", error);
-  }
 }
 
 // server/index.ts
 import { Server as SocketIOServer } from "socket.io";
 var app = express();
+console.log("=== Backend inicializado ===");
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  res.setHeader("Access-Control-Allow-Origin", "https://lifebee.netlify.app");
+  const allowedOrigins = ["https://lifebee.netlify.app", "http://localhost:5173", "http://localhost:5174"];
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -1002,7 +1638,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use((req, res, next) => {
   const start = Date.now();
-  const path = req.path;
+  const path2 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -1011,13 +1647,10 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+    if (path2.startsWith("/api")) {
+      let logLine = `${req.method} ${path2} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "\u2026";
       }
       console.log(logLine);
     }
@@ -1025,11 +1658,10 @@ app.use((req, res, next) => {
   next();
 });
 (async () => {
-  await seedDatabase();
   const server = await registerRoutes(app);
   const io = new SocketIOServer(server, {
     cors: {
-      origin: ["http://localhost:5173", "https://lifebee.netlify.app"],
+      origin: ["http://localhost:5173", "http://localhost:5174", "https://lifebee.netlify.app"],
       credentials: true
     }
   });

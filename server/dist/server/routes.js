@@ -382,7 +382,9 @@ export async function registerRoutes(app) {
     });
     // Start conversation with professional
     app.post('/api/messages/start-conversation', authenticateToken, async (req, res) => {
-        console.log('POST /api/messages/start-conversation chamada');
+        console.log('🚀 POST /api/messages/start-conversation chamada');
+        console.log('📨 Body recebido:', JSON.stringify(req.body));
+        console.log('👤 Usuário autenticado:', req.user);
         try {
             const user = req.user;
             const { professionalId, message } = req.body;
