@@ -14,7 +14,7 @@ try {
 
   // Compilar o TypeScript do servidor
   console.log('🔨 Compilando TypeScript do servidor...');
-  execSync('npm run build', { stdio: 'inherit' });
+  execSync('npm run build:render', { stdio: 'inherit' });
 
   // Iniciar o servidor
   console.log('🌐 Iniciando servidor...');
