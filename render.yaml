@@ -3,8 +3,8 @@ services:
     name: lifebee-backend
     env: node
     plan: free
-    buildCommand: npm install --include=dev && node build.js
-    startCommand: node start-render.cjs
+    buildCommand: npm install --include=dev --legacy-peer-deps && node build.js
+    startCommand: node start-render.js
     envVars:
       - key: NODE_ENV
         value: production

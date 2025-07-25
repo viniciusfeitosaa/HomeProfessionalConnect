@@ -14,11 +14,11 @@ try {
 
   // Instalar dependências do servidor
   console.log('📦 Instalando dependências do servidor...');
-  execSync('npm install', { stdio: 'inherit' });
+  execSync('npm install --legacy-peer-deps', { stdio: 'inherit' });
 
-  // Executar build do Render
-  console.log('🔨 Executando build do Render...');
-  execSync('npm run build:render', { stdio: 'inherit' });
+  // Executar build do servidor
+  console.log('🔨 Executando build do servidor...');
+  execSync('npm run build', { stdio: 'inherit' });
 
   console.log('✅ Build concluído com sucesso!');
 } catch (error) {
