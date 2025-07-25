@@ -178,7 +178,6 @@ export default function AgendaProfissional() {
           </div>
         )}
       </div>
-      <BottomNavigationProvider />
     </ProviderLayout>
   );
 } 

@@ -1,9 +1,9 @@
 import 'dotenv/config';
 import express from "express";
 import { registerRoutes } from "./routes.js";
-import { seedDatabase } from "./seedData.js";
 import { Server as SocketIOServer } from "socket.io";
 const app = express();
+console.log('=== Backend inicializado ===');
 // Configure CORS for Netlify frontend and development
 app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -42,17 +42,16 @@ app.use((req, res, next) => {
             if (capturedJsonResponse) {
                 logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
             }
-            if (logLine.length > 80) {
-                logLine = logLine.slice(0, 79) + "…";
-            }
+            // if (logLine.length > 80) {
+            //   logLine = logLine.slice(0, 79) + "…";
+            // }
             console.log(logLine);
         }
     });
     next();
 });
 (async () => {
-    // Initialize database with sample data
-    await seedDatabase();
+    // await seedDatabase(); // REMOVIDO: não limpar mais o banco automaticamente
     const server = await registerRoutes(app);
     // Inicializa o Socket.IO junto ao servidor HTTP
     const io = new SocketIOServer(server, {

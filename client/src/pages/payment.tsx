@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import ClientNavbar from "../components/client-navbar";
 
 const CheckoutForm = ({ amount }: { amount: number }) => {
   const { toast } = useToast();
@@ -187,6 +188,7 @@ export default function Payment() {
           <Check className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
         </div>
       </div>
+      <ClientNavbar hidePlus />
     </div>
   );
 }

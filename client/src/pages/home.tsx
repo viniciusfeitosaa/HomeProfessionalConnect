@@ -6,6 +6,7 @@ import { useLocation } from "wouter";
 import { getApiUrl } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import { BottomNavigation } from "@/components/bottom-navigation";
+import ClientNavbar from "../components/client-navbar";
 
 export default function Home() {
   const { toast } = useToast();
@@ -56,11 +57,13 @@ export default function Home() {
   // Função para iniciar conversa diretamente
   const startConversation = async (professionalId: number, professionalName: string) => {
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`${getApiUrl()}/api/messages/start-conversation`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           professionalId,
@@ -69,12 +72,18 @@ export default function Home() {
       });
       
       if (response.ok) {
-        await response.json();
+        const data = await response.json();
+        console.log('Resposta do backend:', data); // Depuração
         toast({
           title: "Conversa iniciada!",
           description: `Você pode conversar com ${professionalName} agora`,
         });
-        setLocation('/messages');
+        const conversationId = data.conversationId || data.id || data.conversationID;
+        if (conversationId) {
+          setLocation(`/messages/${conversationId}`);
+        } else {
+          setLocation('/messages');
+        }
       } else {
         toast({
           title: "Erro",
@@ -124,6 +133,7 @@ export default function Home() {
           <div className="w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 font-medium text-sm sm:text-base">Carregando profissionais...</p>
         </div>
+        <ClientNavbar />
       </div>
     );
   }
@@ -178,6 +188,7 @@ export default function Home() {
             </button>
           ))}
         </nav>
+        <ClientNavbar />
       </div>
     );
   }
@@ -284,7 +295,7 @@ export default function Home() {
                   <div className="flex flex-col sm:flex-row gap-2">
                     <button 
                       className="flex-1 bg-yellow-500 text-white py-2 px-3 sm:px-4 rounded-full font-medium hover:bg-yellow-600 transition-colors flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm"
-                      onClick={() => startConversation(professional.id, professional.name)}
+                      onClick={() => startConversation(professional.userId, professional.name)}
                     >
                       <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4" />
                       Conversar
@@ -313,7 +324,7 @@ export default function Home() {
         )}
         </div>
 
-      <BottomNavigation />
+      <ClientNavbar />
     </div>
   );
 }

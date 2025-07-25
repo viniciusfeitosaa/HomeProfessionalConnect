@@ -48,7 +48,6 @@ export function BottomNavigationProvider() {
             </span>
           </Button>
         </Link>
-
         <Link href="/messages">
           <Button
             variant="ghost"

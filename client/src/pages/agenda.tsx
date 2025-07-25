@@ -31,6 +31,7 @@ import { format, addDays, startOfWeek, addWeeks, subWeeks, isSameDay, isSameMont
 import { ptBR } from "date-fns/locale";
 import { ProviderLayout } from "@/components/ProviderLayout";
 import { BottomNavigation } from "@/components/bottom-navigation";
+import ClientNavbar from "../components/client-navbar";
 
 
 interface Appointment {
@@ -184,7 +185,7 @@ export default function Agenda() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-24">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b px-4 py-3">
         <div className="flex items-center gap-3">
@@ -595,7 +596,7 @@ export default function Agenda() {
             </DialogContent>
           </Dialog>
       </div>
-      <BottomNavigation />
+      <ClientNavbar />
     </div>
   );
 }

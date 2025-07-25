@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/popover";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/useAuth";
-import { BottomNavigationProvider } from "@/components/bottom-navigation-provider";
 import { ProviderLayout } from "@/components/ProviderLayout";
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -1370,7 +1369,6 @@ export default function ProviderDashboard() {
         </div>
         
         {/* Bottom Navigation for Provider */}
-        <BottomNavigationProvider />
       </div>
     </ProviderLayout>
   );

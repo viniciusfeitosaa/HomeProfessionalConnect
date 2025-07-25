@@ -33,6 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import ClientNavbar from "../components/client-navbar";
 
 interface ServiceRequest {
   id: number;
@@ -232,7 +233,7 @@ export default function MyRequests() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col pb-24">
       <div className="flex-1 p-4">
         <div className="max-w-md mx-auto">
           {/* Header */}
@@ -416,8 +417,7 @@ export default function MyRequests() {
           </div>
         </div>
       </div>
-      
-      <BottomNavigation />
+      <ClientNavbar />
     </div>
   );
 } 

@@ -1,4 +1,4 @@
-import { BottomNavigationProvider } from "./bottom-navigation-provider";
+import ProviderNavbar from "./provider-navbar";
 import React from "react";
 
 export function ProviderLayout({ children }: { children: React.ReactNode }) {
@@ -7,8 +7,8 @@ export function ProviderLayout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col">
         {children}
       </div>
-      {/* Bottom navigation sempre visível */}
-      <BottomNavigationProvider />
+      {/* Menu do provider sempre visível */}
+      <ProviderNavbar />
     </div>
   );
 } 

@@ -24,6 +24,8 @@ import MyRequests from "@/pages/my-requests";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 import AgendaProfissional from "@/pages/agenda-profissional";
+import MessagesClient from "@/pages/messages-client";
+import MessagesProvider from "@/pages/messages-provider";
 
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -57,7 +59,10 @@ function Router() {
         <Route path="/provider-orders" component={ProviderOrders} />
         <Route path="/provider-settings" component={ProviderSettings} />
         <Route path="/service-offer/:id" component={ServiceOffer} />
-        <Route path="/messages" component={Messages} />
+        <Route path="/messages/:conversationId" component={MessagesProvider} />
+        <Route path="/messages" component={MessagesProvider} />
+        <Route path="/messages-provider/:conversationId" component={MessagesProvider} />
+        <Route path="/messages-provider" component={MessagesProvider} />
         <Route path="/agenda" component={Agenda} />
         <Route path="/agenda-profissional" component={AgendaProfissional} />
         <Route path="/profile" component={Profile} />
@@ -72,7 +77,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/agenda" component={Agenda} />
-      <Route path="/messages" component={Messages} />
+      <Route path="/messages/:conversationId" component={MessagesClient} />
+      <Route path="/messages" component={MessagesClient} />
       <Route path="/profile" component={Profile} />
       <Route path="/settings" component={Settings} />
       <Route path="/payment" component={Payment} />

@@ -80,6 +80,9 @@ export interface IStorage {
   getLastMessageByConversation(conversationId: number): Promise<Message | undefined>;
   getUnreadMessageCount(conversationId: number, userId: number): Promise<number>;
   markMessagesAsRead(conversationId: number, userId: number): Promise<void>;
+  deleteConversation(conversationId: number, userId: number): Promise<void>;
+  isConversationDeletedByUser(conversationId: number, userId: number): Promise<boolean>;
+  restoreConversation(conversationId: number, userId: number): Promise<void>;
   
   // Service Requests
   getServiceRequestsByClient(clientId: number): Promise<ServiceRequest[]>;
@@ -163,16 +166,74 @@ export class DatabaseStorage implements IStorage {
 
   // Professionals
   async getAllProfessionals(): Promise<Professional[]> {
-    return await db.select().from(professionals).where(eq(professionals.available, true));
+    // Retorna explicitamente o campo userId
+    return await db.select({
+      id: professionals.id,
+      userId: professionals.userId,
+      name: professionals.name,
+      specialization: professionals.specialization,
+      category: professionals.category,
+      subCategory: professionals.subCategory,
+      description: professionals.description,
+      experience: professionals.experience,
+      certifications: professionals.certifications,
+      availableHours: professionals.availableHours,
+      hourlyRate: professionals.hourlyRate,
+      rating: professionals.rating,
+      totalReviews: professionals.totalReviews,
+      location: professionals.location,
+      distance: professionals.distance,
+      available: professionals.available,
+      imageUrl: professionals.imageUrl,
+      createdAt: professionals.createdAt
+    }).from(professionals).where(eq(professionals.available, true));
   }
 
   async getProfessionalsByCategory(category: string): Promise<Professional[]> {
-    return await db.select().from(professionals)
+    return await db.select({
+      id: professionals.id,
+      userId: professionals.userId,
+      name: professionals.name,
+      specialization: professionals.specialization,
+      category: professionals.category,
+      subCategory: professionals.subCategory,
+      description: professionals.description,
+      experience: professionals.experience,
+      certifications: professionals.certifications,
+      availableHours: professionals.availableHours,
+      hourlyRate: professionals.hourlyRate,
+      rating: professionals.rating,
+      totalReviews: professionals.totalReviews,
+      location: professionals.location,
+      distance: professionals.distance,
+      available: professionals.available,
+      imageUrl: professionals.imageUrl,
+      createdAt: professionals.createdAt
+    }).from(professionals)
       .where(and(eq(professionals.category, category as any), eq(professionals.available, true)));
   }
 
   async searchProfessionals(query: string): Promise<Professional[]> {
-    return await db.select().from(professionals)
+    return await db.select({
+      id: professionals.id,
+      userId: professionals.userId,
+      name: professionals.name,
+      specialization: professionals.specialization,
+      category: professionals.category,
+      subCategory: professionals.subCategory,
+      description: professionals.description,
+      experience: professionals.experience,
+      certifications: professionals.certifications,
+      availableHours: professionals.availableHours,
+      hourlyRate: professionals.hourlyRate,
+      rating: professionals.rating,
+      totalReviews: professionals.totalReviews,
+      location: professionals.location,
+      distance: professionals.distance,
+      available: professionals.available,
+      imageUrl: professionals.imageUrl,
+      createdAt: professionals.createdAt
+    }).from(professionals)
       .where(
         and(
           eq(professionals.available, true),
@@ -310,11 +371,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Conversations & Messages
-  async getProfessionalById(id: number): Promise<Professional | undefined> {
+  async getProfessionalById(userId: number): Promise<Professional | undefined> {
     const result = await db
       .select()
       .from(professionals)
-      .where(eq(professionals.id, id))
+      .where(eq(professionals.userId, userId))
       .limit(1);
     return result[0];
   }
@@ -333,11 +394,113 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getConversationsByUser(userId: number): Promise<Conversation[]> {
-    return await db
+  // Verificar se uma conversa foi deletada pelo usuário
+  async isConversationDeletedByUser(conversationId: number, userId: number): Promise<boolean> {
+    const conversation = await db
       .select()
       .from(conversations)
-      .where(eq(conversations.clientId, userId));
+      .where(eq(conversations.id, conversationId))
+      .limit(1);
+    
+    if (!conversation[0]) {
+      return false;
+    }
+
+    const conv = conversation[0];
+    
+    if (conv.clientId === userId) {
+      return conv.deletedByClient === true;
+    } else if (conv.professionalId === userId) {
+      return conv.deletedByProfessional === true;
+    }
+    
+    return false;
+  }
+
+  // Restaurar conversa (marcar como não deletada pelo usuário)
+  async restoreConversation(conversationId: number, userId: number): Promise<void> {
+    const conversation = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .limit(1);
+    
+    if (!conversation[0]) {
+      throw new Error('Conversa não encontrada');
+    }
+
+    const conv = conversation[0];
+    const updates: any = {};
+
+    if (conv.clientId === userId) {
+      updates.deletedByClient = false;
+    } else if (conv.professionalId === userId) {
+      updates.deletedByProfessional = false;
+    } else {
+      throw new Error('Usuário não é participante da conversa');
+    }
+
+    await db
+      .update(conversations)
+      .set(updates)
+      .where(eq(conversations.id, conversationId));
+  }
+
+  async getConversationsByUser(userId: number): Promise<Conversation[]> {
+    console.log(`🔍 getConversationsByUser(${userId}) - Iniciando busca...`);
+    
+    // Buscar todas as conversas do usuário (sem filtro de deletadas)
+    const allUserConversations = await db
+      .select()
+      .from(conversations)
+      .where(
+        or(
+          eq(conversations.clientId, userId),
+          eq(conversations.professionalId, userId)
+        )
+      );
+    
+    console.log(`📋 Todas as conversas do usuário ${userId}:`, allUserConversations.map((c: any) => ({ 
+      id: c.id, 
+      clientId: c.clientId, 
+      professionalId: c.professionalId,
+      deletedByClient: c.deletedByClient,
+      deletedByProfessional: c.deletedByProfessional
+    })));
+    
+    // Verificar se o usuário é cliente ou profissional
+    const asClient = allUserConversations.filter((c: any) => c.clientId === userId);
+    const asProfessional = allUserConversations.filter((c: any) => c.professionalId === userId);
+    
+    console.log(`📊 Usuário ${userId} - Como cliente: ${asClient.length}, Como profissional: ${asProfessional.length}`);
+    
+    // Agora aplicar o filtro de conversas não deletadas
+    const result = await db
+      .select()
+      .from(conversations)
+      .where(
+        and(
+          or(
+            eq(conversations.clientId, userId),
+            eq(conversations.professionalId, userId)
+          ),
+          // Não mostrar conversas deletadas pelo usuário
+          or(
+            and(eq(conversations.clientId, userId), eq(conversations.deletedByClient, false)),
+            and(eq(conversations.professionalId, userId), eq(conversations.deletedByProfessional, false))
+          )
+        )
+      );
+    
+    console.log(`✅ Conversas filtradas para usuário ${userId}:`, result.map((c: any) => ({ 
+      id: c.id, 
+      clientId: c.clientId, 
+      professionalId: c.professionalId,
+      deletedByClient: c.deletedByClient,
+      deletedByProfessional: c.deletedByProfessional
+    })));
+    
+    return result;
   }
 
   async createConversation(conversation: InsertConversation): Promise<Conversation> {
@@ -399,6 +562,40 @@ export class DatabaseStorage implements IStorage {
           eq(messages.isRead, false)
         )
       );
+  }
+
+  // Excluir todas as mensagens de uma conversa
+  async deleteMessagesByConversation(conversationId: number): Promise<void> {
+    await db.delete(messages).where(eq(messages.conversationId, conversationId));
+  }
+  // Marcar conversa como deletada pelo usuário (exclusão individual)
+  async deleteConversation(conversationId: number, userId: number): Promise<void> {
+    // Verificar se o usuário é cliente ou profissional da conversa
+    const conversation = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .limit(1);
+    
+    if (!conversation[0]) {
+      throw new Error('Conversa não encontrada');
+    }
+
+    const conv = conversation[0];
+    const updates: any = {};
+
+    if (conv.clientId === userId) {
+      updates.deletedByClient = true;
+    } else if (conv.professionalId === userId) {
+      updates.deletedByProfessional = true;
+    } else {
+      throw new Error('Usuário não é participante da conversa');
+    }
+
+    await db
+      .update(conversations)
+      .set(updates)
+      .where(eq(conversations.id, conversationId));
   }
 
   // Service Requests

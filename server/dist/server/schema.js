@@ -97,6 +97,8 @@ export const conversations = pgTable("conversations", {
     id: serial("id").primaryKey(),
     clientId: integer("client_id").notNull(),
     professionalId: integer("professional_id").notNull(),
+    deletedByClient: boolean("deleted_by_client").default(false),
+    deletedByProfessional: boolean("deleted_by_professional").default(false),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });

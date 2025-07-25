@@ -3,31 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  ArrowLeft, 
-  Send, 
-  Phone, 
-  Video, 
-  MoreVertical, 
-  Search,
-  Paperclip,
-  Smile,
-  Check,
-  CheckCheck,
-  Calendar,
-  MapPin,
-  Star,
-  Camera,
-  MessageSquare,
-  UserIcon,
-  Home,
-  Trash2
-} from "lucide-react";
+import { ArrowLeft, Send, Phone, Video, MoreVertical, Search, Paperclip, Smile, Check, CheckCheck, Calendar, MapPin, Star, Camera, MessageSquare, UserIcon, Home, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { getApiUrl } from "@/lib/api-config";
 import { useLocation, useRoute } from "wouter";
-import ClientNavbar from "../components/client-navbar";
+import ProviderNavbar from "../components/provider-navbar";
 
 interface Message {
   id: number;
@@ -42,9 +23,9 @@ interface Message {
 
 interface Conversation {
   id: number;
-  professionalId: number;
-  professionalName: string;
-  professionalAvatar: string;
+  clientId: number;
+  clientName: string;
+  clientAvatar: string;
   specialization: string;
   lastMessage: string;
   lastMessageTime: Date;
@@ -55,7 +36,7 @@ interface Conversation {
   messages: Message[];
 }
 
-export default function Messages({ params }: { params?: { conversationId?: string } }) {
+export default function MessagesProvider({ params }: { params?: { conversationId?: string } }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [newMessage, setNewMessage] = useState("");
@@ -65,15 +46,17 @@ export default function Messages({ params }: { params?: { conversationId?: strin
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [, setLocation] = useLocation();
-  const [match, paramsRoute] = useRoute("/messages/:conversationId");
+  const [match, paramsRoute] = useRoute("/messages-provider/:conversationId");
   const conversationId = params?.conversationId || paramsRoute?.conversationId;
 
   // Buscar conversas da API
   const fetchConversations = async () => {
     try {
+      console.log('🔄 fetchConversations - Iniciando busca de conversas...');
       setLoading(true);
       const token = localStorage.getItem('token');
       if (!token) {
+        console.log('❌ Token não encontrado');
         toast({
           title: "Erro de autenticação",
           description: "Faça login para acessar as mensagens",
@@ -90,14 +73,18 @@ export default function Messages({ params }: { params?: { conversationId?: strin
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('📋 Dados recebidos do backend:', data);
         setConversations(data);
+        console.log('✅ Conversas atualizadas no estado:', data.length, 'conversas');
       } else if (response.status === 401) {
+        console.log('❌ Erro 401 - Sessão expirada');
         toast({
           title: "Sessão expirada",
           description: "Faça login novamente",
           variant: "destructive",
         });
       } else {
+        console.log('❌ Erro na resposta:', response.status);
         toast({
           title: "Erro de conexão",
           description: "Não foi possível carregar as conversas",
@@ -105,6 +92,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
         });
       }
     } catch (error) {
+      console.log('❌ Erro na busca de conversas:', error);
       toast({
         title: "Erro de conexão",
         description: "Não foi possível carregar as conversas",
@@ -112,6 +100,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
       });
     } finally {
       setLoading(false);
+      console.log('🔄 fetchConversations - Finalizado');
     }
   };
 
@@ -130,13 +119,6 @@ export default function Messages({ params }: { params?: { conversationId?: strin
       if (response.ok) {
         const data = await response.json();
         setMessages(data);
-      } else if (response.status === 404) {
-        toast({
-          title: "Conversa não encontrada",
-          description: "Esta conversa não existe ou você não tem acesso.",
-          variant: "destructive",
-        });
-        setLocation('/messages');
       }
     } catch (error) {
       // erro silencioso
@@ -154,10 +136,15 @@ export default function Messages({ params }: { params?: { conversationId?: strin
     }
   }, [conversationId]);
 
+  useEffect(() => {
+    console.log('Mensagens carregadas do backend:', messages);
+  }, [messages]);
+
   const filteredConversations = conversations.filter(conv =>
-    conv.professionalName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    conv.specialization.toLowerCase().includes(searchQuery.toLowerCase())
+    conv.clientName?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  
+  console.log('🔍 filteredConversations atualizada:', filteredConversations.length, 'conversas');
 
   const selectedConv = conversations.find(c => String(c.id) === String(conversationId));
 
@@ -221,7 +208,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          recipientId: selectedConv.professionalId,
+          recipientId: selectedConv.clientId,
           conversationId: Number(conversationId),
           content: newMessage,
           type: 'text'
@@ -258,11 +245,12 @@ export default function Messages({ params }: { params?: { conversationId?: strin
 
   // Navegar para a conversa ao clicar
   const handleConversationClick = (id: number) => {
-    setLocation(`/messages/${id}`);
+    setLocation(`/messages-provider/${id}`);
   };
 
   const deleteConversation = async (conversationId: number) => {
     try {
+      console.log('🗑️ Tentando excluir conversa:', conversationId);
       const token = localStorage.getItem('token');
       if (!token) return;
       const response = await fetch(`${getApiUrl()}/api/messages/conversation/${conversationId}`, {
@@ -274,12 +262,16 @@ export default function Messages({ params }: { params?: { conversationId?: strin
         },
       });
       if (response.ok) {
+        console.log('✅ Conversa excluída com sucesso, recarregando lista...');
         toast({ title: 'Conversa excluída', description: 'A conversa foi removida com sucesso.' });
-        fetchConversations();
+        await fetchConversations(); // Aguardar a conclusão
+        console.log('✅ Lista de conversas recarregada');
       } else {
+        console.log('❌ Erro ao excluir conversa:', response.status);
         toast({ title: 'Erro', description: 'Não foi possível excluir a conversa', variant: 'destructive' });
       }
     } catch (error) {
+      console.log('❌ Erro ao excluir conversa:', error);
       toast({ title: 'Erro', description: 'Erro ao excluir conversa', variant: 'destructive' });
     }
   };
@@ -341,9 +333,9 @@ export default function Messages({ params }: { params?: { conversationId?: strin
                   <div className="flex items-start gap-3 flex-1">
                     <div className="relative">
                       <Avatar className="w-12 h-12">
-                        <AvatarImage src={conversation.professionalAvatar} alt={conversation.professionalName} />
+                        <AvatarImage src={conversation.clientAvatar} alt={conversation.clientName} />
                         <AvatarFallback className="bg-yellow-500 text-white">
-                          {conversation.professionalName.split(' ').map(n => n[0]).join('')}
+                          {conversation.clientName?.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
                       </Avatar>
                       {conversation.isOnline && (
@@ -353,7 +345,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <h3 className="font-semibold text-gray-900 truncate">
-                          {conversation.professionalName}
+                          {conversation.clientName}
                         </h3>
                         <span className="text-xs text-gray-500">
                           {formatTime(conversation.lastMessageTime)}
@@ -404,7 +396,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
             )}
           </div>
         </div>
-        <ClientNavbar />
+        <ProviderNavbar />
       </div>
     );
   }
@@ -442,9 +434,9 @@ export default function Messages({ params }: { params?: { conversationId?: strin
               </Button>
               <div className="relative">
                 <Avatar className="w-10 h-10">
-                  <AvatarImage src={selectedConv?.professionalAvatar} alt={selectedConv?.professionalName} />
+                  <AvatarImage src={selectedConv?.clientAvatar} alt={selectedConv?.clientName} />
                   <AvatarFallback className="bg-yellow-500 text-white">
-                    {selectedConv?.professionalName.split(' ').map(n => n[0]).join('')}
+                    {selectedConv?.clientName?.split(' ').map(n => n[0]).join('')}
                   </AvatarFallback>
                 </Avatar>
                 {selectedConv?.isOnline && (
@@ -453,7 +445,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
               </div>
               <div>
                 <h2 className="font-semibold text-gray-900">
-                  {selectedConv?.professionalName}
+                  {selectedConv?.clientName}
                 </h2>
                 <div className="flex items-center gap-2">
                   <p className="text-sm text-gray-600">
@@ -494,7 +486,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
                   {!isOwn && (
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs font-medium text-gray-600">
-                        {selectedConv?.professionalName}
+                        {selectedConv?.clientName}
                       </span>
                     </div>
                   )}
@@ -560,7 +552,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
           </div>
         </div>
       </div>
-      <ClientNavbar />
+      <ProviderNavbar />
     </div>
   );
-}
+} 

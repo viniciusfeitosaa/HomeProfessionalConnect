@@ -1,4 +1,4 @@
-import { users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, } from "../shared/schema.js";
+import { users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, } from "./schema.js";
 import { db } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
 // Database Storage Implementation
@@ -65,14 +65,72 @@ export class DatabaseStorage {
     }
     // Professionals
     async getAllProfessionals() {
-        return await db.select().from(professionals).where(eq(professionals.available, true));
+        // Retorna explicitamente o campo userId
+        return await db.select({
+            id: professionals.id,
+            userId: professionals.userId,
+            name: professionals.name,
+            specialization: professionals.specialization,
+            category: professionals.category,
+            subCategory: professionals.subCategory,
+            description: professionals.description,
+            experience: professionals.experience,
+            certifications: professionals.certifications,
+            availableHours: professionals.availableHours,
+            hourlyRate: professionals.hourlyRate,
+            rating: professionals.rating,
+            totalReviews: professionals.totalReviews,
+            location: professionals.location,
+            distance: professionals.distance,
+            available: professionals.available,
+            imageUrl: professionals.imageUrl,
+            createdAt: professionals.createdAt
+        }).from(professionals).where(eq(professionals.available, true));
     }
     async getProfessionalsByCategory(category) {
-        return await db.select().from(professionals)
+        return await db.select({
+            id: professionals.id,
+            userId: professionals.userId,
+            name: professionals.name,
+            specialization: professionals.specialization,
+            category: professionals.category,
+            subCategory: professionals.subCategory,
+            description: professionals.description,
+            experience: professionals.experience,
+            certifications: professionals.certifications,
+            availableHours: professionals.availableHours,
+            hourlyRate: professionals.hourlyRate,
+            rating: professionals.rating,
+            totalReviews: professionals.totalReviews,
+            location: professionals.location,
+            distance: professionals.distance,
+            available: professionals.available,
+            imageUrl: professionals.imageUrl,
+            createdAt: professionals.createdAt
+        }).from(professionals)
             .where(and(eq(professionals.category, category), eq(professionals.available, true)));
     }
     async searchProfessionals(query) {
-        return await db.select().from(professionals)
+        return await db.select({
+            id: professionals.id,
+            userId: professionals.userId,
+            name: professionals.name,
+            specialization: professionals.specialization,
+            category: professionals.category,
+            subCategory: professionals.subCategory,
+            description: professionals.description,
+            experience: professionals.experience,
+            certifications: professionals.certifications,
+            availableHours: professionals.availableHours,
+            hourlyRate: professionals.hourlyRate,
+            rating: professionals.rating,
+            totalReviews: professionals.totalReviews,
+            location: professionals.location,
+            distance: professionals.distance,
+            available: professionals.available,
+            imageUrl: professionals.imageUrl,
+            createdAt: professionals.createdAt
+        }).from(professionals)
             .where(and(eq(professionals.available, true), or(ilike(professionals.name, `%${query}%`), ilike(professionals.specialization, `%${query}%`), ilike(professionals.description, `%${query}%`))));
     }
     async getProfessional(id) {
@@ -172,11 +230,11 @@ export class DatabaseStorage {
             .where(eq(verificationCodes.id, id));
     }
     // Conversations & Messages
-    async getProfessionalById(id) {
+    async getProfessionalById(userId) {
         const result = await db
             .select()
             .from(professionals)
-            .where(eq(professionals.id, id))
+            .where(eq(professionals.userId, userId))
             .limit(1);
         return result[0];
     }
@@ -188,11 +246,84 @@ export class DatabaseStorage {
             .limit(1);
         return result[0];
     }
-    async getConversationsByUser(userId) {
-        return await db
+    // Verificar se uma conversa foi deletada pelo usuário
+    async isConversationDeletedByUser(conversationId, userId) {
+        const conversation = await db
             .select()
             .from(conversations)
-            .where(eq(conversations.clientId, userId));
+            .where(eq(conversations.id, conversationId))
+            .limit(1);
+        if (!conversation[0]) {
+            return false;
+        }
+        const conv = conversation[0];
+        if (conv.clientId === userId) {
+            return conv.deletedByClient === true;
+        }
+        else if (conv.professionalId === userId) {
+            return conv.deletedByProfessional === true;
+        }
+        return false;
+    }
+    // Restaurar conversa (marcar como não deletada pelo usuário)
+    async restoreConversation(conversationId, userId) {
+        const conversation = await db
+            .select()
+            .from(conversations)
+            .where(eq(conversations.id, conversationId))
+            .limit(1);
+        if (!conversation[0]) {
+            throw new Error('Conversa não encontrada');
+        }
+        const conv = conversation[0];
+        const updates = {};
+        if (conv.clientId === userId) {
+            updates.deletedByClient = false;
+        }
+        else if (conv.professionalId === userId) {
+            updates.deletedByProfessional = false;
+        }
+        else {
+            throw new Error('Usuário não é participante da conversa');
+        }
+        await db
+            .update(conversations)
+            .set(updates)
+            .where(eq(conversations.id, conversationId));
+    }
+    async getConversationsByUser(userId) {
+        console.log(`🔍 getConversationsByUser(${userId}) - Iniciando busca...`);
+        // Buscar todas as conversas do usuário (sem filtro de deletadas)
+        const allUserConversations = await db
+            .select()
+            .from(conversations)
+            .where(or(eq(conversations.clientId, userId), eq(conversations.professionalId, userId)));
+        console.log(`📋 Todas as conversas do usuário ${userId}:`, allUserConversations.map((c) => ({
+            id: c.id,
+            clientId: c.clientId,
+            professionalId: c.professionalId,
+            deletedByClient: c.deletedByClient,
+            deletedByProfessional: c.deletedByProfessional
+        })));
+        // Verificar se o usuário é cliente ou profissional
+        const asClient = allUserConversations.filter((c) => c.clientId === userId);
+        const asProfessional = allUserConversations.filter((c) => c.professionalId === userId);
+        console.log(`📊 Usuário ${userId} - Como cliente: ${asClient.length}, Como profissional: ${asProfessional.length}`);
+        // Agora aplicar o filtro de conversas não deletadas
+        const result = await db
+            .select()
+            .from(conversations)
+            .where(and(or(eq(conversations.clientId, userId), eq(conversations.professionalId, userId)), 
+        // Não mostrar conversas deletadas pelo usuário
+        or(and(eq(conversations.clientId, userId), eq(conversations.deletedByClient, false)), and(eq(conversations.professionalId, userId), eq(conversations.deletedByProfessional, false)))));
+        console.log(`✅ Conversas filtradas para usuário ${userId}:`, result.map((c) => ({
+            id: c.id,
+            clientId: c.clientId,
+            professionalId: c.professionalId,
+            deletedByClient: c.deletedByClient,
+            deletedByProfessional: c.deletedByProfessional
+        })));
+        return result;
     }
     async createConversation(conversation) {
         const result = await db
@@ -236,6 +367,37 @@ export class DatabaseStorage {
             .update(messages)
             .set({ isRead: true })
             .where(and(eq(messages.conversationId, conversationId), ne(messages.senderId, userId), eq(messages.isRead, false)));
+    }
+    // Excluir todas as mensagens de uma conversa
+    async deleteMessagesByConversation(conversationId) {
+        await db.delete(messages).where(eq(messages.conversationId, conversationId));
+    }
+    // Marcar conversa como deletada pelo usuário (exclusão individual)
+    async deleteConversation(conversationId, userId) {
+        // Verificar se o usuário é cliente ou profissional da conversa
+        const conversation = await db
+            .select()
+            .from(conversations)
+            .where(eq(conversations.id, conversationId))
+            .limit(1);
+        if (!conversation[0]) {
+            throw new Error('Conversa não encontrada');
+        }
+        const conv = conversation[0];
+        const updates = {};
+        if (conv.clientId === userId) {
+            updates.deletedByClient = true;
+        }
+        else if (conv.professionalId === userId) {
+            updates.deletedByProfessional = true;
+        }
+        else {
+            throw new Error('Usuário não é participante da conversa');
+        }
+        await db
+            .update(conversations)
+            .set(updates)
+            .where(eq(conversations.id, conversationId));
     }
     // Service Requests
     async getServiceRequestsByClient(clientId) {

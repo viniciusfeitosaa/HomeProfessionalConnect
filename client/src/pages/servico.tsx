@@ -11,6 +11,7 @@ import { getApiUrl } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { Calendar, MapPin, CheckCircle, Loader2 } from "lucide-react";
+import ClientNavbar from "../components/client-navbar";
 
 export default function Servico() {
   console.log('Servico component rendering');
@@ -216,7 +217,7 @@ export default function Servico() {
   console.log('Rendering Servico component, auth state:', { isAuthenticated, isLoading });
   
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col pb-24">
       <div className="flex-1 p-4">
         <div className="max-w-md mx-auto">
           <div className="mb-6">
@@ -452,7 +453,7 @@ export default function Servico() {
           </Card>
         </div>
       </div>
-      <BottomNavigation />
+      <ClientNavbar hidePlus />
     </div>
   );
 } 

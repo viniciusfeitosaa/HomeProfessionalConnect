@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import type { User as UserType, Appointment } from "@shared/schema";
-import { BottomNavigation } from "@/components/bottom-navigation";
+import ClientNavbar from "../components/client-navbar";
 
 export default function Profile() {
   const [, setLocation] = useLocation();
@@ -55,9 +55,9 @@ export default function Profile() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-        <div className="w-full max-w-sm lg:max-w-none mx-auto lg:mx-0 min-h-screen relative">
-        <div className="px-3 sm:px-4 lg:px-8 py-3 sm:py-4 lg:py-6">
+    <>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-24">
+        <div className="w-full max-w-sm lg:max-w-none mx-auto lg:mx-0 relative px-3 sm:px-4 lg:px-8 py-3 sm:py-4 lg:py-6">
           <div className="flex items-center mb-4 sm:mb-6">
               <Button
                 variant="ghost"
@@ -256,9 +256,9 @@ export default function Profile() {
             </div>
             
           {/* Menu Inferior Padronizado */}
-          <BottomNavigation />
+          <ClientNavbar />
         </div>
       </div>
-    </div>
+    </>
   );
 }

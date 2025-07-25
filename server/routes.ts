@@ -318,36 +318,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/messages', authenticateToken, async (req, res) => {
     try {
       const user = req.user as any;
+      console.log('🔍 GET /api/messages - Usuário autenticado:', user.id, user.userType);
+      console.log('🔍 Headers da requisição:', req.headers.authorization ? 'Token presente' : 'Token ausente');
       
       // Buscar conversas do usuário no banco de dados
       const userConversations = await storage.getConversationsByUser(user.id);
+      console.log('📋 Conversas retornadas para usuário', user.id, ':', userConversations.length);
+      console.log('📋 Detalhes das conversas:', userConversations.map(c => ({ 
+        id: c.id, 
+        clientId: c.clientId, 
+        professionalId: c.professionalId,
+        deletedByClient: c.deletedByClient,
+        deletedByProfessional: c.deletedByProfessional
+      })));
       
+      // Log adicional para debug
+      if (userConversations.length === 0) {
+        console.log('⚠️ Nenhuma conversa encontrada para o usuário', user.id);
+      }
       if (userConversations && userConversations.length > 0) {
         // Se há conversas reais, retornar elas
         const conversationsWithDetails = await Promise.all(
           userConversations.map(async (conv) => {
-            const professional = await storage.getProfessionalById(conv.professionalId);
+            let otherUser, otherName, otherAvatar;
+            let specialization: string = "";
+            let rating: number = 5.0;
+            let location: string = "";
+            if (user.userType === 'provider') {
+              // Para o provider, destaque o cliente
+              otherUser = await storage.getUser(conv.clientId);
+              otherName = otherUser?.name || "Cliente";
+              otherAvatar = otherUser?.profileImage || "";
+              // Campos extras para cliente já estão com valores padrão
+            } else {
+              // Para o cliente, destaque o profissional
+              otherUser = await storage.getProfessionalById(conv.professionalId);
+              otherName = otherUser?.name || "Profissional";
+              otherAvatar = otherUser?.imageUrl || "";
+              specialization = otherUser?.specialization || "";
+              rating = Number(otherUser?.rating) || 5.0;
+              location = otherUser?.location || "";
+            }
             const lastMessage = await storage.getLastMessageByConversation(conv.id);
-            
             return {
               id: conv.id,
+              clientId: conv.clientId,
+              clientName: user.userType === 'provider' ? otherName : undefined,
+              clientAvatar: user.userType === 'provider' ? otherAvatar : undefined,
               professionalId: conv.professionalId,
-              professionalName: professional?.name || "Profissional",
-              professionalAvatar: professional?.imageUrl || "",
-              specialization: professional?.specialization || "",
+              professionalName: user.userType === 'client' ? otherName : undefined,
+              professionalAvatar: user.userType === 'client' ? otherAvatar : undefined,
+              specialization,
               lastMessage: lastMessage?.content || "Nenhuma mensagem",
               lastMessageTime: lastMessage?.timestamp || conv.createdAt,
               unreadCount: await storage.getUnreadMessageCount(conv.id, user.id),
               isOnline: Math.random() > 0.5, // Simular status online
-              rating: professional?.rating || 5.0,
-              location: professional?.location || "São Paulo, SP",
+              rating,
+              location,
               messages: await storage.getMessagesByConversation(conv.id)
             };
           })
         );
-        
         res.json(conversationsWithDetails);
-      }       else {
+      } else {
         // Se não há conversas, retornar array vazio
         res.json([]);
       }
@@ -360,39 +393,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/messages', authenticateToken, async (req, res) => {
     try {
       const user = req.user as any;
-      const { recipientId, content, type } = req.body;
+      const { recipientId, content, type, conversationId } = req.body;
+      
+      console.log('📨 POST /api/messages - Usuário:', user.id, user.userType);
+      console.log('📨 Dados da mensagem:', { recipientId, content, type, conversationId });
 
-      if (!recipientId || !content) {
-        return res.status(400).json({ message: 'Destinatário e conteúdo são obrigatórios' });
+      if (!recipientId || !content || !conversationId) {
+        return res.status(400).json({ message: 'Destinatário, conversa e conteúdo são obrigatórios' });
       }
 
-      const message = {
+      // Verificar se o usuário faz parte da conversa (incluindo conversas deletadas)
+      const conversations = await storage.getConversationsByUser(user.id);
+      console.log('📨 Conversas do usuário:', conversations.map(c => ({ id: c.id, deletedByClient: c.deletedByClient, deletedByProfessional: c.deletedByProfessional })));
+      
+      const isParticipant = conversations.some(conv => conv.id === conversationId);
+      console.log('📨 Usuário é participante?', isParticipant);
+      
+      if (!isParticipant) {
+        console.log('📨 Usuário não é participante, verificando se conversa foi deletada...');
+        // Verificar se a conversa foi deletada pelo usuário
+        const isDeletedByUser = await storage.isConversationDeletedByUser(conversationId, user.id);
+        console.log('📨 Conversa foi deletada pelo usuário?', isDeletedByUser);
+        
+        if (isDeletedByUser) {
+          // Restaurar a conversa automaticamente para o usuário
+          await storage.restoreConversation(conversationId, user.id);
+          console.log(`✅ Conversa ${conversationId} restaurada automaticamente para usuário ${user.id}`);
+        } else {
+          console.log('❌ Acesso negado à conversa');
+          return res.status(403).json({ message: 'Acesso negado à conversa' });
+        }
+      }
+
+      // Verificar se a conversa foi deletada pelo destinatário e restaurar se necessário
+      const isDeletedByRecipient = await storage.isConversationDeletedByUser(conversationId, recipientId);
+      if (isDeletedByRecipient) {
+        await storage.restoreConversation(conversationId, recipientId);
+        console.log(`✅ Conversa ${conversationId} restaurada automaticamente para destinatário ${recipientId}`);
+      }
+
+      const message = await storage.createMessage({
+        conversationId,
         senderId: user.id,
         recipientId,
         content,
         type: type || 'text',
         isRead: false
-      };
+      });
 
+      console.log('✅ Mensagem criada com sucesso:', message.id);
       res.status(201).json(message);
     } catch (error) {
-      console.error('Send message error:', error);
+      console.error('❌ Send message error:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });
 
   // Start conversation with professional
   app.post('/api/messages/start-conversation', authenticateToken, async (req, res) => {
+    console.log('POST /api/messages/start-conversation chamada');
     try {
       const user = req.user as any;
       const { professionalId, message } = req.body;
-
-      if (!professionalId) {
-        return res.status(400).json({ message: 'ID do profissional é obrigatório' });
-      }
-
+      console.log('professionalId recebido:', professionalId);
       // Verify if professional exists
       const professional = await storage.getProfessionalById(professionalId);
+      console.log('Resultado da busca do profissional:', professional);
+
       if (!professional) {
         return res.status(404).json({ message: 'Profissional não encontrado' });
       }
@@ -401,6 +468,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingConversation = await storage.getConversation(user.id, professionalId);
       
       if (existingConversation) {
+        // Verificar se a conversa foi deletada pelo usuário e restaurar se necessário
+        const isDeletedByUser = await storage.isConversationDeletedByUser(existingConversation.id, user.id);
+        if (isDeletedByUser) {
+          await storage.restoreConversation(existingConversation.id, user.id);
+          console.log(`✅ Conversa ${existingConversation.id} restaurada automaticamente para usuário ${user.id} (start-conversation)`);
+        }
+
+        // Verificar se a conversa foi deletada pelo profissional e restaurar se necessário
+        const isDeletedByProfessional = await storage.isConversationDeletedByUser(existingConversation.id, professionalId);
+        if (isDeletedByProfessional) {
+          await storage.restoreConversation(existingConversation.id, professionalId);
+          console.log(`✅ Conversa ${existingConversation.id} restaurada automaticamente para profissional ${professionalId} (start-conversation)`);
+        }
+
         // If conversation exists, just send the message
         const newMessage = await storage.createMessage({
           conversationId: existingConversation.id,
@@ -420,7 +501,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create new conversation
         const conversation = await storage.createConversation({
           clientId: user.id,
-          professionalId: professionalId
+          professionalId: professionalId,
+          deletedByClient: false,
+          deletedByProfessional: false
         });
 
         // Send initial message
@@ -1048,6 +1131,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Solicitação excluída com sucesso" });
     } catch (error) {
       console.error('Delete service request error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Buscar mensagens de uma conversa específica
+  app.get('/api/messages/:conversationId', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const conversationId = parseInt(req.params.conversationId, 10);
+      if (isNaN(conversationId)) {
+        return res.status(400).json({ message: 'ID da conversa inválido' });
+      }
+      // Verifica se o usuário faz parte da conversa
+      const conversations = await storage.getConversationsByUser(user.id);
+      const isParticipant = conversations.some(conv => conv.id === conversationId);
+      
+      if (!isParticipant) {
+        // Verificar se a conversa foi deletada pelo usuário
+        const isDeleted = await storage.isConversationDeletedByUser(conversationId, user.id);
+        
+        if (isDeleted) {
+          // Restaurar a conversa automaticamente
+          await storage.restoreConversation(conversationId, user.id);
+          console.log(`Conversa ${conversationId} restaurada automaticamente para usuário ${user.id} (buscar mensagens)`);
+        } else {
+          return res.status(403).json({ message: 'Acesso negado à conversa' });
+        }
+      }
+      
+      const messages = await storage.getMessagesByConversation(conversationId);
+      res.json(messages);
+    } catch (error) {
+      console.error('Erro ao buscar mensagens da conversa:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Marcar conversa como deletada pelo usuário (exclusão individual)
+  app.delete('/api/messages/conversation/:conversationId', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const conversationId = parseInt(req.params.conversationId, 10);
+      console.log('🗑️ DELETE /api/messages/conversation - Usuário:', user.id, user.userType);
+      console.log('🗑️ conversationId para exclusão:', conversationId);
+      
+      if (isNaN(conversationId)) {
+        return res.status(400).json({ message: 'ID da conversa inválido' });
+      }
+
+      // Verifica se o usuário faz parte da conversa
+      const conversations = await storage.getConversationsByUser(user.id);
+      console.log('🗑️ Conversas do usuário antes da exclusão:', conversations.map(c => c.id));
+      const isParticipant = conversations.some(conv => conv.id === conversationId);
+      
+      if (!isParticipant) {
+        console.log('❌ Usuário não é participante da conversa');
+        return res.status(403).json({ message: 'Acesso negado à conversa' });
+      }
+
+      // Marca a conversa como deletada pelo usuário (exclusão individual)
+      await storage.deleteConversation(conversationId, user.id);
+      console.log('✅ Conversa marcada como deletada');
+      
+      // Verificar se a exclusão funcionou
+      const conversationsAfter = await storage.getConversationsByUser(user.id);
+      console.log('🗑️ Conversas do usuário após exclusão:', conversationsAfter.map(c => c.id));
+      
+      res.json({ message: 'Conversa removida com sucesso' });
+    } catch (error) {
+      console.error('❌ Erro ao excluir conversa:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });

@@ -20,6 +20,8 @@ declare global {
 
 const app = express();
 
+console.log('=== Backend inicializado ===');
+
 // Configure CORS for Netlify frontend and development
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -67,9 +69,9 @@ app.use((req, res, next) => {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
+      // if (logLine.length > 80) {
+      //   logLine = logLine.slice(0, 79) + "…";
+      // }
 
       console.log(logLine);
     }
