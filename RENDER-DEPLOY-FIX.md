@@ -8,8 +8,8 @@ O erro estava relacionado a conflitos de dependências entre versões do `@types
 ### 1. Atualização de Versões
 - ✅ Atualizado `@types/node` de `20.16.11` para `^20.19.0`
 - ✅ Downgrade do Vite de `^7.0.5` para `^5.4.0` (mais estável)
-- ✅ Atualizado `@tailwindcss/vite` de `^4.1.3` para `^3.4.0`
-- ✅ Atualizado `@vitejs/plugin-react` de `^4.3.2` para `^4.2.1`
+- ✅ Atualizado `@tailwindcss/vite` de `^4.1.3` para `^4.1.11`
+- ✅ Atualizado `@vitejs/plugin-react` de `^4.3.2` para `^4.7.0`
 
 ### 2. Configuração do npm
 - ✅ Criado arquivo `.npmrc` com `legacy-peer-deps=true`
@@ -18,7 +18,8 @@ O erro estava relacionado a conflitos de dependências entre versões do `@types
 ### 3. Scripts de Build Otimizados
 - ✅ Ajustado `build.js` - script de build simplificado
 - ✅ Criado `start-render.js` - script de inicialização correto
-- ✅ Atualizado `render.yaml` para usar `--legacy-peer-deps`
+- ✅ Criado `package-simple.json` - dependências mínimas sem conflitos
+- ✅ Atualizado `render.yaml` para usar package simplificado
 
 ## Como Fazer o Deploy
 
@@ -38,6 +39,7 @@ O erro estava relacionado a conflitos de dependências entre versões do `@types
 ## Estrutura de Arquivos para Deploy
 ```
 ├── build.js               # Script de build otimizado
+├── package-simple.json    # Dependências mínimas sem conflitos
 ├── render.yaml            # Configuração do Render
 ├── start-render.js        # Script de inicialização
 └── .npmrc                 # Configuração do npm
