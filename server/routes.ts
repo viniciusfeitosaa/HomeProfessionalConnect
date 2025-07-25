@@ -20,14 +20,7 @@ import { z } from "zod";
 import pgSession from "connect-pg-simple";
 import * as connectRedis from "connect-redis";
 import Redis from "redis";
-import 'express-session';
 import { Request, Response } from "express";
-
-declare module 'express-session' {
-  interface SessionData {
-    [key: string]: any;
-  }
-}
 
 // Rate limiting
 const authLimiter = rateLimit({
