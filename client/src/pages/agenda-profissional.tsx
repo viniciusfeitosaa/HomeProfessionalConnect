@@ -99,8 +99,8 @@ export default function AgendaProfissional() {
 
   return (
     <ProviderLayout>
-      <div className="max-w-3xl mx-auto py-6 px-2">
-        <div className="flex items-center gap-3 mb-6">
+      <div className="max-w-3xl mx-auto py-4 sm:py-6 px-2 sm:px-4">
+        <div className="flex items-center gap-3 mb-4 sm:mb-6">
           <Button
             variant="ghost"
             size="sm"
@@ -108,16 +108,82 @@ export default function AgendaProfissional() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-2xl font-bold">Agenda do Profissional</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Agenda do Profissional</h1>
         </div>
 
-        <div className="flex gap-2 mb-4">
-          <Button variant={filterStatus === "all" ? "default" : "outline"} onClick={() => setFilterStatus("all")}>Todos</Button>
-          <Button variant={filterStatus === "agendado" ? "default" : "outline"} onClick={() => setFilterStatus("agendado")}>Agendados</Button>
-          <Button variant={filterStatus === "confirmado" ? "default" : "outline"} onClick={() => setFilterStatus("confirmado")}>Confirmados</Button>
-          <Button variant={filterStatus === "em_andamento" ? "default" : "outline"} onClick={() => setFilterStatus("em_andamento")}>Em andamento</Button>
-          <Button variant={filterStatus === "concluido" ? "default" : "outline"} onClick={() => setFilterStatus("concluido")}>Concluídos</Button>
-          <Button variant={filterStatus === "cancelado" ? "default" : "outline"} onClick={() => setFilterStatus("cancelado")}>Cancelados</Button>
+        <div className="flex flex-wrap gap-2 mb-6">
+          <Button 
+            variant={filterStatus === "all" ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => setFilterStatus("all")}
+            className={`text-xs sm:text-sm px-3 py-2 h-auto font-medium transition-all duration-200 ${
+              filterStatus === "all" 
+                ? "bg-yellow-500 hover:bg-yellow-600 text-white shadow-md" 
+                : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+            }`}
+          >
+            Todos
+          </Button>
+          <Button 
+            variant={filterStatus === "agendado" ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => setFilterStatus("agendado")}
+            className={`text-xs sm:text-sm px-3 py-2 h-auto font-medium transition-all duration-200 ${
+              filterStatus === "agendado" 
+                ? "bg-blue-500 hover:bg-blue-600 text-white shadow-md" 
+                : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+            }`}
+          >
+            Agendados
+          </Button>
+          <Button 
+            variant={filterStatus === "confirmado" ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => setFilterStatus("confirmado")}
+            className={`text-xs sm:text-sm px-3 py-2 h-auto font-medium transition-all duration-200 ${
+              filterStatus === "confirmado" 
+                ? "bg-green-500 hover:bg-green-600 text-white shadow-md" 
+                : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+            }`}
+          >
+            Confirmados
+          </Button>
+          <Button 
+            variant={filterStatus === "em_andamento" ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => setFilterStatus("em_andamento")}
+            className={`text-xs sm:text-sm px-3 py-2 h-auto font-medium transition-all duration-200 ${
+              filterStatus === "em_andamento" 
+                ? "bg-orange-500 hover:bg-orange-600 text-white shadow-md" 
+                : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+            }`}
+          >
+            Em andamento
+          </Button>
+          <Button 
+            variant={filterStatus === "concluido" ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => setFilterStatus("concluido")}
+            className={`text-xs sm:text-sm px-3 py-2 h-auto font-medium transition-all duration-200 ${
+              filterStatus === "concluido" 
+                ? "bg-gray-500 hover:bg-gray-600 text-white shadow-md" 
+                : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+            }`}
+          >
+            Concluídos
+          </Button>
+          <Button 
+            variant={filterStatus === "cancelado" ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => setFilterStatus("cancelado")}
+            className={`text-xs sm:text-sm px-3 py-2 h-auto font-medium transition-all duration-200 ${
+              filterStatus === "cancelado" 
+                ? "bg-red-500 hover:bg-red-600 text-white shadow-md" 
+                : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+            }`}
+          >
+            Cancelados
+          </Button>
         </div>
 
         {loading ? (
@@ -128,47 +194,48 @@ export default function AgendaProfissional() {
           <div className="space-y-4">
             {filteredAppointments.map(appointment => (
               <Card key={appointment.id}>
-                <CardHeader className="flex flex-row items-center gap-3">
-                  <User className="h-6 w-6 text-gray-400" />
-                  <div className="flex-1">
-                    <CardTitle className="text-lg font-semibold">{appointment.clientName}</CardTitle>
-                    <div className="text-sm text-gray-500">{format(new Date(appointment.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })} às {appointment.time}</div>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center gap-3 p-4">
+                  <User className="h-6 w-6 text-gray-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base sm:text-lg font-semibold truncate">{appointment.clientName}</CardTitle>
+                    <div className="text-xs sm:text-sm text-gray-500">{format(new Date(appointment.date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })} às {appointment.time}</div>
                   </div>
-                  <Badge className={getStatusColor(appointment.status)}>
+                  <Badge className={`${getStatusColor(appointment.status)} flex-shrink-0`}>
                     {getStatusIcon(appointment.status)}
-                    <span className="ml-1">{getStatusText(appointment.status)}</span>
+                    <span className="ml-1 hidden sm:inline">{getStatusText(appointment.status)}</span>
+                    <span className="ml-1 sm:hidden">{getStatusText(appointment.status).charAt(0)}</span>
                   </Badge>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                    <div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300 mb-1">
+                <CardContent className="p-4 pt-0">
+                  <div className="flex flex-col gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm">
+                      <div className="text-gray-600 dark:text-gray-300">
                         Tipo: <span className="font-medium">{appointment.type === "presencial" ? "Presencial" : "Online"}</span>
                       </div>
                       {appointment.location && (
-                        <div className="text-sm text-gray-600 dark:text-gray-300 mb-1">
-                          Local: <span className="font-medium">{appointment.location}</span>
+                        <div className="text-gray-600 dark:text-gray-300">
+                          Local: <span className="font-medium truncate block">{appointment.location}</span>
                         </div>
                       )}
-                      <div className="text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      <div className="text-gray-600 dark:text-gray-300">
                         Duração: <span className="font-medium">{appointment.duration} min</span>
                       </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300 mb-1">
+                      <div className="text-gray-600 dark:text-gray-300">
                         Valor: <span className="font-medium">R$ {appointment.price}</span>
                       </div>
                     </div>
-                    <div className="flex gap-2 mt-2 md:mt-0">
+                    <div className="flex flex-wrap gap-2">
                       {appointment.canConfirm && (
-                        <Button size="sm" onClick={() => toast({ title: "Agendamento confirmado!" })}>Confirmar</Button>
+                        <Button size="sm" className="flex-1 sm:flex-none" onClick={() => toast({ title: "Agendamento confirmado!" })}>Confirmar</Button>
                       )}
                       {appointment.canStart && (
-                        <Button size="sm" onClick={() => toast({ title: "Atendimento iniciado!" })}>Iniciar</Button>
+                        <Button size="sm" className="flex-1 sm:flex-none" onClick={() => toast({ title: "Atendimento iniciado!" })}>Iniciar</Button>
                       )}
                       {appointment.canFinish && (
-                        <Button size="sm" onClick={() => toast({ title: "Atendimento concluído!" })}>Concluir</Button>
+                        <Button size="sm" className="flex-1 sm:flex-none" onClick={() => toast({ title: "Atendimento concluído!" })}>Concluir</Button>
                       )}
                       {appointment.canCancel && (
-                        <Button size="sm" variant="destructive" onClick={() => toast({ title: "Agendamento cancelado!" })}>Cancelar</Button>
+                        <Button size="sm" variant="destructive" className="flex-1 sm:flex-none" onClick={() => toast({ title: "Agendamento cancelado!" })}>Cancelar</Button>
                       )}
                     </div>
                   </div>

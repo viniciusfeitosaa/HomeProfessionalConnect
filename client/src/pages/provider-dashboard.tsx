@@ -1105,51 +1105,51 @@ export default function ProviderDashboard() {
                       nearbyServices.map((service) => (
                       <Card key={service.id} id={`service-${service.id}`} className="border-l-4 border-l-primary transition-all duration-300">
                         <CardContent className="p-4">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h4 className="font-semibold">Solicitação #{service.id}</h4>
-                                <Badge variant="outline" className="text-xs">
+                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                                <h4 className="font-semibold text-base sm:text-lg">Solicitação #{service.id}</h4>
+                                <Badge variant="outline" className="text-xs w-fit">
                                   {service.category === 'fisioterapeuta' ? 'Fisioterapeuta' :
                                    service.category === 'acompanhante_hospitalar' ? 'Acompanhante' :
                                    service.category === 'tecnico_enfermagem' ? 'Técnico Enfermagem' : service.category}
                                 </Badge>
                               </div>
-                              <p className="font-medium text-primary mb-1">{service.serviceType}</p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{service.description}</p>
-                              <div className="flex items-center gap-4 text-sm text-gray-500">
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="h-3 w-3" />
-                                  {service.address}
+                              <p className="font-medium text-primary mb-1 text-sm sm:text-base">{service.serviceType}</p>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">{service.description}</p>
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
+                                <span className="flex items-center gap-1 min-w-0">
+                                  <MapPin className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">{service.address}</span>
                                 </span>
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {new Date(service.scheduledDate).toLocaleDateString('pt-BR')} às {service.scheduledTime}
+                                <span className="flex items-center gap-1 min-w-0">
+                                  <Calendar className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">{new Date(service.scheduledDate).toLocaleDateString('pt-BR')} às {service.scheduledTime}</span>
                                 </span>
-                                <span className="flex items-center gap-1">
-                                  <MessageCircle className="h-3 w-3" />
-                                  {service.responses || 0} respostas
+                                <span className="flex items-center gap-1 min-w-0">
+                                  <MessageCircle className="h-3 w-3 flex-shrink-0" />
+                                  <span>{service.responses || 0} respostas</span>
                                 </span>
                                 {serviceLocations[service.id] && (
-                                  <span className="flex items-center gap-1">
-                                    <span className="h-3 w-3">📏</span>
-                                    {calculateDistance(
+                                  <span className="flex items-center gap-1 min-w-0">
+                                    <span className="h-3 w-3 flex-shrink-0">📏</span>
+                                    <span>{calculateDistance(
                                       userLocation[0], 
                                       userLocation[1], 
                                       serviceLocations[service.id][0], 
                                       serviceLocations[service.id][1]
-                                    ).toFixed(1)} km
+                                    ).toFixed(1)} km</span>
                                   </span>
                                 )}
                               </div>
                             </div>
-                            <div className="text-right ml-4">
+                            <div className="flex flex-col items-end gap-2 sm:ml-4">
                               {service.budget && (
-                                <p className="text-lg font-bold text-green-600">R$ {parseFloat(service.budget).toFixed(2)}</p>
+                                <p className="text-base sm:text-lg font-bold text-green-600">R$ {parseFloat(service.budget).toFixed(2)}</p>
                               )}
                               <Button 
                                 size="sm" 
-                                className="mt-2"
+                                className="w-full sm:w-auto"
                                 onClick={() => handleOfferService(service.id)}
                               >
                                 Ofertar Serviço

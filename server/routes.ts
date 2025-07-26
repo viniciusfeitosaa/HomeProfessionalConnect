@@ -18,7 +18,7 @@ import {
 import "./auth.js"; // Initialize passport strategies
 import { z } from "zod";
 import pgSession from "connect-pg-simple";
-import * as connectRedis from "connect-redis";
+// import * as connectRedis from "connect-redis";
 import Redis from "redis";
 import { Request, Response } from "express";
 

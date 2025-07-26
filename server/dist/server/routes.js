@@ -7,7 +7,6 @@ import { storage } from "./storage.js";
 import { generateToken, verifyPassword, hashPassword, rateLimitByIP, authenticateToken } from "./auth.js";
 import "./auth.js"; // Initialize passport strategies
 import pgSession from "connect-pg-simple";
-import 'express-session';
 // Rate limiting
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
@@ -744,6 +743,79 @@ export async function registerRoutes(app) {
         }
         catch (error) {
             console.error('Complete order error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // ===== ROTAS PARA PERFIL DO PROFISSIONAL =====
+    // Get provider profile
+    app.get("/api/provider/profile", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Get professional data from database
+            const professional = await storage.getProfessionalByUserId(user.id);
+            if (!professional) {
+                return res.status(404).json({ message: "Dados do profissional não encontrados." });
+            }
+            // Get user data
+            const userData = await storage.getUser(user.id);
+            if (!userData) {
+                return res.status(404).json({ message: "Dados do usuário não encontrados." });
+            }
+            // Combine professional and user data
+            const profileData = {
+                ...professional,
+                email: userData.email,
+                phone: userData.phone
+            };
+            res.json(profileData);
+        }
+        catch (error) {
+            console.error('Get provider profile error:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Update provider profile
+    app.put("/api/provider/profile", authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const { name, specialization, category, subCategory, description, experience, certifications, hourlyRate, location, available } = req.body;
+            // Verify user is a provider
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+            }
+            // Get professional data
+            const professional = await storage.getProfessionalByUserId(user.id);
+            if (!professional) {
+                return res.status(404).json({ message: "Dados do profissional não encontrados." });
+            }
+            // Update professional data
+            const updatedProfessional = await storage.updateProfessional(professional.id, {
+                name,
+                specialization,
+                category,
+                subCategory,
+                description,
+                experience,
+                certifications,
+                hourlyRate,
+                location,
+                available
+            });
+            // Update user data if name changed
+            if (name && name !== user.name) {
+                await storage.updateUser(user.id, { name });
+            }
+            res.json({
+                message: "Perfil atualizado com sucesso",
+                professional: updatedProfessional
+            });
+        }
+        catch (error) {
+            console.error('Update provider profile error:', error);
             res.status(500).json({ message: 'Erro interno do servidor' });
         }
     });

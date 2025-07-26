@@ -106,9 +106,19 @@ export default function ProviderProfile() {
     try {
       setLoading(true);
       
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       // Fetch professional data
       const professionalResponse = await fetch(`${getApiUrl()}/api/provider/profile`, {
         credentials: 'include',
+        headers,
       });
       
       if (professionalResponse.ok) {
@@ -135,6 +145,7 @@ export default function ProviderProfile() {
       // Fetch user data
       const userResponse = await fetch(`${getApiUrl()}/api/user`, {
         credentials: 'include',
+        headers,
       });
       
       if (userResponse.ok) {
@@ -158,12 +169,19 @@ export default function ProviderProfile() {
     try {
       setSaving(true);
       
+      const token = localStorage.getItem('token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const response = await fetch(`${getApiUrl()}/api/provider/profile`, {
         method: 'PUT',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(formData),
       });
       

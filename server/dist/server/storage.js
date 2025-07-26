@@ -137,6 +137,10 @@ export class DatabaseStorage {
         const [professional] = await db.select().from(professionals).where(eq(professionals.id, id));
         return professional || undefined;
     }
+    async getProfessionalByUserId(userId) {
+        const [professional] = await db.select().from(professionals).where(eq(professionals.userId, userId));
+        return professional || undefined;
+    }
     async createProfessional(insertProfessional) {
         const [professional] = await db
             .insert(professionals)
