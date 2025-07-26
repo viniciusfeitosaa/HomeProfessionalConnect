@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { 
@@ -76,6 +77,8 @@ export default function ProviderProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [professionalData, setProfessionalData] = useState<ProfessionalData | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -233,6 +236,85 @@ export default function ProviderProfile() {
     }
   };
 
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Erro",
+        description: "Apenas imagens são permitidas (JPEG, PNG, GIF, WebP)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Erro",
+        description: "A imagem deve ter no máximo 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('profileImage', file);
+
+      const response = await fetch(`${getApiUrl()}/api/provider/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Update the professional data with new image URL
+        if (professionalData) {
+          setProfessionalData({
+            ...professionalData,
+            imageUrl: result.imageUrl
+          });
+        }
+
+        toast({
+          title: "Sucesso",
+          description: "Imagem de perfil atualizada com sucesso!",
+        });
+      } else {
+        const error = await response.json();
+        toast({
+          title: "Erro",
+          description: error.message || "Erro ao fazer upload da imagem",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao fazer upload da imagem:', error);
+      toast({
+        title: "Erro",
+        description: "Erro de conexão ao fazer upload da imagem",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const triggerImageUpload = () => {
+    fileInputRef.current?.click();
+  };
+
   const getCategoryName = (category: string) => {
     const categories = {
       fisioterapeuta: "Fisioterapeuta",
@@ -321,21 +403,38 @@ export default function ProviderProfile() {
                 <CardContent className="p-6">
                   <div className="text-center">
                     <div className="relative inline-block mb-4">
-                      <div className="w-24 h-24 mx-auto bg-yellow-500 rounded-full flex items-center justify-center">
-                        <span className="text-2xl font-bold text-white">
+                      <Avatar className="w-24 h-24 mx-auto border-4 border-yellow-500">
+                        <AvatarImage 
+                          src={professionalData.imageUrl ? `${getApiUrl()}${professionalData.imageUrl}` : undefined} 
+                          alt={professionalData.name}
+                        />
+                        <AvatarFallback className="bg-yellow-500 text-white text-2xl font-bold">
                           {professionalData.name?.charAt(0) || "P"}
-                        </span>
-                      </div>
-                      {!editing && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="absolute -bottom-1 -right-1 rounded-full w-8 h-8 p-0 bg-white border-2 border-gray-200"
-                        >
+                        </AvatarFallback>
+                      </Avatar>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="absolute -bottom-1 -right-1 rounded-full w-8 h-8 p-0 bg-white border-2 border-gray-200 hover:bg-gray-50"
+                        onClick={triggerImageUpload}
+                        disabled={uploadingImage}
+                      >
+                        {uploadingImage ? (
+                          <div className="animate-spin w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full" />
+                        ) : (
                           <Camera className="h-4 w-4" />
-                        </Button>
-                      )}
+                        )}
+                      </Button>
                     </div>
+                    
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
                     
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                       {editing ? (

@@ -861,34 +861,35 @@ export default function ProviderDashboard() {
             <TabsContent value="opportunities" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <MapPin className="h-5 w-5" />
-                      Serviços Próximos a Você
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                      <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <span className="text-base sm:text-lg lg:text-xl">Serviços Próximos a Você</span>
                     </CardTitle>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">Raio:</span>
+                        <span className="text-xs sm:text-sm text-gray-600">Raio:</span>
                         <Input
                           type="number"
                           value={searchRadius}
                           onChange={(e) => setSearchRadius(Number(e.target.value))}
-                          className="w-16 h-8"
+                          className="w-12 sm:w-16 h-7 sm:h-8 text-xs sm:text-sm"
                           min="1"
                           max="50"
                         />
-                        <span className="text-sm text-gray-600">km</span>
+                        <span className="text-xs sm:text-sm text-gray-600">km</span>
                       </div>
-                      <Button variant="outline" size="sm">
-                        <Filter className="h-4 w-4 mr-2" />
-                        Filtros
+                      <Button variant="outline" size="sm" className="h-7 sm:h-8 px-2 sm:px-3 text-xs sm:text-sm">
+                        <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                        <span className="hidden sm:inline">Filtros</span>
+                        <span className="sm:hidden">Filtrar</span>
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   {/* Map Placeholder */}
-                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg h-64 mb-6 overflow-hidden relative sticky top-4 z-10">
+                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg h-48 sm:h-56 md:h-64 mb-4 sm:mb-6 overflow-hidden relative sticky top-2 sm:top-4 z-10">
                     {locationLoading ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                         <div className="text-center">
@@ -1041,10 +1042,10 @@ export default function ProviderDashboard() {
                   </div>
 
                   {/* Service Requests */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                  <div className="space-y-3 sm:space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
                       <div>
-                        <h3 className="font-semibold text-lg">Solicitações Disponíveis</h3>
+                        <h3 className="font-semibold text-base sm:text-lg">Solicitações Disponíveis</h3>
                         {geocodingErrors.length > 0 && (
                           <p className="text-xs text-red-600 mt-1">
                             ⚠️ {geocodingErrors.length} endereço(s) não localizados
@@ -1056,59 +1057,62 @@ export default function ProviderDashboard() {
                         size="sm" 
                         onClick={fetchServiceRequests}
                         disabled={loadingServices}
+                        className="h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
                       >
                         {loadingServices ? (
                           <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
-                            Carregando...
+                            <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-primary mr-1 sm:mr-2"></div>
+                            <span className="hidden sm:inline">Carregando...</span>
+                            <span className="sm:hidden">...</span>
                           </>
                         ) : (
                           <>
-                            <RefreshCw className="h-4 w-4 mr-2" />
-                            Atualizar
+                            <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                            <span className="hidden sm:inline">Atualizar</span>
+                            <span className="sm:hidden">Atualizar</span>
                           </>
                         )}
                       </Button>
                     </div>
                     
                     {loadingServices ? (
-                      <div className="text-center py-8">
-                        <div className="relative mx-auto mb-4">
-                          <div className="w-16 h-16 border-4 border-gray-200 rounded-full"></div>
+                      <div className="text-center py-6 sm:py-8">
+                        <div className="relative mx-auto mb-3 sm:mb-4">
+                          <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-gray-200 rounded-full"></div>
                           <div 
-                            className="absolute top-0 left-0 w-16 h-16 border-4 border-primary rounded-full"
+                            className="absolute top-0 left-0 w-12 h-12 sm:w-16 sm:h-16 border-4 border-primary rounded-full"
                             style={{
                               clipPath: `polygon(50% 50%, 50% 0%, ${50 + (loadingProgress * 0.36)}% 0%, ${50 + (loadingProgress * 0.36)}% 50%)`
                             }}
                           ></div>
                           <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-sm font-medium text-primary">{loadingProgress}%</span>
+                            <span className="text-xs sm:text-sm font-medium text-primary">{loadingProgress}%</span>
                           </div>
                         </div>
-                        <p className="text-gray-600 dark:text-gray-400 mb-2">{loadingMessage}</p>
-                        <div className="w-full bg-gray-200 rounded-full h-2 max-w-xs mx-auto">
+                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2">{loadingMessage}</p>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 sm:h-2 max-w-xs mx-auto">
                           <div 
-                            className="bg-primary h-2 rounded-full transition-all duration-300"
+                            className="bg-primary h-1.5 sm:h-2 rounded-full transition-all duration-300"
                             style={{ width: `${loadingProgress}%` }}
                           ></div>
                         </div>
                       </div>
                     ) : nearbyServices.length === 0 ? (
-                      <div className="text-center py-8">
-                        <div className="bg-gray-100 dark:bg-gray-800 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-                          <Bell className="h-8 w-8 text-gray-400" />
+                      <div className="text-center py-6 sm:py-8">
+                        <div className="bg-gray-100 dark:bg-gray-800 rounded-full w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                          <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
                         </div>
-                        <p className="text-gray-600 dark:text-gray-400 mb-2">Nenhuma solicitação disponível</p>
-                        <p className="text-sm text-gray-500">Novas solicitações aparecerão aqui automaticamente</p>
+                        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-2">Nenhuma solicitação disponível</p>
+                        <p className="text-xs sm:text-sm text-gray-500">Novas solicitações aparecerão aqui automaticamente</p>
                       </div>
                     ) : (
                       nearbyServices.map((service) => (
                       <Card key={service.id} id={`service-${service.id}`} className="border-l-4 border-l-primary transition-all duration-300">
-                        <CardContent className="p-4">
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-3">
+                        <CardContent className="p-3 sm:p-4">
+                          <div className="flex flex-col gap-3 sm:gap-4">
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                                <h4 className="font-semibold text-base sm:text-lg">Solicitação #{service.id}</h4>
+                                <h4 className="font-semibold text-sm sm:text-base lg:text-lg">Solicitação #{service.id}</h4>
                                 <Badge variant="outline" className="text-xs w-fit">
                                   {service.category === 'fisioterapeuta' ? 'Fisioterapeuta' :
                                    service.category === 'acompanhante_hospitalar' ? 'Acompanhante' :
@@ -1116,8 +1120,8 @@ export default function ProviderDashboard() {
                                 </Badge>
                               </div>
                               <p className="font-medium text-primary mb-1 text-sm sm:text-base">{service.serviceType}</p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">{service.description}</p>
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
+                              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">{service.description}</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500">
                                 <span className="flex items-center gap-1 min-w-0">
                                   <MapPin className="h-3 w-3 flex-shrink-0" />
                                   <span className="truncate">{service.address}</span>
@@ -1143,13 +1147,13 @@ export default function ProviderDashboard() {
                                 )}
                               </div>
                             </div>
-                            <div className="flex flex-col items-end gap-2 sm:ml-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
                               {service.budget && (
-                                <p className="text-base sm:text-lg font-bold text-green-600">R$ {parseFloat(service.budget).toFixed(2)}</p>
+                                <p className="text-sm sm:text-base lg:text-lg font-bold text-green-600">R$ {parseFloat(service.budget).toFixed(2)}</p>
                               )}
                               <Button 
                                 size="sm" 
-                                className="w-full sm:w-auto"
+                                className="w-full sm:w-auto h-9 sm:h-10 text-xs sm:text-sm"
                                 onClick={() => handleOfferService(service.id)}
                               >
                                 Ofertar Serviço

@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import passport from "passport";
@@ -21,6 +22,42 @@ import pgSession from "connect-pg-simple";
 // import * as connectRedis from "connect-redis";
 import Redis from "redis";
 import { Request, Response } from "express";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// Configure multer for file uploads
+const multerStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), 'uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: multerStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Apenas imagens são permitidas!'));
+    }
+  }
+});
 
 // Rate limiting
 const authLimiter = rateLimit({
@@ -43,6 +80,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       message: 'Server is healthy',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development'
+    });
+  });
+
+  // Test endpoint to check authentication
+  app.get('/api/test-auth', authenticateToken, (req: Request, res: Response) => {
+    const user = req.user as any;
+    res.status(200).json({ 
+      message: 'Authentication successful',
+      user: {
+        id: user.id,
+        name: user.name,
+        userType: user.userType,
+        email: user.email
+      }
     });
   });
 
@@ -846,7 +897,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get provider profile
   app.get("/api/provider/profile", authenticateToken, async (req, res) => {
     try {
+      console.log('Provider profile request received');
       const user = req.user as any;
+      console.log('User data:', { id: user.id, userType: user.userType });
       
       // Verify user is a provider
       if (user.userType !== 'provider') {
@@ -854,17 +907,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get professional data from database
+      console.log('Fetching professional data for user ID:', user.id);
       const professional = await storage.getProfessionalByUserId(user.id);
+      console.log('Professional data:', professional);
       
-      if (!professional) {
-        return res.status(404).json({ message: "Dados do profissional não encontrados." });
-      }
-
       // Get user data
+      console.log('Fetching user data for user ID:', user.id);
       const userData = await storage.getUser(user.id);
+      console.log('User data:', userData);
       
       if (!userData) {
         return res.status(404).json({ message: "Dados do usuário não encontrados." });
+      }
+
+      // If no professional data exists, create a basic profile
+      if (!professional) {
+        console.log('No professional data found, creating basic profile');
+        const basicProfile = {
+          id: 0,
+          userId: user.id,
+          name: userData.name || "",
+          specialization: "",
+          category: "",
+          subCategory: "",
+          description: "",
+          experience: "",
+          certifications: "",
+          availableHours: "",
+          hourlyRate: "",
+          rating: "5.0",
+          totalReviews: 0,
+          location: "",
+          distance: "",
+          available: true,
+          imageUrl: userData.profileImage || "",
+          createdAt: new Date().toISOString(),
+          email: userData.email,
+          phone: userData.phone
+        };
+        
+        console.log('Sending basic profile data:', basicProfile);
+        return res.json(basicProfile);
       }
 
       // Combine professional and user data
@@ -874,10 +957,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phone: userData.phone
       };
 
+      console.log('Sending profile data:', profileData);
       res.json(profileData);
     } catch (error) {
       console.error('Get provider profile error:', error);
-      res.status(500).json({ message: 'Erro interno do servidor' });
+      res.status(500).json({ message: 'Erro interno do servidor', error: error.message });
     }
   });
 
@@ -938,6 +1022,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });
+
+  // Upload profile image
+  app.post("/api/provider/upload-image", authenticateToken, upload.single('profileImage'), async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhuma imagem foi enviada." });
+      }
+
+      // Create the image URL
+      const imageUrl = `/uploads/${req.file.filename}`;
+      
+      // Update user profile image
+      await storage.updateUser(user.id, { profileImage: imageUrl });
+      
+      // Update professional image URL if professional exists
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (professional) {
+        await storage.updateProfessional(professional.id, { imageUrl });
+      }
+
+      res.json({ 
+        message: "Imagem de perfil atualizada com sucesso",
+        imageUrl: imageUrl
+      });
+    } catch (error) {
+      console.error('Upload profile image error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Serve uploaded files
+  app.use('/uploads', (req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  }, express.static(path.join(process.cwd(), 'uploads')));
 
   // ===== ROTAS PARA CONFIGURAÇÕES DO PROFISSIONAL =====
 
