@@ -1,4 +1,4 @@
-import { Home, Calendar, MessageCircle, ClipboardList, Settings, User } from "lucide-react";
+import { Home, Calendar, MessageCircle, ClipboardList, User } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 const menuItems = [
@@ -7,7 +7,6 @@ const menuItems = [
   { label: "Chat", to: "/messages-provider", icon: <MessageCircle className="h-6 w-6" /> },
   { label: "Pedidos", to: "/provider-orders", icon: <ClipboardList className="h-6 w-6" /> },
   { label: "Perfil", to: "/provider-profile", icon: <User className="h-6 w-6" /> },
-  { label: "Configurações", to: "/provider-settings", icon: <Settings className="h-6 w-6" /> },
 ];
 
 export default function ProviderNavbar() {

@@ -246,12 +246,20 @@ export default function ProfessionalDetail({ params }: { params: { id: string } 
         </Card>
 
         {/* Tabs Content */}
-        <Tabs defaultValue="about" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="about">Sobre</TabsTrigger>
-            <TabsTrigger value="portfolio">Portfólio</TabsTrigger>
-            <TabsTrigger value="reviews">Avaliações</TabsTrigger>
-            <TabsTrigger value="schedule">Agendar</TabsTrigger>
+        <Tabs defaultValue="about" className="space-y-4 sm:space-y-6">
+          <TabsList className="grid w-full grid-cols-4 h-auto sm:h-10 p-1 gap-1">
+            <TabsTrigger value="about" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1.5 whitespace-nowrap">
+              Sobre
+            </TabsTrigger>
+            <TabsTrigger value="portfolio" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1.5 whitespace-nowrap">
+              Portfólio
+            </TabsTrigger>
+            <TabsTrigger value="reviews" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1.5 whitespace-nowrap">
+              Avaliações
+            </TabsTrigger>
+            <TabsTrigger value="schedule" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1.5 whitespace-nowrap">
+              Agendar
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="about" className="space-y-6">

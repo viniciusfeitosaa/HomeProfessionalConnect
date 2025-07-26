@@ -17,7 +17,7 @@ import ProfessionalDetail from "@/pages/professional-detail";
 import ProviderDashboard from "@/pages/provider-dashboard";
 import ProviderRegistration from "@/pages/provider-registration";
 import ProviderOrders from "@/pages/provider-orders";
-import ProviderSettings from "@/pages/provider-settings";
+
 import ProviderProfile from "@/pages/provider-profile";
 import ServiceOffer from "@/pages/service-offer";
 import Servico from "@/pages/servico";
@@ -58,7 +58,6 @@ function Router() {
           <ProviderRegistration onComplete={() => window.location.reload()} />
         </Route>
         <Route path="/provider-orders" component={ProviderOrders} />
-        <Route path="/provider-settings" component={ProviderSettings} />
         <Route path="/service-offer/:id" component={ServiceOffer} />
         <Route path="/messages/:conversationId" component={MessagesProvider} />
         <Route path="/messages" component={MessagesProvider} />

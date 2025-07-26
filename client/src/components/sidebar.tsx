@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Home, Calendar, MessageCircle, ClipboardList, Settings } from "lucide-react";
+import { Home, Calendar, MessageCircle, ClipboardList } from "lucide-react";
 import { Link } from "wouter";
 import { LifeBeeLogo } from "./lifebee-logo";
 
@@ -18,7 +18,6 @@ export function Sidebar() {
     { href: "/agenda", icon: Calendar, label: "Agenda" },
     { href: "/messages", icon: MessageCircle, label: "Chat" },
     { href: "/provider-orders", icon: ClipboardList, label: "Pedidos" },
-    { href: "/provider-settings", icon: Settings, label: "Configurações" },
   ];
 
   return (

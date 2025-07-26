@@ -12,7 +12,7 @@ import {
   ChevronDown, User, Shield, HelpCircle, LogOut, Moon, Sun,
   X, CheckCircle, AlertCircle, Info, Heart, RefreshCw
 } from "lucide-react";
-import { LifeBeeLogo } from "@/components/lifebee-logo";
+
 import { Link } from "wouter";
 import {
   DropdownMenu,
@@ -42,9 +42,15 @@ export default function ProviderDashboard() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number]>([-23.55052, -46.633308]); // São Paulo como fallback
   const [locationLoading, setLocationLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
   const { theme, setTheme } = useTheme();
   const { logout, user } = useAuth();
   const { toast } = useToast();
+
+  // Reset image error when user changes
+  useEffect(() => {
+    setImageError(false);
+  }, [user?.profileImage]);
 
   // Dashboard Analytics Data - será carregado da API
   const analytics = {
@@ -620,29 +626,56 @@ export default function ProviderDashboard() {
       {/* Conteúdo da página original */}
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-800 border-b px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <LifeBeeLogo size={32} />
-              <div>
-                <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Painel do Profissional</h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Bem-vindo de volta, {user?.name || 'Profissional'}!</p>
+        <div className="bg-white dark:bg-gray-800 border-b px-3 sm:px-4 py-2 sm:py-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <div className="flex-shrink-0">
+                {user?.profileImage && !imageError ? (
+                  <img 
+                    src={`${getApiUrl()}${user.profileImage}`}
+                    alt={`Foto de ${user?.name || 'Profissional'}`}
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+                    onError={() => {
+                      console.log('Erro ao carregar imagem:', user.profileImage);
+                      setImageError(true);
+                    }}
+                    onLoad={() => {
+                      console.log('Imagem carregada com sucesso:', user.profileImage);
+                      setImageError(false);
+                    }}
+                  />
+                ) : (
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-yellow-500 flex items-center justify-center border-2 border-gray-200 dark:border-gray-700">
+                    <span className="text-white text-xs sm:text-sm font-semibold">
+                      {user?.name ? user.name.charAt(0).toUpperCase() : 'P'}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white truncate">Painel do Profissional</h1>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">Bem-vindo de volta, {user?.name || 'Profissional'}!</p>
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Disponível</span>
-                <Switch checked={isAvailable} onCheckedChange={setIsAvailable} />
+            <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 flex-shrink-0 min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 hidden sm:inline">Disponível</span>
+                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 sm:hidden">Disp.</span>
+                <Switch 
+                  checked={isAvailable} 
+                  onCheckedChange={setIsAvailable}
+                  className="h-5 w-9 sm:h-6 sm:w-11 [&>span]:h-4 [&>span]:w-4 sm:[&>span]:h-5 sm:[&>span]:w-5 flex-shrink-0"
+                />
               </div>
               
               {/* Notifications */}
               <Popover open={showNotifications} onOpenChange={setShowNotifications}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="relative">
-                    <Bell className="h-4 w-4" />
+                  <Button variant="outline" size="sm" className="relative h-8 sm:h-9 w-8 sm:w-auto px-2.5 sm:px-3 min-w-0 flex-shrink-0 justify-center">
+                    <Bell className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center font-bold">
                         {unreadCount}
                       </span>
                     )}
@@ -714,12 +747,12 @@ export default function ProviderDashboard() {
               {/* Settings Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    <Settings className="h-4 w-4" />
-                    <ChevronDown className="h-3 w-3 ml-1" />
+                  <Button variant="outline" size="sm" className="h-8 sm:h-9 w-8 sm:w-auto px-2.5 sm:px-3 min-w-0 flex-shrink-0 gap-1 sm:gap-1.5 justify-center">
+                    <Settings className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <ChevronDown className="h-2 w-2 sm:h-3 sm:w-3 flex-shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-[100]">
                   <DropdownMenuItem asChild>
                     <Link href="/profile" className="flex items-center cursor-pointer">
                       <User className="mr-2 h-4 w-4" />
@@ -776,9 +809,9 @@ export default function ProviderDashboard() {
           </div>
         </div>
 
-        <div className="p-4 lg:p-6 space-y-6">
+        <div className="p-4 sm:p-6 lg:p-8 pb-8 sm:pb-12 lg:pb-16 space-y-6 sm:space-y-8">
           {/* Dashboard Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -847,18 +880,26 @@ export default function ProviderDashboard() {
           </div>
 
           {/* Main Content Tabs */}
-          <Tabs defaultValue="opportunities" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="opportunities">Oportunidades</TabsTrigger>
-              <TabsTrigger value="performance">Performance</TabsTrigger>
-              <Link href="/agenda-profissional">
-                <button type="button" className="shadcn-tabs-trigger">Agenda</button>
+          <Tabs defaultValue="opportunities" className="space-y-6 sm:space-y-8">
+            <TabsList className="grid w-full grid-cols-4 h-auto sm:h-10 p-1 gap-1">
+              <TabsTrigger value="opportunities" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1.5 whitespace-nowrap">
+                Oportunidades
+              </TabsTrigger>
+              <TabsTrigger value="performance" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1.5 whitespace-nowrap">
+                Performance
+              </TabsTrigger>
+              <Link href="/agenda-profissional" className="contents">
+                <button type="button" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 sm:px-3 py-1.5 sm:py-1.5 text-xs sm:text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm hover:bg-accent hover:text-accent-foreground">
+                  Agenda
+                </button>
               </Link>
-              <TabsTrigger value="earnings">Ganhos</TabsTrigger>
+              <TabsTrigger value="earnings" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1.5 whitespace-nowrap">
+                Ganhos
+              </TabsTrigger>
             </TabsList>
 
             {/* Service Opportunities Tab */}
-            <TabsContent value="opportunities" className="space-y-6">
+            <TabsContent value="opportunities" className="space-y-8">
               <Card>
                 <CardHeader>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1170,8 +1211,8 @@ export default function ProviderDashboard() {
             </TabsContent>
 
             {/* Performance Tab */}
-            <TabsContent value="performance" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <TabsContent value="performance" className="space-y-8">
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -1247,7 +1288,7 @@ export default function ProviderDashboard() {
             </TabsContent>
 
             {/* Schedule Tab */}
-            <TabsContent value="schedule" className="space-y-6">
+            <TabsContent value="schedule" className="space-y-8">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1298,8 +1339,8 @@ export default function ProviderDashboard() {
             </TabsContent>
 
             {/* Earnings Tab */}
-            <TabsContent value="earnings" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <TabsContent value="earnings" className="space-y-8">
+                              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <Card className="lg:col-span-2">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">

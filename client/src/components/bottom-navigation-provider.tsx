@@ -1,4 +1,4 @@
-import { Home, Calendar, MessageCircle, ClipboardList, Settings } from "lucide-react";
+import { Home, Calendar, MessageCircle, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
 
@@ -78,23 +78,6 @@ export function BottomNavigationProvider() {
             <ClipboardList className="h-5 w-5 mb-1" />
             <span className={`text-xs ${isActive("/provider-orders") ? "font-medium" : ""}`}>
               Pedidos
-            </span>
-          </Button>
-        </Link>
-
-        <Link href="/provider-settings">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`flex flex-col items-center py-2 px-4 ${
-              isActive("/provider-settings")
-                ? "text-primary hover:text-primary/80"
-                : "text-gray-400 dark:text-gray-500 hover:text-primary dark:hover:text-primary"
-            }`}
-          >
-            <Settings className="h-5 w-5 mb-1" />
-            <span className={`text-xs ${isActive("/provider-settings") ? "font-medium" : ""}`}>
-              Configurações
             </span>
           </Button>
         </Link>
