@@ -888,7 +888,7 @@ export default function ProviderDashboard() {
                 </CardHeader>
                 <CardContent>
                   {/* Map Placeholder */}
-                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg h-64 mb-6 overflow-hidden relative">
+                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg h-64 mb-6 overflow-hidden relative sticky top-4 z-10">
                     {locationLoading ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                         <div className="text-center">
