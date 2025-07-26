@@ -18,6 +18,7 @@ import ProviderDashboard from "@/pages/provider-dashboard";
 import ProviderRegistration from "@/pages/provider-registration";
 import ProviderOrders from "@/pages/provider-orders";
 import ProviderSettings from "@/pages/provider-settings";
+import ProviderProfile from "@/pages/provider-profile";
 import ServiceOffer from "@/pages/service-offer";
 import Servico from "@/pages/servico";
 import MyRequests from "@/pages/my-requests";
@@ -66,6 +67,7 @@ function Router() {
         <Route path="/agenda" component={Agenda} />
         <Route path="/agenda-profissional" component={AgendaProfissional} />
         <Route path="/profile" component={Profile} />
+        <Route path="/provider-profile" component={ProviderProfile} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>

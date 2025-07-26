@@ -48,6 +48,7 @@ export interface IStorage {
   getProfessionalsByCategory(category: string): Promise<Professional[]>;
   searchProfessionals(query: string): Promise<Professional[]>;
   getProfessional(id: number): Promise<Professional | undefined>;
+  getProfessionalByUserId(userId: number): Promise<Professional | undefined>;
   createProfessional(professional: InsertProfessional): Promise<Professional>;
   updateProfessional(id: number, updates: Partial<Professional>): Promise<Professional>;
   
@@ -248,6 +249,11 @@ export class DatabaseStorage implements IStorage {
 
   async getProfessional(id: number): Promise<Professional | undefined> {
     const [professional] = await db.select().from(professionals).where(eq(professionals.id, id));
+    return professional || undefined;
+  }
+
+  async getProfessionalByUserId(userId: number): Promise<Professional | undefined> {
+    const [professional] = await db.select().from(professionals).where(eq(professionals.userId, userId));
     return professional || undefined;
   }
 
