@@ -73,6 +73,15 @@ const authLimiter = rateLimit({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Serve uploaded files - MUST BE BEFORE OTHER ROUTES
+  const uploadsPath = path.join(process.cwd(), 'uploads');
+  console.log('📁 Configurando middleware para arquivos estáticos em:', uploadsPath);
+  app.use('/uploads', (req, res, next) => {
+    console.log('📂 Requisição para arquivo estático:', req.url);
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  }, express.static(uploadsPath));
+
   // Health check endpoint
   app.get('/api/health', (req: Request, res: Response) => {
     res.status(200).json({ 
@@ -1023,7 +1032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload profile image
+  // Upload profile image for providers
   app.post("/api/provider/upload-image", authenticateToken, upload.single('profileImage'), async (req, res) => {
     try {
       const user = req.user as any;
@@ -1058,11 +1067,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Serve uploaded files
-  app.use('/uploads', (req, res, next) => {
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    next();
-  }, express.static(path.join(process.cwd(), 'uploads')));
+  // Upload profile image for all users (clients and providers)
+  app.post("/api/user/upload-image", authenticateToken, upload.single('profileImage'), async (req, res) => {
+    try {
+      const user = req.user as any;
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhuma imagem foi enviada." });
+      }
+
+      // Create the image URL
+      const imageUrl = `/uploads/${req.file.filename}`;
+      
+      // Update user profile image
+      await storage.updateUser(user.id, { profileImage: imageUrl });
+      
+      // If user is a provider, also update professional image URL
+      if (user.userType === 'provider') {
+        const professional = await storage.getProfessionalByUserId(user.id);
+        if (professional) {
+          await storage.updateProfessional(professional.id, { imageUrl });
+        }
+      }
+
+      res.json({ 
+        message: "Imagem de perfil atualizada com sucesso",
+        imageUrl: imageUrl
+      });
+    } catch (error) {
+      console.error('Upload profile image error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Update user profile
+  app.put("/api/user/profile", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { name, email, phone, address } = req.body;
+
+      // Validate required fields
+      if (!name || !email) {
+        return res.status(400).json({ message: "Nome e email são obrigatórios." });
+      }
+
+      // Check if email is already taken by another user
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser && existingUser.id !== user.id) {
+        return res.status(400).json({ message: "Este email já está em uso por outro usuário." });
+      }
+
+      // Update user profile
+      const updatedUser = await storage.updateUser(user.id, {
+        name,
+        email,
+        phone: phone || null,
+        address: address || null
+      });
+
+      res.json({ 
+        message: "Perfil atualizado com sucesso",
+        user: {
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          phone: updatedUser.phone,
+          address: updatedUser.address,
+          profileImage: updatedUser.profileImage,
+          userType: updatedUser.userType
+        }
+      });
+    } catch (error) {
+      console.error('Update user profile error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
 
   // ===== ROTAS PARA CONFIGURAÇÕES DO PROFISSIONAL =====
 
@@ -1134,6 +1213,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Update provider settings error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Update provider availability
+  app.put("/api/provider/availability", authenticateToken, async (req, res) => {
+    console.log('🔧 Rota /api/provider/availability foi chamada');
+    try {
+      const user = req.user as any;
+      const { available } = req.body;
+      
+      console.log('👤 Usuário:', user);
+      console.log('📊 Dados recebidos:', { available });
+      
+      // Verify user is a provider
+      if (user.userType !== 'provider') {
+        console.log('❌ Usuário não é profissional:', user.userType);
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+
+      // Validate input
+      if (typeof available !== 'boolean') {
+        console.log('❌ Tipo inválido para available:', typeof available);
+        return res.status(400).json({ message: "O campo 'available' deve ser um valor booleano" });
+      }
+
+      console.log('✅ Atualizando disponibilidade do profissional ID:', user.id, 'para:', available);
+
+      // Update professional availability in database
+      await storage.updateProfessionalAvailability(user.id, available);
+
+      console.log(`✅ Professional ${user.id} availability updated to: ${available}`);
+
+      res.json({ 
+        message: "Disponibilidade atualizada com sucesso",
+        available
+      });
+    } catch (error) {
+      console.error('💥 Update provider availability error:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });

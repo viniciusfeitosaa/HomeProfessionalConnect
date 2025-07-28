@@ -93,6 +93,52 @@ export default function ProviderDashboard() {
     window.location.href = '/';
   };
 
+  const handleAvailabilityChange = async (available: boolean) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast({
+          title: "Erro",
+          description: "Token de autenticação não encontrado.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await fetch(`${getApiUrl()}/api/provider/availability`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ available })
+      });
+
+      if (response.ok) {
+        setIsAvailable(available);
+        toast({
+          title: available ? "Disponível" : "Indisponível",
+          description: available 
+            ? "Você está agora disponível para receber solicitações de serviço."
+            : "Você está agora indisponível. Os clientes não verão seu perfil.",
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: "Não foi possível atualizar sua disponibilidade.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error updating availability:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao conectar com o servidor.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const markNotificationAsRead = (notificationId: number) => {
     // Em uma implementação real, você faria uma chamada para a API
     console.log(`Marking notification ${notificationId} as read`);
@@ -664,8 +710,8 @@ export default function ProviderDashboard() {
                 <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 sm:hidden">Disp.</span>
                 <Switch 
                   checked={isAvailable} 
-                  onCheckedChange={setIsAvailable}
-                  className="h-5 w-9 sm:h-6 sm:w-11 [&>span]:h-4 [&>span]:w-4 sm:[&>span]:h-5 sm:[&>span]:w-5 flex-shrink-0"
+                  onCheckedChange={handleAvailabilityChange}
+                  className="h-5 w-9 sm:h-6 sm:w-11 [&>span]:h-4 [&>span]:w-4 sm:[&>span]:h-5 sm:[&>span]:w-5 flex-shrink-0 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-gray-300"
                 />
               </div>
               
@@ -747,7 +793,7 @@ export default function ProviderDashboard() {
               {/* Settings Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 sm:h-9 w-8 sm:w-auto px-2.5 sm:px-3 min-w-0 flex-shrink-0 gap-1 sm:gap-1.5 justify-center">
+                  <Button variant="outline" size="sm" className="h-8 sm:h-9 w-8 sm:w-auto px-2 sm:px-2.5 min-w-0 flex-shrink-0 gap-0.5 sm:gap-1 justify-center">
                     <Settings className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                     <ChevronDown className="h-2 w-2 sm:h-3 sm:w-3 flex-shrink-0" />
                   </Button>

@@ -51,6 +51,7 @@ export interface IStorage {
   getProfessionalByUserId(userId: number): Promise<Professional | undefined>;
   createProfessional(professional: InsertProfessional): Promise<Professional>;
   updateProfessional(id: number, updates: Partial<Professional>): Promise<Professional>;
+  updateProfessionalAvailability(userId: number, available: boolean): Promise<void>;
   
   // Appointments
   getAppointmentsByUser(userId: number): Promise<Appointment[]>;
@@ -272,6 +273,13 @@ export class DatabaseStorage implements IStorage {
       .where(eq(professionals.id, id))
       .returning();
     return professional;
+  }
+
+  async updateProfessionalAvailability(userId: number, available: boolean): Promise<void> {
+    await db
+      .update(professionals)
+      .set({ available })
+      .where(eq(professionals.userId, userId));
   }
 
   // Appointments

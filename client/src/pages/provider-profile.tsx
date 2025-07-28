@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 import { getApiUrl } from "@/lib/api-config";
 import { ProviderLayout } from "@/components/ProviderLayout";
-import { BottomNavigationProvider } from "@/components/bottom-navigation-provider";
+
 
 interface ProfessionalData {
   id: number;
@@ -71,7 +71,7 @@ interface UserData {
 
 export default function ProviderProfile() {
   const [, setLocation] = useLocation();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
   
   const [loading, setLoading] = useState(true);
@@ -313,6 +313,15 @@ export default function ProviderProfile() {
 
   const triggerImageUpload = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleLogout = () => {
+    logout();
+    setLocation("/login");
+    toast({
+      title: "Logout realizado",
+      description: "Você foi desconectado com sucesso.",
+    });
   };
 
   const getCategoryName = (category: string) => {
@@ -718,11 +727,37 @@ export default function ProviderProfile() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Logout Section */}
+              <Card className="mb-6 border-red-100 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center shadow-lg">
+                        <LogOut className="h-6 w-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                          Sair da Conta
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Encerre sua sessão e saia do aplicativo
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleLogout}
+                      variant="destructive"
+                      className="bg-red-500 hover:bg-red-600 text-white shadow-md hover:shadow-lg transition-all duration-200"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sair
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </>
           )}
-
-          {/* Bottom Navigation */}
-          <BottomNavigationProvider />
         </div>
       </div>
     </ProviderLayout>
