@@ -77,8 +77,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const uploadsPath = path.resolve(process.cwd(), 'uploads');
   console.log('📁 Configurando middleware para arquivos estáticos em:', uploadsPath);
   console.log('📁 Diretório atual (process.cwd()):', process.cwd());
+  
+  // Criar diretório uploads se não existir
+  if (!fs.existsSync(uploadsPath)) {
+    console.log('📁 Criando diretório uploads...');
+    fs.mkdirSync(uploadsPath, { recursive: true });
+  }
+  
   console.log('📁 Diretório uploads existe:', fs.existsSync(uploadsPath));
-  console.log('📁 Conteúdo do diretório uploads:', fs.readdirSync(uploadsPath));
+  
+  // Tentar ler o conteúdo do diretório apenas se existir
+  try {
+    const uploadsContent = fs.readdirSync(uploadsPath);
+    console.log('📁 Conteúdo do diretório uploads:', uploadsContent);
+  } catch (error) {
+    console.log('📁 Diretório uploads está vazio ou não pode ser lido:', error);
+  }
   
   // Servir arquivos estáticos com CORS
   app.use('/uploads', express.static(uploadsPath, {
