@@ -1,4 +1,4 @@
-import { users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, } from "./schema.js";
+import { users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, serviceOffers, } from "./schema.js";
 import { db } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
 // Database Storage Implementation
@@ -155,6 +155,12 @@ export class DatabaseStorage {
             .where(eq(professionals.id, id))
             .returning();
         return professional;
+    }
+    async updateProfessionalAvailability(userId, available) {
+        await db
+            .update(professionals)
+            .set({ available })
+            .where(eq(professionals.userId, userId));
     }
     // Appointments
     async getAppointmentsByUser(userId) {
@@ -413,8 +419,32 @@ export class DatabaseStorage {
     }
     async getServiceRequestsByCategory(category) {
         return await db
-            .select()
+            .select({
+            // Service Request fields
+            id: serviceRequests.id,
+            clientId: serviceRequests.clientId,
+            category: serviceRequests.category,
+            serviceType: serviceRequests.serviceType,
+            description: serviceRequests.description,
+            address: serviceRequests.address,
+            budget: serviceRequests.budget,
+            scheduledDate: serviceRequests.scheduledDate,
+            scheduledTime: serviceRequests.scheduledTime,
+            urgency: serviceRequests.urgency,
+            status: serviceRequests.status,
+            responses: serviceRequests.responses,
+            assignedProfessionalId: serviceRequests.assignedProfessionalId,
+            createdAt: serviceRequests.createdAt,
+            updatedAt: serviceRequests.updatedAt,
+            // Client information
+            clientName: users.name,
+            clientEmail: users.email,
+            clientPhone: users.phone,
+            clientProfileImage: users.profileImage,
+            clientCreatedAt: users.createdAt
+        })
             .from(serviceRequests)
+            .innerJoin(users, eq(serviceRequests.clientId, users.id))
             .where(eq(serviceRequests.category, category))
             .orderBy(desc(serviceRequests.createdAt));
     }
@@ -424,6 +454,37 @@ export class DatabaseStorage {
             .from(serviceRequests)
             .where(eq(serviceRequests.id, id));
         return serviceRequest || undefined;
+    }
+    async getServiceRequestWithClient(id) {
+        const [result] = await db
+            .select({
+            // Service Request fields
+            id: serviceRequests.id,
+            clientId: serviceRequests.clientId,
+            serviceType: serviceRequests.serviceType,
+            category: serviceRequests.category,
+            description: serviceRequests.description,
+            address: serviceRequests.address,
+            scheduledDate: serviceRequests.scheduledDate,
+            scheduledTime: serviceRequests.scheduledTime,
+            urgency: serviceRequests.urgency,
+            budget: serviceRequests.budget,
+            status: serviceRequests.status,
+            assignedProfessionalId: serviceRequests.assignedProfessionalId,
+            responses: serviceRequests.responses,
+            createdAt: serviceRequests.createdAt,
+            updatedAt: serviceRequests.updatedAt,
+            // Client information
+            clientName: users.name,
+            clientEmail: users.email,
+            clientPhone: users.phone,
+            clientProfileImage: users.profileImage,
+            clientCreatedAt: users.createdAt
+        })
+            .from(serviceRequests)
+            .innerJoin(users, eq(serviceRequests.clientId, users.id))
+            .where(eq(serviceRequests.id, id));
+        return result || undefined;
     }
     async createServiceRequest(insertServiceRequest) {
         const [serviceRequest] = await db
@@ -454,6 +515,51 @@ export class DatabaseStorage {
             updatedAt: new Date()
         })
             .where(eq(serviceRequests.id, requestId));
+    }
+    // Service Offers
+    async getServiceOffersByRequest(requestId) {
+        return await db
+            .select({
+            // Service Offer fields
+            id: serviceOffers.id,
+            serviceRequestId: serviceOffers.serviceRequestId,
+            professionalId: serviceOffers.professionalId,
+            proposedPrice: serviceOffers.proposedPrice,
+            estimatedTime: serviceOffers.estimatedTime,
+            message: serviceOffers.message,
+            status: serviceOffers.status,
+            createdAt: serviceOffers.createdAt,
+            updatedAt: serviceOffers.updatedAt,
+            // Professional information
+            professionalName: professionals.name,
+            professionalRating: professionals.rating,
+            professionalTotalReviews: professionals.totalReviews,
+            professionalProfileImage: professionals.imageUrl
+        })
+            .from(serviceOffers)
+            .innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id))
+            .where(eq(serviceOffers.serviceRequestId, requestId))
+            .orderBy(desc(serviceOffers.createdAt));
+    }
+    async createServiceOffer(serviceOffer) {
+        const [offer] = await db
+            .insert(serviceOffers)
+            .values(serviceOffer)
+            .returning();
+        return offer;
+    }
+    async updateServiceOffer(id, updates) {
+        const [offer] = await db
+            .update(serviceOffers)
+            .set({ ...updates, updatedAt: new Date() })
+            .where(eq(serviceOffers.id, id))
+            .returning();
+        return offer;
+    }
+    async deleteServiceOffer(id) {
+        await db
+            .delete(serviceOffers)
+            .where(eq(serviceOffers.id, id));
     }
 }
 export const storage = new DatabaseStorage();

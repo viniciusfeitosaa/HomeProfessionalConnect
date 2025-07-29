@@ -6,6 +6,10 @@ const app = express();
 console.log('=== Backend inicializado ===');
 // Configure CORS for Netlify frontend and development
 app.use((req, res, next) => {
+    // Skip CORS for uploads - they have their own CORS configuration
+    if (req.path.startsWith('/uploads')) {
+        return next();
+    }
     const origin = req.headers.origin;
     // Allow both Netlify and localhost for development
     const allowedOrigins = ['https://lifebee.netlify.app', 'http://localhost:5173', 'http://localhost:5174'];
@@ -26,6 +30,11 @@ app.use((req, res, next) => {
 });
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+// Middleware de debug global
+app.use((req, res, next) => {
+    console.log('🌐 Debug Global - Requisição:', req.method, req.path);
+    next();
+});
 app.use((req, res, next) => {
     const start = Date.now();
     const path = req.path;

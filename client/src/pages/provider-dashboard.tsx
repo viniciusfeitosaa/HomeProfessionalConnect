@@ -10,7 +10,8 @@ import {
   MessageCircle, Clock, Star, Filter, Navigation, Zap,
   BarChart3, PieChart, Target, Award, Bell, Settings,
   ChevronDown, User, Shield, HelpCircle, LogOut, Moon, Sun,
-  X, CheckCircle, AlertCircle, Info, Heart, RefreshCw, Phone, Mail
+  X, CheckCircle, AlertCircle, Info, Heart, RefreshCw, Phone, Mail,
+  MessageSquare
 } from "lucide-react";
 
 import { Link } from "wouter";
@@ -1186,9 +1187,17 @@ export default function ProviderDashboard() {
                     src={`${getApiUrl()}${user.profileImage}`}
                     alt={`Foto de ${user?.name || 'Profissional'}`}
                     className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
-                    onError={() => {
-                      console.log('Erro ao carregar imagem:', user.profileImage);
+                    onError={(e) => {
+                      // Log silencioso apenas em desenvolvimento
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log('🖼️ Imagem não encontrada:', user.profileImage);
+                      }
                       setImageError(true);
+                      // Tentar carregar com URL absoluta como fallback
+                      const img = e.target as HTMLImageElement;
+                      if (!img.src.includes('http')) {
+                        img.src = `https://lifebee.onrender.com${user.profileImage}`;
+                      }
                     }}
                     onLoad={() => {
                       console.log('Imagem carregada com sucesso:', user.profileImage);
@@ -2013,107 +2022,198 @@ export default function ProviderDashboard() {
 
       {/* Modal de Detalhes do Serviço */}
       <Dialog open={showServiceModal} onOpenChange={setShowServiceModal}>
-        <DialogContent className="max-w-md sm:max-w-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl">
+        <DialogContent className="max-w-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-yellow-500" />
-              Detalhes do Serviço
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <MapPin className="h-6 w-6 text-yellow-500" />
+              Detalhes da Solicitação
             </DialogTitle>
             <DialogDescription>
-              Informações completas sobre a solicitação
+              Informações completas sobre o cliente e o serviço solicitado
             </DialogDescription>
           </DialogHeader>
           
           {selectedMapService && (
-            <div className="space-y-4">
-              {/* Header do Serviço */}
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Solicitação #{selectedMapService.id}
-                  </h3>
-                  <Badge variant="outline" className="mt-1">
-                    {selectedMapService.category === 'fisioterapeuta' ? 'Fisioterapeuta' :
-                     selectedMapService.category === 'acompanhante_hospitalar' ? 'Acompanhante' :
-                     selectedMapService.category === 'tecnico_enfermagem' ? 'Técnico Enfermagem' : selectedMapService.category}
-                  </Badge>
-                </div>
-                {selectedMapService.budget && (
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-green-600">
-                      R$ {parseFloat(selectedMapService.budget).toFixed(2)}
-                    </p>
-                    <p className="text-sm text-gray-500">Orçamento</p>
+            <div className="space-y-6">
+              {/* Card Principal com Informações do Cliente */}
+              <div className="rounded-lg border bg-card text-card-foreground shadow-sm">
+                <div className="flex flex-col space-y-1.5 p-6">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      {/* Avatar do Cliente */}
+                      {selectedMapService.clientProfileImage ? (
+                        <div className="w-16 h-16 rounded-full overflow-hidden">
+                          <img
+                            src={`${getApiUrl()}${selectedMapService.clientProfileImage}`}
+                            alt={selectedMapService.clientName || 'Cliente'}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Log silencioso apenas em desenvolvimento
+                              if (process.env.NODE_ENV === 'development') {
+                                console.log('🖼️ Imagem do cliente não encontrada:', selectedMapService.clientProfileImage);
+                              }
+                              // Fallback para inicial se a imagem falhar
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = `
+                                  <div class="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                                    <span class="text-white text-xl font-bold">
+                                      ${selectedMapService.clientName ? selectedMapService.clientName.charAt(0).toUpperCase() : 'C'}
+                                    </span>
+                                  </div>
+                                `;
+                              }
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                          <span className="text-white text-xl font-bold">
+                            {selectedMapService.clientName ? selectedMapService.clientName.charAt(0).toUpperCase() : 'C'}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Informações do Cliente */}
+                      <div>
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                          {selectedMapService.clientName || 'Cliente'}
+                        </h2>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                          <span className="font-medium text-gray-700 dark:text-gray-300">
+                            {selectedMapService.clientRating || '5.0'}
+                          </span>
+                          <span className="text-gray-500">•</span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            {selectedMapService.clientServices || '0'} serviços
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Cliente desde {selectedMapService.clientSince ? new Date(selectedMapService.clientSince).getFullYear() : '2024'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Status da Solicitação */}
+                    <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent hover:bg-primary/80 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                      {selectedMapService.status === 'open' ? 'Aberta' : 
+                       selectedMapService.status === 'in_progress' ? 'Em Andamento' : 
+                       selectedMapService.status === 'completed' ? 'Concluída' : 'Normal'}
+                    </div>
                   </div>
-                )}
-              </div>
-
-              {/* Tipo de Serviço */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
-                  {selectedMapService.serviceType}
-                </h4>
-                <p className="text-sm text-blue-700 dark:text-blue-200">
-                  {selectedMapService.description}
-                </p>
-              </div>
-
-              {/* Informações de Localização */}
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 dark:text-white">Endereço</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{selectedMapService.address}</p>
-                    {serviceLocations[selectedMapService.id] && userLocation && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        📏 {calculateDistance(
-                          userLocation[0], 
-                          userLocation[1], 
-                          serviceLocations[selectedMapService.id][0], 
-                          serviceLocations[selectedMapService.id][1]
-                        ).toFixed(1)} km de distância
+                </div>
+                
+                {/* Detalhes do Serviço */}
+                <div className="p-6 pt-0 space-y-4">
+                  {/* Tipo de Serviço */}
+                  <div>
+                    <h3 className="font-semibold text-lg text-primary mb-2">
+                      {selectedMapService.serviceType || 'Serviço Solicitado'}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-300">
+                      {selectedMapService.description || 'Descrição do serviço não disponível'}
+                    </p>
+                  </div>
+                  
+                  {/* Grid de Informações */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    {/* Orçamento */}
+                    <div className="text-center">
+                      <DollarSign className="h-5 w-5 text-green-600 mx-auto mb-1" />
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Orçamento</p>
+                      <p className="font-semibold text-green-600">
+                        R$ {selectedMapService.budget ? parseFloat(selectedMapService.budget).toFixed(2) : '0,00'}
                       </p>
+                    </div>
+                    
+                    {/* Distância */}
+                    <div className="text-center">
+                      <MapPin className="h-5 w-5 text-blue-600 mx-auto mb-1" />
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Distância</p>
+                      <p className="font-semibold text-blue-600">
+                        {serviceLocations[selectedMapService.id] && userLocation ? 
+                          `${calculateDistance(
+                            userLocation[0], 
+                            userLocation[1], 
+                            serviceLocations[selectedMapService.id][0], 
+                            serviceLocations[selectedMapService.id][1]
+                          ).toFixed(1)} km` : '0 km'}
+                      </p>
+                    </div>
+                    
+                    {/* Horário */}
+                    <div className="text-center">
+                      <Clock className="h-5 w-5 text-purple-600 mx-auto mb-1" />
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Horário</p>
+                      <p className="font-semibold text-purple-600">
+                        {selectedMapService.scheduledTime || 'Não definido'}
+                      </p>
+                    </div>
+                    
+                    {/* Respostas */}
+                    <div className="text-center">
+                      <MessageCircle className="h-5 w-5 text-orange-600 mx-auto mb-1" />
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Respostas</p>
+                      <p className="font-semibold text-orange-600">
+                        {selectedMapService.responses || 0}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Informações Detalhadas */}
+                  <div className="space-y-3">
+                    {/* Endereço */}
+                    <div>
+                      <h4 className="font-semibold mb-1 text-gray-900 dark:text-white flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-gray-500" />
+                        Endereço
+                      </h4>
+                      <p className="text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                        {selectedMapService.address || 'Endereço não informado'}
+                      </p>
+                    </div>
+                    
+                    {/* Data */}
+                    <div>
+                      <h4 className="font-semibold mb-1 text-gray-900 dark:text-white flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-500" />
+                        Data
+                      </h4>
+                      <p className="text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                        {selectedMapService.scheduledDate ? 
+                          new Date(selectedMapService.scheduledDate).toLocaleDateString('pt-BR', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          }) : 'Data não definida'}
+                      </p>
+                    </div>
+                    
+                    {/* Detalhes Adicionais */}
+                    {selectedMapService.additionalInfo && (
+                      <div>
+                        <h4 className="font-semibold mb-1 text-gray-900 dark:text-white flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4 text-gray-500" />
+                          Detalhes Adicionais
+                        </h4>
+                        <p className="text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                          {selectedMapService.additionalInfo}
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
-
-                <div className="flex items-start gap-3">
-                  <Calendar className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 dark:text-white">Data e Hora</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {new Date(selectedMapService.scheduledDate).toLocaleDateString('pt-BR')} às {selectedMapService.scheduledTime}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <MessageCircle className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 dark:text-white">Respostas</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {selectedMapService.responses || 0} profissional(is) já responderam
-                    </p>
-                  </div>
-                </div>
               </div>
-
-              {/* Informações Adicionais */}
-              {selectedMapService.additionalInfo && (
-                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">Informações Adicionais</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {selectedMapService.additionalInfo}
-                  </p>
-                </div>
-              )}
-
+              
               {/* Botões de Ação */}
               <div className="flex gap-3 pt-4">
                 <Button 
                   onClick={() => handleOfferService(selectedMapService.id)}
-                  className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white"
+                  className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold"
                 >
                   <MessageCircle className="h-4 w-4 mr-2" />
                   Fazer Proposta
@@ -2121,6 +2221,7 @@ export default function ProviderDashboard() {
                 <Button 
                   variant="outline" 
                   onClick={handleCloseServiceModal}
+                  className="flex-1"
                 >
                   Fechar
                 </Button>

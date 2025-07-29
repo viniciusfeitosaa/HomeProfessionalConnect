@@ -131,3 +131,15 @@ export const serviceRequests = pgTable("service_requests", {
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });
+// Tabela para propostas de serviços
+export const serviceOffers = pgTable("service_offers", {
+    id: serial("id").primaryKey(),
+    serviceRequestId: integer("service_request_id").notNull(), // ID da solicitação de serviço
+    professionalId: integer("professional_id").notNull(), // ID do profissional que fez a proposta
+    proposedPrice: decimal("proposed_price", { precision: 8, scale: 2 }).notNull(), // Preço proposto
+    estimatedTime: text("estimated_time").notNull(), // Tempo estimado (ex: "1 hora", "2 horas")
+    message: text("message").notNull(), // Mensagem da proposta
+    status: text("status", { enum: ["pending", "accepted", "rejected", "withdrawn"] }).default("pending"), // Status da proposta
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});

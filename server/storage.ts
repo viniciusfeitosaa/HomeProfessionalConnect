@@ -8,6 +8,7 @@ import {
   conversations,
   messages,
   serviceRequests,
+  serviceOffers,
   type User,
   type Professional,
   type Appointment,
@@ -17,6 +18,7 @@ import {
   type Conversation,
   type Message,
   type ServiceRequest,
+  type ServiceOffer,
   type InsertUser,
   type InsertProfessional,
   type InsertAppointment,
@@ -26,6 +28,7 @@ import {
   type InsertConversation,
   type InsertMessage,
   type InsertServiceRequest,
+  type InsertServiceOffer,
 } from "./schema.js";
 import { db } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
@@ -88,12 +91,36 @@ export interface IStorage {
   
   // Service Requests
   getServiceRequestsByClient(clientId: number): Promise<ServiceRequest[]>;
-  getServiceRequestsByCategory(category: string): Promise<ServiceRequest[]>;
+  getServiceRequestsByCategory(category: string): Promise<(ServiceRequest & {
+    clientName: string | null;
+    clientEmail: string | null;
+    clientPhone: string | null;
+    clientProfileImage: string | null;
+    clientCreatedAt: Date | null;
+  })[]>;
   getServiceRequest(id: number): Promise<ServiceRequest | undefined>;
+  getServiceRequestWithClient(id: number): Promise<(ServiceRequest & {
+    clientName: string | null;
+    clientEmail: string | null;
+    clientPhone: string | null;
+    clientProfileImage: string | null;
+    clientCreatedAt: Date | null;
+  }) | undefined>;
   createServiceRequest(serviceRequest: InsertServiceRequest): Promise<ServiceRequest>;
   updateServiceRequest(id: number, updates: Partial<ServiceRequest>): Promise<ServiceRequest>;
   deleteServiceRequest(id: number): Promise<void>;
   assignProfessionalToRequest(requestId: number, professionalId: number): Promise<void>;
+  
+  // Service Offers
+  getServiceOffersByRequest(requestId: number): Promise<(ServiceOffer & {
+    professionalName: string | null;
+    professionalRating: number | null;
+    professionalTotalReviews: number | null;
+    professionalProfileImage: string | null;
+  })[]>;
+  createServiceOffer(serviceOffer: InsertServiceOffer): Promise<ServiceOffer>;
+  updateServiceOffer(id: number, updates: Partial<ServiceOffer>): Promise<ServiceOffer>;
+  deleteServiceOffer(id: number): Promise<void>;
 }
 
 // Database Storage Implementation
@@ -621,10 +648,41 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(serviceRequests.createdAt));
   }
 
-  async getServiceRequestsByCategory(category: string): Promise<ServiceRequest[]> {
+  async getServiceRequestsByCategory(category: string): Promise<(ServiceRequest & {
+    clientName: string | null;
+    clientEmail: string | null;
+    clientPhone: string | null;
+    clientProfileImage: string | null;
+    clientCreatedAt: Date | null;
+  })[]> {
     return await db
-      .select()
+      .select({
+        // Service Request fields
+        id: serviceRequests.id,
+        clientId: serviceRequests.clientId,
+        category: serviceRequests.category,
+        serviceType: serviceRequests.serviceType,
+        description: serviceRequests.description,
+        address: serviceRequests.address,
+        budget: serviceRequests.budget,
+        scheduledDate: serviceRequests.scheduledDate,
+        scheduledTime: serviceRequests.scheduledTime,
+        urgency: serviceRequests.urgency,
+        status: serviceRequests.status,
+        responses: serviceRequests.responses,
+        assignedProfessionalId: serviceRequests.assignedProfessionalId,
+        createdAt: serviceRequests.createdAt,
+        updatedAt: serviceRequests.updatedAt,
+        
+        // Client information
+        clientName: users.name,
+        clientEmail: users.email,
+        clientPhone: users.phone,
+        clientProfileImage: users.profileImage,
+        clientCreatedAt: users.createdAt
+      })
       .from(serviceRequests)
+      .innerJoin(users, eq(serviceRequests.clientId, users.id))
       .where(eq(serviceRequests.category, category as any))
       .orderBy(desc(serviceRequests.createdAt));
   }
@@ -635,6 +693,46 @@ export class DatabaseStorage implements IStorage {
       .from(serviceRequests)
       .where(eq(serviceRequests.id, id));
     return serviceRequest || undefined;
+  }
+
+  async getServiceRequestWithClient(id: number): Promise<(ServiceRequest & {
+    clientName: string | null;
+    clientEmail: string | null;
+    clientPhone: string | null;
+    clientProfileImage: string | null;
+    clientCreatedAt: Date | null;
+  }) | undefined> {
+    const [result] = await db
+      .select({
+        // Service Request fields
+        id: serviceRequests.id,
+        clientId: serviceRequests.clientId,
+        serviceType: serviceRequests.serviceType,
+        category: serviceRequests.category,
+        description: serviceRequests.description,
+        address: serviceRequests.address,
+        scheduledDate: serviceRequests.scheduledDate,
+        scheduledTime: serviceRequests.scheduledTime,
+        urgency: serviceRequests.urgency,
+        budget: serviceRequests.budget,
+        status: serviceRequests.status,
+        assignedProfessionalId: serviceRequests.assignedProfessionalId,
+        responses: serviceRequests.responses,
+        createdAt: serviceRequests.createdAt,
+        updatedAt: serviceRequests.updatedAt,
+        
+        // Client information
+        clientName: users.name,
+        clientEmail: users.email,
+        clientPhone: users.phone,
+        clientProfileImage: users.profileImage,
+        clientCreatedAt: users.createdAt
+      })
+      .from(serviceRequests)
+      .innerJoin(users, eq(serviceRequests.clientId, users.id))
+      .where(eq(serviceRequests.id, id));
+    
+    return result || undefined;
   }
 
   async createServiceRequest(insertServiceRequest: InsertServiceRequest): Promise<ServiceRequest> {
@@ -669,6 +767,61 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date() 
       })
       .where(eq(serviceRequests.id, requestId));
+  }
+
+  // Service Offers
+  async getServiceOffersByRequest(requestId: number): Promise<(ServiceOffer & {
+    professionalName: string | null;
+    professionalRating: number | null;
+    professionalTotalReviews: number | null;
+    professionalProfileImage: string | null;
+  })[]> {
+    return await db
+      .select({
+        // Service Offer fields
+        id: serviceOffers.id,
+        serviceRequestId: serviceOffers.serviceRequestId,
+        professionalId: serviceOffers.professionalId,
+        proposedPrice: serviceOffers.proposedPrice,
+        estimatedTime: serviceOffers.estimatedTime,
+        message: serviceOffers.message,
+        status: serviceOffers.status,
+        createdAt: serviceOffers.createdAt,
+        updatedAt: serviceOffers.updatedAt,
+        
+        // Professional information
+        professionalName: professionals.name,
+        professionalRating: professionals.rating,
+        professionalTotalReviews: professionals.totalReviews,
+        professionalProfileImage: professionals.imageUrl
+      })
+      .from(serviceOffers)
+      .innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id))
+      .where(eq(serviceOffers.serviceRequestId, requestId))
+      .orderBy(desc(serviceOffers.createdAt));
+  }
+
+  async createServiceOffer(serviceOffer: InsertServiceOffer): Promise<ServiceOffer> {
+    const [offer] = await db
+      .insert(serviceOffers)
+      .values(serviceOffer)
+      .returning();
+    return offer;
+  }
+
+  async updateServiceOffer(id: number, updates: Partial<ServiceOffer>): Promise<ServiceOffer> {
+    const [offer] = await db
+      .update(serviceOffers)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(serviceOffers.id, id))
+      .returning();
+    return offer;
+  }
+
+  async deleteServiceOffer(id: number): Promise<void> {
+    await db
+      .delete(serviceOffers)
+      .where(eq(serviceOffers.id, id));
   }
 }
 

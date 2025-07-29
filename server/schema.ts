@@ -141,6 +141,19 @@ export const serviceRequests = pgTable("service_requests", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Tabela para propostas de serviços
+export const serviceOffers = pgTable("service_offers", {
+  id: serial("id").primaryKey(),
+  serviceRequestId: integer("service_request_id").notNull(), // ID da solicitação de serviço
+  professionalId: integer("professional_id").notNull(), // ID do profissional que fez a proposta
+  proposedPrice: decimal("proposed_price", { precision: 8, scale: 2 }).notNull(), // Preço proposto
+  estimatedTime: text("estimated_time").notNull(), // Tempo estimado (ex: "1 hora", "2 horas")
+  message: text("message").notNull(), // Mensagem da proposta
+  status: text("status", { enum: ["pending", "accepted", "rejected", "withdrawn"] }).default("pending"), // Status da proposta
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Tipos TypeScript inferidos das tabelas
 export type User = typeof users.$inferSelect;
 export type Professional = typeof professionals.$inferSelect;
@@ -151,6 +164,7 @@ export type VerificationCode = typeof verificationCodes.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type ServiceRequest = typeof serviceRequests.$inferSelect;
+export type ServiceOffer = typeof serviceOffers.$inferSelect;
 
 // Tipos para inserção (sem campos auto-gerados)
 export type InsertUser = Omit<User, 'id' | 'createdAt' | 'updatedAt'>;
@@ -162,3 +176,4 @@ export type InsertVerificationCode = Omit<VerificationCode, 'id' | 'createdAt'>;
 export type InsertConversation = Omit<Conversation, 'id' | 'createdAt' | 'updatedAt'>;
 export type InsertMessage = Omit<Message, 'id' | 'timestamp'>;
 export type InsertServiceRequest = Omit<ServiceRequest, 'id' | 'createdAt' | 'updatedAt'>;
+export type InsertServiceOffer = Omit<ServiceOffer, 'id' | 'createdAt' | 'updatedAt'>;

@@ -74,13 +74,22 @@ const authLimiter = rateLimit({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Serve uploaded files - MUST BE BEFORE OTHER ROUTES
-  const uploadsPath = path.join(process.cwd(), 'uploads');
+  const uploadsPath = path.resolve(process.cwd(), 'uploads');
   console.log('📁 Configurando middleware para arquivos estáticos em:', uploadsPath);
-  app.use('/uploads', (req, res, next) => {
-    console.log('📂 Requisição para arquivo estático:', req.url);
-    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-    next();
-  }, express.static(uploadsPath));
+  console.log('📁 Diretório atual (process.cwd()):', process.cwd());
+  console.log('📁 Diretório uploads existe:', fs.existsSync(uploadsPath));
+  console.log('📁 Conteúdo do diretório uploads:', fs.readdirSync(uploadsPath));
+  
+  // Servir arquivos estáticos com CORS
+  app.use('/uploads', express.static(uploadsPath, {
+    setHeaders: (res, path) => {
+      console.log('📂 Servindo arquivo:', path);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+      res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache por 1 ano
+    }
+  }));
 
   // Health check endpoint
   app.get('/api/health', (req: Request, res: Response) => {
@@ -91,6 +100,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       environment: process.env.NODE_ENV || 'development'
     });
   });
+
+
 
   // Test endpoint to check authentication
   app.get('/api/test-auth', authenticateToken, (req: Request, res: Response) => {
@@ -117,12 +128,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "ws:", "wss:", "https://accounts.google.com"],
+        imgSrc: ["'self'", "data:", "https:", "http:"], // Permitir http para desenvolvimento
+        connectSrc: ["'self'", "ws:", "wss:", "https:", "http:", "https://accounts.google.com"], // Permitir http para desenvolvimento
         frameSrc: ["'self'", "https://accounts.google.com"]
       },
     },
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: false // Desabilitar para permitir cross-origin
   }));
   
   // Session configuration with PostgreSQL store
@@ -749,6 +761,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get provider appointments
+  app.get("/api/appointments/provider", authenticateToken, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      
+      // Verify user is a provider
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      
+      const appointments = await storage.getAppointmentsByProfessional(user.id);
+      res.json(appointments);
+    } catch (error) {
+      console.error('Get provider appointments error:', error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Get user notifications
   app.get("/api/notifications", authenticateToken, async (req, res) => {
     try {
@@ -800,7 +830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Payment error:", error);
       res.status(500).json({ 
-        message: "Error processing payment: " + error.message 
+        message: "Error processing payment: " + (error instanceof Error ? error.message : 'Erro desconhecido')
       });
     }
   });
@@ -970,7 +1000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(profileData);
     } catch (error) {
       console.error('Get provider profile error:', error);
-      res.status(500).json({ message: 'Erro interno do servidor', error: error.message });
+      res.status(500).json({ message: 'Erro interno do servidor', error: error instanceof Error ? error.message : 'Erro desconhecido' });
     }
   });
 
@@ -1442,6 +1472,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get service request by ID
+  app.get("/api/service-requests/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const requestId = parseInt(req.params.id);
+
+      if (isNaN(requestId)) {
+        return res.status(400).json({ message: "ID da solicitação inválido" });
+      }
+
+      const serviceRequest = await storage.getServiceRequestWithClient(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicitação não encontrada" });
+      }
+
+      // Verificar se o usuário tem permissão para ver esta solicitação
+      // Profissionais podem ver solicitações abertas, clientes só podem ver suas próprias
+      if (user.userType === 'client' && serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ message: "Acesso negado a esta solicitação" });
+      }
+
+      res.json(serviceRequest);
+    } catch (error) {
+      console.error('Get service request error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Get user by ID
+  app.get("/api/users/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const targetUserId = parseInt(req.params.id);
+
+      if (isNaN(targetUserId)) {
+        return res.status(400).json({ message: "ID do usuário inválido" });
+      }
+
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({ message: "Usuário não encontrado" });
+      }
+
+      // Retornar apenas informações básicas do usuário (sem senha)
+      const { password, ...userInfo } = targetUser;
+      res.json(userInfo);
+    } catch (error) {
+      console.error('Get user error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
   // Delete service request
   app.delete("/api/service-requests/:id", authenticateToken, async (req, res) => {
     try {
@@ -1537,6 +1619,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: 'Conversa removida com sucesso' });
     } catch (error) {
       console.error('❌ Erro ao excluir conversa:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ===== ROTAS PARA PROPOSTAS DE SERVIÇOS =====
+
+  // Buscar propostas de um serviço específico
+  app.get('/api/service-requests/:id/offers', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const requestId = parseInt(req.params.id);
+
+      if (isNaN(requestId)) {
+        return res.status(400).json({ message: "ID da solicitação inválido" });
+      }
+
+      // Verificar se a solicitação existe
+      const serviceRequest = await storage.getServiceRequest(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicitação não encontrada" });
+      }
+
+      // Verificar permissões: apenas o cliente que criou a solicitação ou profissionais podem ver as propostas
+      if (user.userType === 'client' && serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ message: "Acesso negado às propostas" });
+      }
+
+      const offers = await storage.getServiceOffersByRequest(requestId);
+      res.json(offers);
+    } catch (error) {
+      console.error('Get service offers error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Criar uma nova proposta
+  app.post('/api/service-requests/:id/offers', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const requestId = parseInt(req.params.id);
+      const { proposedPrice, estimatedTime, message } = req.body;
+
+      if (isNaN(requestId)) {
+        return res.status(400).json({ message: "ID da solicitação inválido" });
+      }
+
+      // Verificar se o usuário é um profissional
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: "Apenas profissionais podem fazer propostas" });
+      }
+
+      // Verificar se a solicitação existe e está aberta
+      const serviceRequest = await storage.getServiceRequest(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicitação não encontrada" });
+      }
+
+      if (serviceRequest.status !== 'open') {
+        return res.status(400).json({ message: "Esta solicitação não está mais aceitando propostas" });
+      }
+
+      // Verificar se o profissional já fez uma proposta para esta solicitação
+      const existingOffers = await storage.getServiceOffersByRequest(requestId);
+      const hasExistingOffer = existingOffers.some(offer => offer.professionalId === user.id);
+      
+      if (hasExistingOffer) {
+        return res.status(400).json({ message: "Você já fez uma proposta para esta solicitação" });
+      }
+
+      // Buscar o profissional
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ message: "Dados do profissional não encontrados" });
+      }
+
+      // Criar a proposta
+      const offer = await storage.createServiceOffer({
+        serviceRequestId: requestId,
+        professionalId: professional.id,
+        proposedPrice: proposedPrice.toString(),
+        estimatedTime,
+        message,
+        status: "pending"
+      });
+
+      // Atualizar o contador de respostas na solicitação
+      await storage.updateServiceRequest(requestId, {
+        responses: (serviceRequest.responses || 0) + 1
+      });
+
+      res.status(201).json({
+        message: "Proposta enviada com sucesso",
+        offer
+      });
+    } catch (error) {
+      console.error('Create service offer error:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });

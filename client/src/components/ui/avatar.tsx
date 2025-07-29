@@ -23,10 +23,18 @@ Avatar.displayName = AvatarPrimitive.Root.displayName
 const AvatarImage = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Image>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
->(({ className, ...props }, ref) => (
+>(({ className, src, ...props }, ref) => (
   <AvatarPrimitive.Image
     ref={ref}
     className={cn("aspect-square h-full w-full", className)}
+    src={src}
+    onError={(e) => {
+      // Apenas log em desenvolvimento para evitar spam no console
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🖼️ Erro ao carregar imagem:', src);
+      }
+      // O Radix UI automaticamente mostrará o fallback quando a imagem falhar
+    }}
     {...props}
   />
 ))
