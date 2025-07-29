@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import {
   MessageCircle, Clock, Star, Filter, Navigation, Zap,
   BarChart3, PieChart, Target, Award, Bell, Settings,
   ChevronDown, User, Shield, HelpCircle, LogOut, Moon, Sun,
-  X, CheckCircle, AlertCircle, Info, Heart, RefreshCw
+  X, CheckCircle, AlertCircle, Info, Heart, RefreshCw, Phone, Mail
 } from "lucide-react";
 
 import { Link } from "wouter";
@@ -26,31 +26,89 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/useAuth";
 import { ProviderLayout } from "@/components/ProviderLayout";
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getApiUrl } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+// Componente para controlar o mapa e centralizar na localização do usuário
+function MapController({ userLocation }: { userLocation: [number, number] }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (map && userLocation) {
+      console.log('🗺️ Centralizando mapa em:', userLocation);
+      map.setView(userLocation, 15); // Zoom mais próximo para melhor precisão
+    }
+  }, [map, userLocation]);
+  
+  return null;
+}
 
 export default function ProviderDashboard() {
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [isAvailable, setIsAvailable] = useState(true);
   const [searchRadius, setSearchRadius] = useState(5);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [userLocation, setUserLocation] = useState<[number, number]>([-23.55052, -46.633308]); // São Paulo como fallback
-  const [locationLoading, setLocationLoading] = useState(true);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null); // Sem fallback inicial
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationRequested, setLocationRequested] = useState(false);
+  const [geolocationSupported, setGeolocationSupported] = useState(false);
   const [imageError, setImageError] = useState(false);
+  const [selectedMapService, setSelectedMapService] = useState<any>(null);
+  const [showServiceModal, setShowServiceModal] = useState(false);
   const { theme, setTheme } = useTheme();
   const { logout, user } = useAuth();
   const { toast } = useToast();
+  const [mapKey, setMapKey] = useState(0); // Para forçar re-render do mapa
+  const [locationUpdated, setLocationUpdated] = useState(false); // Para indicar se a localização foi atualizada
+  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null); // Precisão da localização
 
   // Reset image error when user changes
   useEffect(() => {
     setImageError(false);
   }, [user?.profileImage]);
+
+  // Verificar se geolocalização está disponível
+  useEffect(() => {
+    const isSupported = "geolocation" in navigator;
+    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+    setGeolocationSupported(isSupported);
+    console.log('📍 Geolocalização suportada:', isSupported);
+    console.log('📍 Contexto seguro (HTTPS/localhost):', isSecure);
+    console.log('📍 Protocolo atual:', window.location.protocol);
+    console.log('📍 Hostname atual:', window.location.hostname);
+  }, []);
+
+  // Monitorar mudanças na localização do usuário
+  useEffect(() => {
+    console.log('📍 Localização do usuário atualizada:', userLocation);
+  }, [userLocation]);
+
+  // Ativar geolocalização automaticamente quando a página carrega
+  useEffect(() => {
+    if (geolocationSupported && !userLocation && !locationLoading) {
+      console.log('📍 Ativando geolocalização automática...');
+      getUserLocation();
+    }
+  }, [geolocationSupported, userLocation, locationLoading]);
 
   // Dashboard Analytics Data - será carregado da API
   const analytics = {
@@ -86,6 +144,20 @@ export default function ProviderDashboard() {
     setSelectedService(serviceId);
     // Navegar para a página de oferta de serviço
     window.location.href = `/service-offer/${serviceId}`;
+  };
+
+  const handleMapServiceClick = (service: any) => {
+    setSelectedMapService(service);
+    setShowServiceModal(true);
+  };
+
+  const handleCloseServiceModal = () => {
+    setShowServiceModal(false);
+    setSelectedMapService(null);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedMapService(null);
   };
 
   const handleLogout = () => {
@@ -160,8 +232,9 @@ export default function ProviderDashboard() {
     return R * c;
   };
 
-  // Mapeamento local de endereços conhecidos de São Paulo
-  const saoPauloAddresses: {[key: string]: [number, number]} = {
+  // Mapeamento local de endereços conhecidos de diferentes cidades
+  const knownAddresses: {[key: string]: [number, number]} = {
+    // São Paulo
     'rua das flores, 150, vila madalena, são paulo, sp': [-23.5500, -46.6800],
     'av. albert einstein, 627, morumbi, são paulo, sp': [-23.6200, -46.7200],
     'rua harmonia, 456, vila madalena, são paulo, sp': [-23.5500, -46.6800],
@@ -235,10 +308,50 @@ export default function ProviderDashboard() {
     'limão, são paulo, sp': [-23.5000, -46.6500],
     'brasilândia, são paulo, sp': [-23.4700, -46.6400],
     'freguesia do ó, são paulo, sp': [-23.5200, -46.7000],
+    
+    // Fortaleza
+    'rua leão xiii, 431, serrinha, fortaleza, ce': [-3.7319, -38.5267],
+    'rua leão xiii, serrinha, fortaleza, ce': [-3.7319, -38.5267],
+    'leão xiii, serrinha, fortaleza, ce': [-3.7319, -38.5267],
+    'serrinha, fortaleza, ce': [-3.7319, -38.5267],
+    'avenida beira mar, fortaleza, ce': [-3.7319, -38.5267],
+    'praça do ferreira, fortaleza, ce': [-3.7319, -38.5267],
+    'centro, fortaleza, ce': [-3.7319, -38.5267],
+    'aldeota, fortaleza, ce': [-3.7319, -38.5267],
+    'meireles, fortaleza, ce': [-3.7319, -38.5267],
+    'dionísio torres, fortaleza, ce': [-3.7319, -38.5267],
+    'papicu, fortaleza, ce': [-3.7319, -38.5267],
+    'cocó, fortaleza, ce': [-3.7319, -38.5267],
+    'varjota, fortaleza, ce': [-3.7319, -38.5267],
+    'montese, fortaleza, ce': [-3.7319, -38.5267],
+    'fátima, fortaleza, ce': [-3.7319, -38.5267],
+    'joaquim távora, fortaleza, ce': [-3.7319, -38.5267],
+    'benfica, fortaleza, ce': [-3.7319, -38.5267],
+    'damas, fortaleza, ce': [-3.7319, -38.5267],
+    'são gerardo, fortaleza, ce': [-3.7319, -38.5267],
+    'parangaba, fortaleza, ce': [-3.7319, -38.5267],
+    'messejana, fortaleza, ce': [-3.7319, -38.5267],
+    'conjunto ceará, fortaleza, ce': [-3.7319, -38.5267],
+    'sabiguaba, fortaleza, ce': [-3.7319, -38.5267],
+    
+    // Outras cidades principais
+    'copacabana, rio de janeiro, rj': [-22.9707, -43.1824],
+    'ipanema, rio de janeiro, rj': [-22.9844, -43.2034],
+    'centro, belo horizonte, mg': [-19.9167, -43.9345],
+    'centro, salvador, ba': [-12.9714, -38.5011],
+    'centro, recife, pe': [-8.0476, -34.8770],
+    'centro, brasília, df': [-15.7942, -47.8822],
+    'centro, curitiba, pr': [-25.4289, -49.2671],
+    'centro, porto alegre, rs': [-30.0346, -51.2177],
+    'centro, belém, pa': [-1.4554, -48.4898],
+    'centro, manaus, am': [-3.1190, -60.0217],
   };
 
   // Cache para coordenadas já processadas
   const coordinatesCache = new Map<string, [number, number]>();
+  
+  // Limpar cache quando necessário (para debug)
+  // coordinatesCache.clear();
 
   const getAddressCoordinates = async (address: string): Promise<[number, number] | null> => {
     try {
@@ -253,7 +366,7 @@ export default function ProviderDashboard() {
       const cleanAddress = address.toLowerCase().trim().replace(/\s+/g, ' ');
       
       // 1. Busca exata no mapeamento local
-      for (const [key, coords] of Object.entries(saoPauloAddresses)) {
+      for (const [key, coords] of Object.entries(knownAddresses)) {
         if (cleanAddress === key) {
           coordinatesCache.set(address, coords);
           console.log(`✅ Busca exata no mapeamento local: "${address}" → [${coords[0]}, ${coords[1]}]`);
@@ -261,12 +374,26 @@ export default function ProviderDashboard() {
         }
       }
       
-      // 2. Busca parcial no mapeamento local (mais inteligente)
+      // 2. Busca por endereços que contêm palavras-chave específicas
+      const specificKeywords = ['rua leão xiii', 'serrinha', 'fortaleza'];
+      for (const keyword of specificKeywords) {
+        if (cleanAddress.includes(keyword)) {
+          for (const [key, coords] of Object.entries(knownAddresses)) {
+            if (key.includes(keyword)) {
+              coordinatesCache.set(address, coords);
+              console.log(`✅ Busca por palavra-chave "${keyword}": "${address}" → [${coords[0]}, ${coords[1]}]`);
+              return coords;
+            }
+          }
+        }
+      }
+      
+      // 3. Busca parcial no mapeamento local (mais inteligente)
       let bestMatch: { key: string; coords: [number, number]; score: number } | null = null;
       
-      for (const [key, coords] of Object.entries(saoPauloAddresses)) {
+      for (const [key, coords] of Object.entries(knownAddresses)) {
         const score = calculateAddressSimilarity(cleanAddress, key);
-        if (score > 0.7 && (!bestMatch || score > bestMatch.score)) {
+        if (score > 0.6 && (!bestMatch || score > bestMatch.score)) {
           bestMatch = { key, coords, score };
         }
       }
@@ -277,25 +404,44 @@ export default function ProviderDashboard() {
         return bestMatch.coords;
       }
       
-      // 3. Geocoding externo com múltiplas tentativas e melhor precisão
-      const searchQueries = [
-        cleanAddress + ', são paulo, sp, brasil',
-        cleanAddress + ', são paulo, brasil',
-        cleanAddress + ', sp, brasil',
-        cleanAddress + ', brasil',
-        cleanAddress
-      ];
+      // 3. Detectar cidade e estado do endereço
+      const cityStateMatch = cleanAddress.match(/([^,]+),\s*([a-z]{2})/);
+      let city = '';
+      let state = '';
+      
+      if (cityStateMatch) {
+        city = cityStateMatch[1].trim();
+        state = cityStateMatch[2].trim().toUpperCase();
+      }
+      
+      // 4. Geocoding externo com múltiplas tentativas baseadas na cidade detectada
+      const searchQueries = [];
+      
+      if (city && state) {
+        // Tentativas específicas para a cidade detectada
+        searchQueries.push(
+          cleanAddress + ', ' + city + ', ' + state + ', brasil',
+          cleanAddress + ', ' + city + ', ' + state,
+          cleanAddress + ', ' + state + ', brasil',
+          cleanAddress + ', brasil'
+        );
+      } else {
+        // Tentativas genéricas
+        searchQueries.push(
+          cleanAddress + ', brasil',
+          cleanAddress
+        );
+      }
       
       for (const query of searchQueries) {
         try {
           console.log(`🌐 Tentando geocoding externo para: "${query}"`);
           
-          // Usar AbortController para timeout mais agressivo
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 segundos timeout
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
           
           const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=3&countrycodes=br&addressdetails=1&accept-language=pt-BR&bounded=1&viewbox=-47.2,-24.0,-46.0,-23.0`,
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=3&countrycodes=br&addressdetails=1&accept-language=pt-BR`,
             { signal: controller.signal }
           );
           
@@ -314,14 +460,14 @@ export default function ProviderDashboard() {
               const lat = parseFloat(bestResult.lat);
               const lon = parseFloat(bestResult.lon);
               
-              // Verificação mais rigorosa das coordenadas de São Paulo
-              if (isValidSaoPauloCoordinates(lat, lon)) {
+              // Verificar se as coordenadas são válidas para o Brasil
+              if (isValidBrazilCoordinates(lat, lon)) {
                 const coords: [number, number] = [lat, lon];
                 coordinatesCache.set(address, coords);
                 console.log(`✅ Geocoding externo bem-sucedido para "${address}": [${lat}, ${lon}] (relevância: ${bestResult.importance})`);
                 return coords;
               } else {
-                console.log(`⚠️ Coordenadas fora de São Paulo para "${address}": [${lat}, ${lon}]`);
+                console.log(`⚠️ Coordenadas inválidas para "${address}": [${lat}, ${lon}]`);
               }
             }
           }
@@ -334,8 +480,8 @@ export default function ProviderDashboard() {
         }
       }
       
-      // 4. Fallback inteligente baseado no bairro/cidade
-      const fallbackCoords = getIntelligentFallback(cleanAddress);
+      // 5. Fallback inteligente baseado na cidade detectada
+      const fallbackCoords = getIntelligentFallbackByCity(cleanAddress, city, state);
       coordinatesCache.set(address, fallbackCoords);
       console.log(`🔄 Usando fallback inteligente para "${address}": [${fallbackCoords[0].toFixed(6)}, ${fallbackCoords[1].toFixed(6)}]`);
       return fallbackCoords;
@@ -343,10 +489,10 @@ export default function ProviderDashboard() {
     } catch (error) {
       console.error('Erro geral no geocoding:', error);
       
-      // Fallback final: centro de São Paulo
-      const fallbackCoords: [number, number] = [-23.5505, -46.6333];
+      // Fallback final: centro do Brasil
+      const fallbackCoords: [number, number] = [-15.7942, -47.8822]; // Brasília
       coordinatesCache.set(address, fallbackCoords);
-      console.log(`🔄 Fallback final para "${address}": centro de São Paulo`);
+      console.log(`🔄 Fallback final para "${address}": centro do Brasil`);
       return fallbackCoords;
     }
   };
@@ -358,11 +504,30 @@ export default function ProviderDashboard() {
     
     if (words1.length === 0 || words2.length === 0) return 0;
     
+    // Verificar se o endereço contém palavras-chave importantes
+    const importantWords = ['rua', 'avenida', 'fortaleza', 'serrinha', 'leão', 'xiii'];
+    const hasImportantWords = importantWords.some(word => 
+      addr1.includes(word) && addr2.includes(word)
+    );
+    
     const commonWords = words1.filter(word => 
       words2.some(w2 => w2.includes(word) || word.includes(w2))
     );
     
-    return commonWords.length / Math.max(words1.length, words2.length);
+    let score = commonWords.length / Math.max(words1.length, words2.length);
+    
+    // Bonus para endereços que contêm palavras-chave importantes
+    if (hasImportantWords) {
+      score += 0.3;
+    }
+    
+    return Math.min(score, 1.0);
+  };
+
+  // Função para validar coordenadas do Brasil
+  const isValidBrazilCoordinates = (lat: number, lon: number): boolean => {
+    // Coordenadas aproximadas do Brasil
+    return lat >= -34.0 && lat <= 6.0 && lon >= -74.0 && lon <= -34.0;
   };
 
   // Função para validar coordenadas de São Paulo
@@ -371,7 +536,71 @@ export default function ProviderDashboard() {
     return lat >= -24.0 && lat <= -23.3 && lon >= -47.2 && lon <= -46.0;
   };
 
-  // Função para fallback inteligente baseado no endereço
+  // Função para fallback inteligente baseado na cidade detectada
+  const getIntelligentFallbackByCity = (address: string, city: string, state: string): [number, number] => {
+    // Mapeamento de cidades para coordenadas aproximadas
+    const cityCoords: {[key: string]: [number, number]} = {
+      // São Paulo
+      'são paulo': [-23.5505, -46.6333],
+      'sp': [-23.5505, -46.6333],
+      
+      // Fortaleza - Prioridade alta
+      'fortaleza': [-3.7319, -38.5267],
+      'ce': [-3.7319, -38.5267],
+      'serrinha': [-3.7319, -38.5267],
+      
+      // Outras cidades principais
+      'rio de janeiro': [-22.9068, -43.1729],
+      'rj': [-22.9068, -43.1729],
+      'belo horizonte': [-19.9167, -43.9345],
+      'mg': [-19.9167, -43.9345],
+      'salvador': [-12.9714, -38.5011],
+      'ba': [-12.9714, -38.5011],
+      'recife': [-8.0476, -34.8770],
+      'pe': [-8.0476, -34.8770],
+      'brasília': [-15.7942, -47.8822],
+      'df': [-15.7942, -47.8822],
+      'curitiba': [-25.4289, -49.2671],
+      'pr': [-25.4289, -49.2671],
+      'porto alegre': [-30.0346, -51.2177],
+      'rs': [-30.0346, -51.2177],
+      'belém': [-1.4554, -48.4898],
+      'pa': [-1.4554, -48.4898],
+      'manaus': [-3.1190, -60.0217],
+      'am': [-3.1190, -60.0217],
+    };
+
+    // Verificar especificamente por Fortaleza primeiro
+    if (address.includes('fortaleza') || address.includes('ce') || address.includes('serrinha') || 
+        city.includes('fortaleza') || city.includes('ce') || city.includes('serrinha') ||
+        state.includes('CE')) {
+      console.log(`🎯 Detecção específica de Fortaleza para: "${address}"`);
+      return [-3.7319, -38.5267];
+    }
+
+    // Tentar encontrar cidade no endereço
+    for (const [cityKey, coords] of Object.entries(cityCoords)) {
+      if (address.includes(cityKey) || city.includes(cityKey) || state.includes(cityKey)) {
+        return coords;
+      }
+    }
+
+    // Se não encontrar cidade específica, usar hash para variação no centro do Brasil
+    const hash = address.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0);
+      return a & a;
+    }, 0);
+    
+    const latVariation = (Math.abs(hash) % 2000) / 10000 - 0.1; // ±0.1 graus
+    const lngVariation = (Math.abs(hash >> 10) % 2000) / 10000 - 0.1; // ±0.1 graus
+    
+    return [
+      -15.7942 + latVariation, // Centro do Brasil (Brasília) + variação
+      -47.8822 + lngVariation
+    ];
+  };
+
+  // Função para fallback inteligente baseado no endereço (mantida para compatibilidade)
   const getIntelligentFallback = (address: string): [number, number] => {
     // Mapeamento de bairros para coordenadas aproximadas
     const bairroCoords: {[key: string]: [number, number]} = {
@@ -625,36 +854,114 @@ export default function ProviderDashboard() {
     }
   };
 
-  // Obter localização atual do usuário
-  useEffect(() => {
-    if ("geolocation" in navigator) {
+  // Obter localização atual do usuário - aceita qualquer localização válida
+  const getUserLocation = () => {
+    console.log('📍 Iniciando geolocalização...');
+    console.log('📍 Geolocalização suportada:', geolocationSupported);
+    setLocationLoading(true);
+    setLocationRequested(true);
+    
+    if (geolocationSupported) {
+      console.log('📍 Geolocalização suportada pelo navegador');
+      
+      const options = {
+        enableHighAccuracy: true, // Máxima precisão
+        timeout: 30000, // 30 segundos
+        maximumAge: 0 // Sempre obter nova localização
+      };
+      
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserLocation([latitude, longitude]);
-          setLocationLoading(false);
+          const { latitude, longitude, accuracy } = position.coords;
+          console.log('📍 Localização obtida com sucesso:', { 
+            latitude, 
+            longitude, 
+            accuracy: `${accuracy}m de precisão` 
+          });
+          
+          // Validação básica - aceita qualquer coordenada válida
+          if (latitude && longitude && 
+              !isNaN(latitude) && !isNaN(longitude) &&
+              latitude >= -90 && latitude <= 90 &&
+              longitude >= -180 && longitude <= 180) {
+            
+            console.log('📍 Coordenadas válidas:', [latitude, longitude]);
+            
+            // Aceitar qualquer localização, incluindo VPN
+            setUserLocation([latitude, longitude]);
+            setLocationAccuracy(accuracy || 0);
+            setMapKey(prev => prev + 1);
+            setLocationLoading(false);
+            setLocationUpdated(true);
+            
+            // Toast com informações detalhadas
+            const accuracyLevel = accuracy <= 10 ? 'Excelente' : 
+                                accuracy <= 30 ? 'Muito Boa' : 
+                                accuracy <= 50 ? 'Boa' : 
+                                accuracy <= 100 ? 'Regular' : 'Baixa';
+            
+            toast({
+              title: `Localização ${accuracyLevel}`,
+              description: `Precisão: ${Math.round(accuracy || 0)}m | ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+            });
+            
+            // Forçar atualização do mapa com delay
+            setTimeout(() => {
+              setMapKey(prev => prev + 1);
+            }, 200);
+            
+            // Resetar indicador
+            setTimeout(() => {
+              setLocationUpdated(false);
+            }, 3000);
+          } else {
+            console.warn('📍 Coordenadas inválidas:', { latitude, longitude });
+            setLocationLoading(false);
+            toast({
+              title: "Erro na Localização",
+              description: "Coordenadas inválidas obtidas. Tente novamente.",
+              variant: "destructive",
+            });
+          }
         },
         (error) => {
-          // Log mais discreto para erros comuns de geolocalização
-          if (error.code === 2) {
-            console.log("📍 Localização em rede indisponível, usando localização padrão");
-          } else {
-            console.log("📍 Usando localização padrão de São Paulo");
+          console.error('📍 Erro na geolocalização:', error);
+          
+          let errorMessage = "Erro desconhecido na geolocalização";
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = "Permissão negada. Ative a localização nas configurações do navegador.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = "Localização indisponível. Verifique sua conexão de internet.";
+              break;
+            case error.TIMEOUT:
+              errorMessage = "Tempo limite excedido. Tente novamente em alguns segundos.";
+              break;
           }
+          
+          console.log(`📍 ${errorMessage}`);
           setLocationLoading(false);
-          // Mantém São Paulo como fallback
+          
+          toast({
+            title: "Erro na Localização",
+            description: errorMessage,
+            variant: "destructive",
+          });
         },
-        {
-          enableHighAccuracy: false, // Menos agressivo
-          timeout: 5000, // Timeout menor
-          maximumAge: 600000 // 10 minutos
-        }
+        options
       );
     } else {
+      console.log('📍 Geolocalização não suportada pelo navegador');
       setLocationLoading(false);
-      console.log("Geolocalização não suportada pelo navegador");
+      
+      toast({
+        title: "Geolocalização Não Suportada",
+        description: "Seu navegador não suporta geolocalização. Atualize o navegador.",
+        variant: "destructive",
+      });
     }
-  }, []);
+  };
 
   // Carregar solicitações de serviço quando o usuário estiver autenticado
   useEffect(() => {
@@ -667,10 +974,208 @@ export default function ProviderDashboard() {
     }
   }, [user]);
 
+  // Função para centralizar o mapa na localização do usuário
+  const centerMapOnUser = () => {
+    if (userLocation) {
+      console.log('🗺️ Centralizando mapa na localização do usuário:', userLocation);
+      setMapKey(prev => prev + 1);
+      
+      toast({
+        title: "Mapa Centralizado",
+        description: "Mapa centralizado na sua localização atual.",
+      });
+    } else {
+      toast({
+        title: "Localização Não Disponível",
+        description: "Clique em 'Minha Localização' primeiro para obter sua posição.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Função para melhorar a precisão da geolocalização
+  const improveLocationAccuracy = () => {
+    console.log('🎯 Melhorando precisão da localização...');
+    
+    if (!geolocationSupported) {
+      toast({
+        title: "Geolocalização Não Suportada",
+        description: "Seu navegador não suporta geolocalização.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLocationLoading(true);
+    
+    // Configurações ultra-agressivas para máxima precisão
+    const ultraHighAccuracyOptions = {
+      enableHighAccuracy: true,
+      timeout: 45000, // 45 segundos
+      maximumAge: 0 // Sempre obter nova localização
+    };
+
+    // Primeira tentativa
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        console.log('🎯 Primeira tentativa:', { latitude, longitude, accuracy });
+        
+        if (accuracy <= 30) { // Precisão muito boa (≤30m)
+          console.log('🎯 Precisão muito boa obtida:', accuracy + 'm');
+          setUserLocation([latitude, longitude]);
+          setLocationAccuracy(accuracy);
+          setMapKey(prev => prev + 1);
+          setLocationUpdated(true);
+          
+          toast({
+            title: "Localização Precisão Excelente",
+            description: `Precisão: ${Math.round(accuracy)}m | ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+          });
+          
+          setLocationLoading(false);
+          setTimeout(() => {
+            setLocationUpdated(false);
+          }, 3000);
+        } else {
+          // Segunda tentativa com delay
+          console.log('🎯 Primeira tentativa imprecisa, tentando novamente...');
+          
+          setTimeout(() => {
+            navigator.geolocation.getCurrentPosition(
+              (secondPosition) => {
+                const { latitude: lat2, longitude: lng2, accuracy: acc2 } = secondPosition.coords;
+                console.log('🎯 Segunda tentativa:', { lat2, lng2, acc2 });
+                
+                // Terceira tentativa se ainda imprecisa
+                if (acc2 > 50) {
+                  console.log('🎯 Segunda tentativa imprecisa, tentando terceira vez...');
+                  
+                  setTimeout(() => {
+                    navigator.geolocation.getCurrentPosition(
+                      (thirdPosition) => {
+                        const { latitude: lat3, longitude: lng3, accuracy: acc3 } = thirdPosition.coords;
+                        console.log('🎯 Terceira tentativa:', { lat3, lng3, acc3 });
+                        
+                        // Usar a melhor das três tentativas
+                        const positions = [
+                          { lat: latitude, lng: longitude, acc: accuracy },
+                          { lat: lat2, lng: lng2, acc: acc2 },
+                          { lat: lat3, lng: lng3, acc: acc3 }
+                        ];
+                        
+                        const bestPosition = positions.reduce((best, current) => 
+                          current.acc < best.acc ? current : best
+                        );
+                        
+                        console.log('🎯 Melhor precisão das 3 tentativas:', bestPosition.acc + 'm');
+                        setUserLocation([bestPosition.lat, bestPosition.lng]);
+                        setLocationAccuracy(bestPosition.acc);
+                        setMapKey(prev => prev + 1);
+                        setLocationUpdated(true);
+                        
+                        const accuracyLevel = bestPosition.acc <= 20 ? 'Excelente' : 
+                                            bestPosition.acc <= 40 ? 'Muito Boa' : 'Aceitável';
+                        
+                        toast({
+                          title: `Localização ${accuracyLevel}`,
+                          description: `Precisão: ${Math.round(bestPosition.acc)}m | ${bestPosition.lat.toFixed(6)}, ${bestPosition.lng.toFixed(6)}`,
+                        });
+                        
+                        setLocationLoading(false);
+                        setTimeout(() => {
+                          setLocationUpdated(false);
+                        }, 3000);
+                      },
+                      (error) => {
+                        console.error('🎯 Erro na terceira tentativa:', error);
+                        // Usar a melhor das duas primeiras
+                        const bestPosition = acc2 < accuracy ? 
+                          { lat: lat2, lng: lng2, acc: acc2 } : 
+                          { lat: latitude, lng: longitude, acc: accuracy };
+                        
+                        setUserLocation([bestPosition.lat, bestPosition.lng]);
+                        setLocationAccuracy(bestPosition.acc);
+                        setMapKey(prev => prev + 1);
+                        setLocationUpdated(true);
+                        
+                        toast({
+                          title: "Localização Obtida",
+                          description: `Precisão: ${Math.round(bestPosition.acc)}m | ${bestPosition.lat.toFixed(6)}, ${bestPosition.lng.toFixed(6)}`,
+                        });
+                        
+                        setLocationLoading(false);
+                        setTimeout(() => {
+                          setLocationUpdated(false);
+                        }, 3000);
+                      },
+                      ultraHighAccuracyOptions
+                    );
+                  }, 2000);
+                } else {
+                  // Usar a melhor das duas tentativas
+                  const bestPosition = acc2 < accuracy ? 
+                    { lat: lat2, lng: lng2, acc: acc2 } : 
+                    { lat: latitude, lng: longitude, acc: accuracy };
+                  
+                  console.log('🎯 Melhor precisão das 2 tentativas:', bestPosition.acc + 'm');
+                  setUserLocation([bestPosition.lat, bestPosition.lng]);
+                  setLocationAccuracy(bestPosition.acc);
+                  setMapKey(prev => prev + 1);
+                  setLocationUpdated(true);
+                  
+                  toast({
+                    title: "Localização Otimizada",
+                    description: `Precisão: ${Math.round(bestPosition.acc)}m | ${bestPosition.lat.toFixed(6)}, ${bestPosition.lng.toFixed(6)}`,
+                  });
+                  
+                  setLocationLoading(false);
+                  setTimeout(() => {
+                    setLocationUpdated(false);
+                  }, 3000);
+                }
+              },
+              (error) => {
+                console.error('🎯 Erro na segunda tentativa:', error);
+                // Usar a primeira tentativa
+                setUserLocation([latitude, longitude]);
+                setLocationAccuracy(accuracy);
+                setMapKey(prev => prev + 1);
+                setLocationUpdated(true);
+                
+                toast({
+                  title: "Localização Obtida",
+                  description: `Precisão: ${Math.round(accuracy)}m | ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+                });
+                
+                setLocationLoading(false);
+                setTimeout(() => {
+                  setLocationUpdated(false);
+                }, 3000);
+              },
+              ultraHighAccuracyOptions
+            );
+          }, 1500);
+        }
+      },
+      (error) => {
+        console.error('🎯 Erro na primeira tentativa:', error);
+        setLocationLoading(false);
+        
+        toast({
+          title: "Erro na Localização",
+          description: "Não foi possível obter uma localização precisa.",
+          variant: "destructive",
+        });
+      },
+      ultraHighAccuracyOptions
+    );
+  };
+
   return (
     <ProviderLayout>
       {/* Conteúdo da página original */}
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-32">
         {/* Header */}
         <div className="bg-white dark:bg-gray-800 border-b px-3 sm:px-4 py-2 sm:py-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
@@ -706,19 +1211,32 @@ export default function ProviderDashboard() {
             
             <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 flex-shrink-0 min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 hidden sm:inline">Disponível</span>
-                <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 sm:hidden">Disp.</span>
-                <Switch 
-                  checked={isAvailable} 
-                  onCheckedChange={handleAvailabilityChange}
-                  className="h-5 w-9 sm:h-6 sm:w-11 [&>span]:h-4 [&>span]:w-4 sm:[&>span]:h-5 sm:[&>span]:w-5 flex-shrink-0 data-[state=checked]:bg-green-500 data-[state=unchecked]:bg-gray-300"
-                />
+                <div className="flex items-center gap-1.5">
+                  <div className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`}></div>
+                  <span className={`text-xs sm:text-sm font-medium ${isAvailable ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-600 dark:text-gray-400'}`}>
+                    {isAvailable ? 'Disponível' : 'Indisponível'}
+                  </span>
+                </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Switch 
+                        checked={isAvailable} 
+                        onCheckedChange={handleAvailabilityChange}
+                        className="h-6 w-11 sm:h-7 sm:w-12 [&>span]:h-5 [&>span]:w-5 sm:[&>span]:h-6 sm:[&>span]:w-6 flex-shrink-0 data-[state=checked]:bg-emerald-500 data-[state=checked]:hover:bg-emerald-600 data-[state=unchecked]:bg-gray-300 data-[state=unchecked]:hover:bg-gray-400 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg"
+                      />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{isAvailable ? 'Clique para ficar indisponível' : 'Clique para ficar disponível'}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
               
               {/* Notifications */}
               <Popover open={showNotifications} onOpenChange={setShowNotifications}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="relative h-8 sm:h-9 w-8 sm:w-auto px-2.5 sm:px-3 min-w-0 flex-shrink-0 justify-center">
+                  <Button variant="outline" size="sm" className="relative h-8 sm:h-9 w-8 sm:w-auto px-2.5 sm:px-3 min-w-0 flex-shrink-0 justify-center aspect-square sm:aspect-auto">
                     <Bell className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                     {unreadCount > 0 && (
                       <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center font-bold">
@@ -727,7 +1245,7 @@ export default function ProviderDashboard() {
                     )}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-0" align="end">
+                <PopoverContent className="w-80 p-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl backdrop-blur-sm" align="end">
                   <div className="p-4 border-b">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">Notificações</h3>
@@ -793,8 +1311,7 @@ export default function ProviderDashboard() {
               {/* Settings Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 sm:h-9 w-8 sm:w-auto px-2 sm:px-2.5 min-w-0 flex-shrink-0 gap-0.5 sm:gap-1 justify-center">
-                    <Settings className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <Button variant="outline" size="sm" className="h-8 sm:h-9 w-8 sm:w-auto px-2 sm:px-3 min-w-0 flex-shrink-0 gap-1 sm:gap-1.5 justify-center aspect-square sm:aspect-auto">
                     <ChevronDown className="h-2 w-2 sm:h-3 sm:w-3 flex-shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -927,20 +1444,23 @@ export default function ProviderDashboard() {
 
           {/* Main Content Tabs */}
           <Tabs defaultValue="opportunities" className="space-y-6 sm:space-y-8">
-            <TabsList className="grid w-full grid-cols-4 h-auto sm:h-10 p-1 gap-1">
-              <TabsTrigger value="opportunities" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1.5 whitespace-nowrap">
-                Oportunidades
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto min-h-12 p-1.5 gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+              <TabsTrigger value="opportunities" className="text-xs sm:text-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 whitespace-nowrap min-h-10 sm:min-h-11 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-md data-[state=active]:font-semibold">
+                <span className="hidden xs:inline">Oportunidades</span>
+                <span className="xs:hidden">Oport.</span>
               </TabsTrigger>
-              <TabsTrigger value="performance" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1.5 whitespace-nowrap">
-                Performance
+              <TabsTrigger value="performance" className="text-xs sm:text-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 whitespace-nowrap min-h-10 sm:min-h-11 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-md data-[state=active]:font-semibold">
+                <span className="hidden xs:inline">Performance</span>
+                <span className="xs:hidden">Perf.</span>
               </TabsTrigger>
               <Link href="/agenda-profissional" className="contents">
-                <button type="button" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 sm:px-3 py-1.5 sm:py-1.5 text-xs sm:text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm hover:bg-accent hover:text-accent-foreground">
+                <button type="button" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm hover:text-yellow-600 dark:hover:text-yellow-400 min-h-10 sm:min-h-11 text-center">
                   Agenda
                 </button>
               </Link>
-              <TabsTrigger value="earnings" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-1.5 whitespace-nowrap">
-                Ganhos
+              <TabsTrigger value="earnings" className="text-xs sm:text-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 whitespace-nowrap min-h-10 sm:min-h-11 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-md data-[state=active]:font-semibold">
+                <span className="hidden xs:inline">Ganhos</span>
+                <span className="xs:hidden">Ganhos</span>
               </TabsTrigger>
             </TabsList>
 
@@ -966,17 +1486,46 @@ export default function ProviderDashboard() {
                         />
                         <span className="text-xs sm:text-sm text-gray-600">km</span>
                       </div>
-                      <Button variant="outline" size="sm" className="h-7 sm:h-8 px-2 sm:px-3 text-xs sm:text-sm">
-                        <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                        <span className="hidden sm:inline">Filtros</span>
-                        <span className="sm:hidden">Filtrar</span>
-                      </Button>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   {/* Map Placeholder */}
                   <div className="bg-gray-100 dark:bg-gray-800 rounded-lg h-48 sm:h-56 md:h-64 mb-4 sm:mb-6 overflow-hidden relative sticky top-2 sm:top-4 z-10">
+                    {/* Botão de localização */}
+                    <div className="absolute top-2 right-2 z-20">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          console.log('🔘 Botão de localização clicado!');
+                          if (locationRequested && userLocation) {
+                            // Se já tem localização, centraliza o mapa
+                            centerMapOnUser();
+                          } else {
+                            // Se não tem localização, obtém a localização
+                            getUserLocation();
+                          }
+                        }}
+                        className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg"
+                        disabled={locationLoading}
+                      >
+                        {locationLoading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                        ) : !locationRequested ? (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-4 w-4" />
+                            <span className="text-xs hidden sm:inline">Minha Localização</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-4 w-4" />
+                            <span className="text-xs hidden sm:inline">Centralizar</span>
+                          </div>
+                        )}
+                      </Button>
+                    </div>
+                    
                     {locationLoading ? (
                       <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
                         <div className="text-center">
@@ -984,34 +1533,68 @@ export default function ProviderDashboard() {
                           <p className="text-gray-600 dark:text-gray-400">Obtendo sua localização...</p>
                         </div>
                       </div>
+                    ) : !userLocation ? (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+                        <div className="text-center">
+                          <MapPin className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-gray-600 dark:text-gray-400 mb-3">Clique para obter sua localização</p>
+                          <Button 
+                            size="sm" 
+                            onClick={getUserLocation}
+                            disabled={locationLoading}
+                            className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                          >
+                            {locationLoading ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            ) : (
+                              <>
+                                <MapPin className="h-4 w-4 mr-1" />
+                                Obter Localização
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
                     ) : (
                       <MapContainer 
-                        center={userLocation} 
-                        zoom={13} 
+                        center={userLocation || [-23.55052, -46.633308]} 
+                        zoom={15} 
                         style={{ height: '100%', width: '100%' }}
-                        key={`${userLocation[0]}-${userLocation[1]}`} // Força re-render quando localização muda
+                        key={`map-${mapKey}-${userLocation ? `${userLocation[0]}-${userLocation[1]}` : 'fallback'}`}
                       >
+                        {userLocation && <MapController userLocation={userLocation} />}
                         <TileLayer
                           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         />
                         {/* Marcador da localização atual do usuário */}
-                        <Marker 
-                          position={userLocation}
-                          icon={L.divIcon({
-                            className: 'custom-div-icon',
-                            html: '<div style="background-color: #3b82f6; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
-                            iconSize: [20, 20],
-                            iconAnchor: [10, 10]
-                          })}
-                        >
-                          <Popup>
-                            <div className="text-center">
-                              <strong>📍 Sua localização</strong><br />
-                              <small>Raio de busca: {searchRadius}km</small>
-                            </div>
-                          </Popup>
-                        </Marker>
+                        {userLocation && (
+                          <Marker 
+                            position={userLocation}
+                            icon={L.divIcon({
+                              className: 'custom-div-icon',
+                              html: `<div style="background-color: ${locationUpdated ? '#10b981' : '#3b82f6'}; width: 24px; height: 24px; border-radius: 50%; border: 4px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.4); animation: pulse 2s infinite; ${locationUpdated ? 'border-color: #10b981;' : ''}"></div>`,
+                              iconSize: [24, 24],
+                              iconAnchor: [12, 12]
+                            })}
+                          >
+                            <Popup>
+                              <div className="text-center">
+                                <strong>📍 Sua localização</strong>
+                                {locationUpdated && <div className="text-green-600 text-xs font-bold">✓ Atualizada</div>}
+                                <small>Lat: {userLocation[0].toFixed(6)}</small><br />
+                                <small>Lng: {userLocation[1].toFixed(6)}</small><br />
+                                {locationAccuracy && (
+                                  <small className={`font-medium ${locationAccuracy <= 20 ? 'text-green-600' : locationAccuracy <= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                    Precisão: {Math.round(locationAccuracy)}m
+                                  </small>
+                                )}
+                                <br />
+                                <small>Raio de busca: {searchRadius}km</small>
+                              </div>
+                            </Popup>
+                          </Marker>
+                        )}
                         
                         {/* Marcadores das solicitações de serviço */}
                         {nearbyServices.map((service) => {
@@ -1019,27 +1602,27 @@ export default function ProviderDashboard() {
                           if (!serviceCoords) return null;
                           
                           const isEditing = editingLocation === service.id;
+                          const isSelected = selectedMapService?.id === service.id;
                           
-                          return (
-                            <Marker 
-                              key={service.id} 
-                              position={serviceCoords}
-                              draggable={isEditing}
+                                                      return (
+                              <Marker 
+                                key={service.id} 
+                                position={serviceCoords}
+                                draggable={isEditing}
+                                icon={L.divIcon({
+                                  className: 'custom-div-icon',
+                                  html: `<div style="width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); background-image: url('/service-icon.png'); background-size: cover; background-position: center; background-repeat: no-repeat; ${isSelected ? 'animation: pulse 2s infinite;' : ''}"></div>`,
+                                  iconSize: [32, 32],
+                                  iconAnchor: [16, 16]
+                                })}
                               eventHandlers={{
                                 click: () => {
                                   if (isEditing) {
                                     // Finalizar edição
                                     setEditingLocation(null);
                                   } else {
-                                    // Scroll para o card da solicitação
-                                    const element = document.getElementById(`service-${service.id}`);
-                                    if (element) {
-                                      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                      element.classList.add('ring-2', 'ring-yellow-500');
-                                      setTimeout(() => {
-                                        element.classList.remove('ring-2', 'ring-yellow-500');
-                                      }, 2000);
-                                    }
+                                    // Abrir modal com detalhes do serviço
+                                    handleMapServiceClick(service);
                                   }
                                 },
                                 dragend: (e) => {
@@ -1058,52 +1641,7 @@ export default function ProviderDashboard() {
                                 }
                               }}
                             >
-                              <Popup>
-                                <div className="min-w-[200px]">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <div className={`w-3 h-3 rounded-full ${isEditing ? 'bg-red-500 animate-pulse' : 'bg-yellow-500'}`}></div>
-                                    <strong>Solicitação #{service.id}</strong>
-                                    {isEditing && <span className="text-xs text-red-600 font-medium">(Arraste para ajustar)</span>}
-                                  </div>
-                                  <p className="font-medium text-sm mb-1">{service.serviceType}</p>
-                                  <p className="text-xs text-gray-600 mb-2">{service.description.substring(0, 50)}...</p>
-                                  <div className="text-xs text-gray-500">
-                                    <p className="font-medium text-blue-600">📍 {service.address}</p>
-                                    <p>📅 {new Date(service.scheduledDate).toLocaleDateString('pt-BR')} às {service.scheduledTime}</p>
-                                    {service.budget && (
-                                      <p className="font-semibold text-green-600">R$ {parseFloat(service.budget).toFixed(2)}</p>
-                                    )}
-                                    {serviceLocations[service.id] && (
-                                      <div className="text-xs text-gray-400 mt-1 space-y-1">
-                                        <p>📍 Coordenadas: {serviceLocations[service.id][0].toFixed(6)}, {serviceLocations[service.id][1].toFixed(6)}</p>
-                                        <p>📏 Distância: {calculateDistance(
-                                          userLocation[0], 
-                                          userLocation[1], 
-                                          serviceLocations[service.id][0], 
-                                          serviceLocations[service.id][1]
-                                        ).toFixed(1)} km</p>
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="flex gap-2 mt-2">
-                                    <Button 
-                                      size="sm" 
-                                      className="flex-1"
-                                      onClick={() => handleOfferService(service.id)}
-                                    >
-                                      Ofertar Serviço
-                                    </Button>
-                                    <Button 
-                                      size="sm" 
-                                      variant="outline"
-                                      onClick={() => setEditingLocation(service.id)}
-                                      title="Ajustar posição no mapa"
-                                    >
-                                      📍
-                                    </Button>
-                                  </div>
-                                </div>
-                              </Popup>
+                              {/* Popup removido - detalhes aparecem no modal */}
                             </Marker>
                           );
                         })}
@@ -1123,6 +1661,12 @@ export default function ProviderDashboard() {
                             <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                             <span>Solicitações ({nearbyServices.length})</span>
                           </div>
+                          {selectedMapService && (
+                            <div className="flex items-center gap-1">
+                              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                              <span>Selecionado</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1190,7 +1734,12 @@ export default function ProviderDashboard() {
                           <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
                         </div>
                         <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-2">Nenhuma solicitação disponível</p>
-                        <p className="text-xs sm:text-sm text-gray-500">Novas solicitações aparecerão aqui automaticamente</p>
+                        <p className="text-xs sm:text-sm text-gray-500 mb-4">Novas solicitações aparecerão aqui automaticamente</p>
+                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                          <p className="text-xs text-blue-700 dark:text-blue-300">
+                            💡 <strong>Dica:</strong> Clique nos pins amarelos no mapa para ver detalhes dos serviços!
+                          </p>
+                        </div>
                       </div>
                     ) : (
                       nearbyServices.map((service) => (
@@ -1221,7 +1770,7 @@ export default function ProviderDashboard() {
                                   <MessageCircle className="h-3 w-3 flex-shrink-0" />
                                   <span>{service.responses || 0} respostas</span>
                                 </span>
-                                {serviceLocations[service.id] && (
+                                {serviceLocations[service.id] && userLocation && (
                                   <span className="flex items-center gap-1 min-w-0">
                                     <span className="h-3 w-3 flex-shrink-0">📏</span>
                                     <span>{calculateDistance(
@@ -1461,6 +2010,136 @@ export default function ProviderDashboard() {
         
         {/* Bottom Navigation for Provider */}
       </div>
+
+      {/* Modal de Detalhes do Serviço */}
+      <Dialog open={showServiceModal} onOpenChange={setShowServiceModal}>
+        <DialogContent className="max-w-md sm:max-w-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-yellow-500" />
+              Detalhes do Serviço
+            </DialogTitle>
+            <DialogDescription>
+              Informações completas sobre a solicitação
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedMapService && (
+            <div className="space-y-4">
+              {/* Header do Serviço */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Solicitação #{selectedMapService.id}
+                  </h3>
+                  <Badge variant="outline" className="mt-1">
+                    {selectedMapService.category === 'fisioterapeuta' ? 'Fisioterapeuta' :
+                     selectedMapService.category === 'acompanhante_hospitalar' ? 'Acompanhante' :
+                     selectedMapService.category === 'tecnico_enfermagem' ? 'Técnico Enfermagem' : selectedMapService.category}
+                  </Badge>
+                </div>
+                {selectedMapService.budget && (
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-green-600">
+                      R$ {parseFloat(selectedMapService.budget).toFixed(2)}
+                    </p>
+                    <p className="text-sm text-gray-500">Orçamento</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Tipo de Serviço */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                  {selectedMapService.serviceType}
+                </h4>
+                <p className="text-sm text-blue-700 dark:text-blue-200">
+                  {selectedMapService.description}
+                </p>
+              </div>
+
+              {/* Informações de Localização */}
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900 dark:text-white">Endereço</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{selectedMapService.address}</p>
+                    {serviceLocations[selectedMapService.id] && userLocation && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        📏 {calculateDistance(
+                          userLocation[0], 
+                          userLocation[1], 
+                          serviceLocations[selectedMapService.id][0], 
+                          serviceLocations[selectedMapService.id][1]
+                        ).toFixed(1)} km de distância
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Calendar className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900 dark:text-white">Data e Hora</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {new Date(selectedMapService.scheduledDate).toLocaleDateString('pt-BR')} às {selectedMapService.scheduledTime}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <MessageCircle className="h-5 w-5 text-gray-500 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900 dark:text-white">Respostas</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {selectedMapService.responses || 0} profissional(is) já responderam
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Informações Adicionais */}
+              {selectedMapService.additionalInfo && (
+                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">Informações Adicionais</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {selectedMapService.additionalInfo}
+                  </p>
+                </div>
+              )}
+
+              {/* Botões de Ação */}
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  onClick={() => handleOfferService(selectedMapService.id)}
+                  className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white"
+                >
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Fazer Proposta
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleCloseServiceModal}
+                >
+                  Fechar
+                </Button>
+              </div>
+              
+              {/* Botão para limpar seleção */}
+              <Button 
+                variant="ghost"
+                size="sm"
+                onClick={handleClearSelection}
+                className="w-full text-xs"
+              >
+                <MapPin className="h-3 w-3 mr-1" />
+                Limpar Seleção no Mapa
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </ProviderLayout>
   );
 }
