@@ -1326,7 +1326,7 @@ export default function ProviderDashboard() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-[100]">
                   <DropdownMenuItem asChild>
-                    <Link href="/profile" className="flex items-center cursor-pointer">
+                    <Link href="/provider-profile" className="flex items-center cursor-pointer">
                       <User className="mr-2 h-4 w-4" />
                       Meu Perfil
                     </Link>
