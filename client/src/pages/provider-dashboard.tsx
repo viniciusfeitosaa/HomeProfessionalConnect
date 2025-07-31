@@ -11,7 +11,7 @@ import {
   BarChart3, PieChart, Target, Award, Bell, Settings,
   ChevronDown, User, Shield, HelpCircle, LogOut, Moon, Sun,
   X, CheckCircle, AlertCircle, Info, Heart, RefreshCw, Phone, Mail,
-  MessageSquare
+  MessageSquare, Send
 } from "lucide-react";
 
 import { Link } from "wouter";
@@ -944,11 +944,7 @@ export default function ProviderDashboard() {
           console.log(`📍 ${errorMessage}`);
           setLocationLoading(false);
           
-          toast({
-            title: "Erro na Localização",
-            description: errorMessage,
-            variant: "destructive",
-          });
+          // Removido popup de erro de localização
         },
         options
       );
@@ -956,11 +952,7 @@ export default function ProviderDashboard() {
       console.log('📍 Geolocalização não suportada pelo navegador');
       setLocationLoading(false);
       
-      toast({
-        title: "Geolocalização Não Suportada",
-        description: "Seu navegador não suporta geolocalização. Atualize o navegador.",
-        variant: "destructive",
-      });
+      // Removido popup de geolocalização não suportada
     }
   };
 
@@ -981,16 +973,9 @@ export default function ProviderDashboard() {
       console.log('🗺️ Centralizando mapa na localização do usuário:', userLocation);
       setMapKey(prev => prev + 1);
       
-      toast({
-        title: "Mapa Centralizado",
-        description: "Mapa centralizado na sua localização atual.",
-      });
+      // Removido popup de mapa centralizado
     } else {
-      toast({
-        title: "Localização Não Disponível",
-        description: "Clique em 'Minha Localização' primeiro para obter sua posição.",
-        variant: "destructive",
-      });
+      // Removido popup de localização não disponível
     }
   };
 
@@ -999,11 +984,7 @@ export default function ProviderDashboard() {
     console.log('🎯 Melhorando precisão da localização...');
     
     if (!geolocationSupported) {
-      toast({
-        title: "Geolocalização Não Suportada",
-        description: "Seu navegador não suporta geolocalização.",
-        variant: "destructive",
-      });
+      // Removido popup de geolocalização não suportada
       return;
     }
 
@@ -1029,10 +1010,7 @@ export default function ProviderDashboard() {
           setMapKey(prev => prev + 1);
           setLocationUpdated(true);
           
-          toast({
-            title: "Localização Precisão Excelente",
-            description: `Precisão: ${Math.round(accuracy)}m | ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-          });
+          // Removido popup de precisão excelente
           
           setLocationLoading(false);
           setTimeout(() => {
@@ -1078,10 +1056,7 @@ export default function ProviderDashboard() {
                         const accuracyLevel = bestPosition.acc <= 20 ? 'Excelente' : 
                                             bestPosition.acc <= 40 ? 'Muito Boa' : 'Aceitável';
                         
-                        toast({
-                          title: `Localização ${accuracyLevel}`,
-                          description: `Precisão: ${Math.round(bestPosition.acc)}m | ${bestPosition.lat.toFixed(6)}, ${bestPosition.lng.toFixed(6)}`,
-                        });
+                        // Removido popup de localização otimizada
                         
                         setLocationLoading(false);
                         setTimeout(() => {
@@ -1100,10 +1075,7 @@ export default function ProviderDashboard() {
                         setMapKey(prev => prev + 1);
                         setLocationUpdated(true);
                         
-                        toast({
-                          title: "Localização Obtida",
-                          description: `Precisão: ${Math.round(bestPosition.acc)}m | ${bestPosition.lat.toFixed(6)}, ${bestPosition.lng.toFixed(6)}`,
-                        });
+                        // Removido popup de localização obtida
                         
                         setLocationLoading(false);
                         setTimeout(() => {
@@ -1125,10 +1097,7 @@ export default function ProviderDashboard() {
                   setMapKey(prev => prev + 1);
                   setLocationUpdated(true);
                   
-                  toast({
-                    title: "Localização Otimizada",
-                    description: `Precisão: ${Math.round(bestPosition.acc)}m | ${bestPosition.lat.toFixed(6)}, ${bestPosition.lng.toFixed(6)}`,
-                  });
+                  // Removido popup de localização otimizada
                   
                   setLocationLoading(false);
                   setTimeout(() => {
@@ -1144,10 +1113,7 @@ export default function ProviderDashboard() {
                 setMapKey(prev => prev + 1);
                 setLocationUpdated(true);
                 
-                toast({
-                  title: "Localização Obtida",
-                  description: `Precisão: ${Math.round(accuracy)}m | ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-                });
+                // Removido popup de localização obtida
                 
                 setLocationLoading(false);
                 setTimeout(() => {
@@ -1163,11 +1129,7 @@ export default function ProviderDashboard() {
         console.error('🎯 Erro na primeira tentativa:', error);
         setLocationLoading(false);
         
-        toast({
-          title: "Erro na Localização",
-          description: "Não foi possível obter uma localização precisa.",
-          variant: "destructive",
-        });
+        // Removido popup de erro na localização
       },
       ultraHighAccuracyOptions
     );
@@ -1176,9 +1138,9 @@ export default function ProviderDashboard() {
   return (
     <ProviderLayout>
       {/* Conteúdo da página original */}
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-32">
-        {/* Header */}
-        <div className="bg-white dark:bg-gray-800 border-b px-3 sm:px-4 py-2 sm:py-3">
+              <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-32">
+          {/* Header */}
+          <div className="bg-white dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-700 rounded-b-lg px-3 sm:px-4 py-2 sm:py-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <div className="flex-shrink-0">
@@ -1230,9 +1192,9 @@ export default function ProviderDashboard() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Switch 
-                        checked={isAvailable} 
-                        onCheckedChange={handleAvailabilityChange}
-                        className="h-6 w-11 sm:h-7 sm:w-12 [&>span]:h-5 [&>span]:w-5 sm:[&>span]:h-6 sm:[&>span]:w-6 flex-shrink-0 data-[state=checked]:bg-emerald-500 data-[state=checked]:hover:bg-emerald-600 data-[state=unchecked]:bg-gray-300 data-[state=unchecked]:hover:bg-gray-400 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg"
+                                                        checked={isAvailable}
+                                onCheckedChange={handleAvailabilityChange}
+                                className="h-6 w-11 sm:h-7 sm:w-12 [&>span]:h-5 [&>span]:w-5 sm:[&>span]:h-6 sm:[&>span]:w-6 flex-shrink-0 data-[state=checked]:bg-blue-500 data-[state=checked]:hover:bg-blue-600 data-[state=unchecked]:bg-gray-400 data-[state=unchecked]:hover:bg-gray-500 transition-all duration-300 ease-in-out shadow-md hover:shadow-lg"
                       />
                     </TooltipTrigger>
                     <TooltipContent>
@@ -1329,6 +1291,12 @@ export default function ProviderDashboard() {
                     <Link href="/provider-profile" className="flex items-center cursor-pointer">
                       <User className="mr-2 h-4 w-4" />
                       Meu Perfil
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/provider-proposals" className="flex items-center cursor-pointer">
+                      <Send className="mr-2 h-4 w-4" />
+                      Propostas
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

@@ -19,6 +19,7 @@ import ProviderRegistration from "@/pages/provider-registration";
 import ProviderOrders from "@/pages/provider-orders";
 
 import ProviderProfile from "@/pages/provider-profile";
+import ProviderProposals from "@/pages/provider-proposals";
 import ServiceOffer from "@/pages/service-offer";
 import Servico from "@/pages/servico";
 import MyRequests from "@/pages/my-requests";
@@ -58,6 +59,7 @@ function Router() {
           <ProviderRegistration onComplete={() => window.location.reload()} />
         </Route>
         <Route path="/provider-orders" component={ProviderOrders} />
+        <Route path="/provider-proposals" component={ProviderProposals} />
         <Route path="/service-offer/:id" component={ServiceOffer} />
         <Route path="/messages/:conversationId" component={MessagesProvider} />
         <Route path="/messages" component={MessagesProvider} />

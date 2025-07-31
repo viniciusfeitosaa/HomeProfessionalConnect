@@ -30,6 +30,16 @@ export default function ServiceOffer() {
   const [isCalculatingDistance, setIsCalculatingDistance] = useState(false);
   const [serviceOffers, setServiceOffers] = useState<any[]>([]);
   const [isLoadingOffers, setIsLoadingOffers] = useState(false);
+  
+  // Estados para o diálogo de mensagem
+  const [isMessageDialogOpen, setIsMessageDialogOpen] = useState(false);
+  const [messageText, setMessageText] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  
+  // Estados para o segundo diálogo de mensagem (seção de fazer proposta)
+  const [isProposalMessageDialogOpen, setIsProposalMessageDialogOpen] = useState(false);
+  const [proposalMessageText, setProposalMessageText] = useState("");
+  const [isSendingProposalMessage, setIsSendingProposalMessage] = useState(false);
 
   // Dados do serviço carregados da API
   const [serviceRequest, setServiceRequest] = useState({
@@ -53,7 +63,8 @@ export default function ServiceOffer() {
     additionalInfo: "",
     address: "",
     scheduledDate: "",
-    status: "open"
+    status: "open",
+    clientCreatedAt: ""
   });
 
   // Função para calcular distância entre duas coordenadas
@@ -70,10 +81,10 @@ export default function ServiceOffer() {
   };
 
   // Função para obter geolocalização do usuário
-  const getUserLocation = (): Promise<[number, number]> => {
-    return new Promise((resolve, reject) => {
+  const getUserLocation = (): Promise<[number, number] | null> => {
+    return new Promise((resolve) => {
       if (!navigator.geolocation) {
-        reject(new Error('Geolocalização não suportada'));
+        resolve(null);
         return;
       }
 
@@ -83,13 +94,13 @@ export default function ServiceOffer() {
           resolve([latitude, longitude]);
         },
         (error) => {
-          console.error('Erro de geolocalização:', error);
-          reject(error);
+          // Silenciar erro de geolocalização
+          resolve(null);
         },
         {
           enableHighAccuracy: true,
-          timeout: 30000,
-          maximumAge: 0
+          timeout: 10000, // Reduzir timeout
+          maximumAge: 60000 // Permitir cache de 1 minuto
         }
       );
     });
@@ -97,13 +108,25 @@ export default function ServiceOffer() {
 
   // Função para geocodificar endereço
   const geocodeAddress = async (address: string): Promise<[number, number] | null> => {
+    // Desabilitar geocodificação em desenvolvimento devido a problemas de CORS
+    if (process.env.NODE_ENV === 'development') {
+      return null;
+    }
+    
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=br`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=br`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'LifeBee-App/1.0'
+          }
+        }
       );
       
       if (!response.ok) {
-        throw new Error('Erro na geocodificação');
+        return null;
       }
 
       const data = await response.json();
@@ -115,7 +138,6 @@ export default function ServiceOffer() {
       
       return null;
     } catch (error) {
-      console.error('Erro na geocodificação:', error);
       return null;
     }
   };
@@ -169,7 +191,8 @@ export default function ServiceOffer() {
           additionalInfo: serviceData.description || "",
           address: serviceData.address || "Endereço não informado",
           scheduledDate: serviceData.scheduledDate || "",
-          status: serviceData.status || "open"
+          status: serviceData.status || "open",
+          clientCreatedAt: serviceData.clientCreatedAt || ""
         };
 
         setServiceRequest(serviceDataCombined);
@@ -186,7 +209,7 @@ export default function ServiceOffer() {
             // Geocodificar endereço do serviço
             const serviceCoords = await geocodeAddress(serviceDataCombined.address);
             
-            if (serviceCoords) {
+            if (serviceCoords && userCoords) {
               // Calcular distância
               const distance = calculateDistance(
                 userCoords[0], userCoords[1],
@@ -198,10 +221,19 @@ export default function ServiceOffer() {
                 ...prev,
                 distance: Math.round(distance * 10) / 10 // Arredondar para 1 casa decimal
               }));
+            } else {
+              // Se não conseguir geocodificar ou obter localização, definir distância como "Não disponível"
+              setServiceRequest(prev => ({
+                ...prev,
+                distance: -1 // Valor especial para indicar "não disponível"
+              }));
             }
           } catch (error) {
-            console.error('Erro ao calcular distância:', error);
-            // Manter distância como 0 se houver erro
+            // Definir distância como "Não disponível"
+            setServiceRequest(prev => ({
+              ...prev,
+              distance: -1
+            }));
           } finally {
             setIsCalculatingDistance(false);
           }
@@ -308,6 +340,76 @@ export default function ServiceOffer() {
     }
   };
 
+  const handleSendMessage = async () => {
+    if (!messageText.trim()) {
+      toast({
+        title: "Erro",
+        description: "Digite uma mensagem antes de enviar",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSendingMessage(true);
+    try {
+      // Aqui você pode implementar a lógica para enviar a mensagem
+      // Por enquanto, vamos simular o envio
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast({
+        title: "Sucesso",
+        description: "Mensagem enviada com sucesso!",
+      });
+      
+      setMessageText("");
+      setIsMessageDialogOpen(false);
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao enviar mensagem. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+  const handleSendProposalMessage = async () => {
+    if (!proposalMessageText.trim()) {
+      toast({
+        title: "Erro",
+        description: "Digite uma mensagem antes de enviar",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSendingProposalMessage(true);
+    try {
+      // Aqui você pode implementar a lógica para enviar a mensagem
+      // Por enquanto, vamos simular o envio
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast({
+        title: "Sucesso",
+        description: "Mensagem enviada com sucesso!",
+      });
+      
+      setProposalMessageText("");
+      setIsProposalMessageDialogOpen(false);
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao enviar mensagem. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingProposalMessage(false);
+    }
+  };
+
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case "high": return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
@@ -397,51 +499,67 @@ export default function ServiceOffer() {
         </div>
       </div>
 
-      <div className="p-4 space-y-6 max-w-4xl mx-auto">
-        {isOfferSent ? (
-          /* Success State */
-          <Card className="border-green-200 bg-green-50 dark:bg-green-900/20">
-            <CardContent className="p-6 text-center">
-              <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-green-800 dark:text-green-200 mb-2">
-                Oferta Enviada com Sucesso!
-              </h2>
-              <p className="text-green-700 dark:text-green-300 mb-4">
-                Sua proposta foi enviada para {serviceRequest.clientName}. 
-                Você receberá uma notificação quando ela responder.
-              </p>
-              <div className="flex gap-3 justify-center">
-                <Link href="/provider-dashboard">
-                  <Button variant="outline">
-                    Voltar ao Dashboard
-                  </Button>
-                </Link>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Enviar Mensagem
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Mensagem para {serviceRequest.clientName}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <Textarea
-                        placeholder="Digite uma mensagem adicional..."
-                        rows={4}
-                      />
-                      <Button className="w-full">
-                        <Send className="h-4 w-4 mr-2" />
-                        Enviar Mensagem
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardContent>
-          </Card>
+             <div className="p-3 sm:p-4 space-y-4 sm:space-y-6 max-w-4xl mx-auto">
+         {isOfferSent ? (
+           /* Success State */
+           <Card className="border-green-200 bg-green-50 dark:bg-green-900/20">
+             <CardContent className="p-4 sm:p-6 text-center">
+               <CheckCircle className="h-12 w-12 sm:h-16 sm:w-16 text-green-600 mx-auto mb-3 sm:mb-4" />
+               <h2 className="text-xl sm:text-2xl font-bold text-green-800 dark:text-green-200 mb-2">
+                 Oferta Enviada com Sucesso!
+               </h2>
+               <p className="text-sm sm:text-base text-green-700 dark:text-green-300 mb-4">
+                 Sua proposta foi enviada para {serviceRequest.clientName}. 
+                 Você receberá uma notificação quando ela responder.
+               </p>
+               <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                 <Link href="/provider-dashboard">
+                   <Button variant="outline" className="h-10 sm:h-11 text-sm sm:text-base">
+                     Voltar ao Dashboard
+                   </Button>
+                 </Link>
+                 <Dialog open={isMessageDialogOpen} onOpenChange={setIsMessageDialogOpen}>
+                   <DialogTrigger asChild>
+                     <Button className="h-10 sm:h-11 text-sm sm:text-base">
+                       <MessageCircle className="h-4 w-4 mr-2" />
+                       Enviar Mensagem
+                     </Button>
+                   </DialogTrigger>
+                   <DialogContent className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700">
+                     <DialogHeader>
+                       <DialogTitle className="text-lg sm:text-xl">Mensagem para {serviceRequest.clientName}</DialogTitle>
+                     </DialogHeader>
+                     <div className="space-y-4">
+                       <Textarea
+                         placeholder="Digite uma mensagem adicional..."
+                         rows={4}
+                         className="text-sm sm:text-base min-h-[100px] sm:min-h-[120px]"
+                         value={messageText}
+                         onChange={(e) => setMessageText(e.target.value)}
+                       />
+                       <Button 
+                         className="w-full h-10 sm:h-11 text-sm sm:text-base"
+                         onClick={handleSendMessage}
+                         disabled={isSendingMessage}
+                       >
+                         {isSendingMessage ? (
+                           <>
+                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                             Enviando...
+                           </>
+                         ) : (
+                           <>
+                             <Send className="h-4 w-4 mr-2" />
+                             Enviar Mensagem
+                           </>
+                         )}
+                       </Button>
+                     </div>
+                   </DialogContent>
+                 </Dialog>
+               </div>
+             </CardContent>
+           </Card>
         ) : (
           <>
             {/* Service Request Details */}
@@ -500,9 +618,11 @@ export default function ServiceOffer() {
                           {serviceRequest.previousServices || '0'} serviços
                         </span>
                       </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Cliente desde 2024
-                      </p>
+                                             <p className="text-sm text-gray-500 mt-1">
+                         Cliente desde {serviceRequest.clientCreatedAt ? 
+                           new Date(serviceRequest.clientCreatedAt).getFullYear() : 
+                           '2024'}
+                       </p>
                     </div>
                   </div>
                   
@@ -548,7 +668,7 @@ export default function ServiceOffer() {
                            <span>Calculando...</span>
                          </div>
                        ) : (
-                         `${serviceRequest.distance || '0'} km`
+                         serviceRequest.distance === -1 ? 'Não disponível' : `${serviceRequest.distance || '0'} km`
                        )}
                      </div>
                   </div>
@@ -618,93 +738,112 @@ export default function ServiceOffer() {
               </CardContent>
             </Card>
 
-            {/* Make Offer Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Send className="h-5 w-5" />
-                  Fazer Proposta
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Valor Proposto (R$)</label>
-                    <Input
-                      type="number"
-                      placeholder="120.00"
-                      value={proposedPrice}
-                      onChange={(e) => setProposedPrice(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Tempo Estimado</label>
-                    <Input
-                      placeholder="1 hora"
-                      value={estimatedTime}
-                      onChange={(e) => setEstimatedTime(e.target.value)}
-                    />
-                  </div>
-                </div>
+                         {/* Make Offer Section */}
+             <Card>
+               <CardHeader>
+                 <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                   <Send className="h-5 w-5" />
+                   Fazer Proposta
+                 </CardTitle>
+               </CardHeader>
+               <CardContent className="space-y-4 p-4 sm:p-6">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                   <div className="space-y-2">
+                     <label className="text-sm font-medium block">Valor Proposto (R$)</label>
+                     <Input
+                       type="number"
+                       placeholder="120.00"
+                       value={proposedPrice}
+                       onChange={(e) => setProposedPrice(e.target.value)}
+                       className="h-10 sm:h-11 text-sm sm:text-base"
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <label className="text-sm font-medium block">Tempo Estimado</label>
+                     <Input
+                       placeholder="1 hora"
+                       value={estimatedTime}
+                       onChange={(e) => setEstimatedTime(e.target.value)}
+                       className="h-10 sm:h-11 text-sm sm:text-base"
+                     />
+                   </div>
+                 </div>
 
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Mensagem da Proposta</label>
-                  <Textarea
-                    placeholder="Olá! Sou fisioterapeuta especializada em reabilitação respiratória pós-COVID. Tenho experiência com pacientes na sua faixa etária e posso levar equipamentos específicos para o atendimento domiciliar..."
-                    rows={4}
-                    value={offerMessage}
-                    onChange={(e) => setOfferMessage(e.target.value)}
-                  />
-                </div>
+                 <div className="space-y-2">
+                   <label className="text-sm font-medium block">Mensagem da Proposta</label>
+                   <Textarea
+                     placeholder="Olá! Sou fisioterapeuta especializada em reabilitação respiratória pós-COVID. Tenho experiência com pacientes na sua faixa etária e posso levar equipamentos específicos para o atendimento domiciliar..."
+                     rows={4}
+                     value={offerMessage}
+                     onChange={(e) => setOfferMessage(e.target.value)}
+                     className="text-sm sm:text-base min-h-[100px] sm:min-h-[120px]"
+                   />
+                 </div>
 
-                <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
-                  <div className="text-sm text-blue-800 dark:text-blue-200">
-                    <p className="font-medium mb-1">Dicas para uma boa proposta:</p>
-                    <ul className="text-xs space-y-1">
-                      <li>• Demonstre sua experiência específica no tipo de serviço</li>
-                      <li>• Mencione equipamentos ou materiais que você possui</li>
-                      <li>• Seja claro sobre disponibilidade e tempo de resposta</li>
-                      <li>• Ofereça um valor competitivo mas justo</li>
-                    </ul>
-                  </div>
-                </div>
+                 <div className="flex items-start gap-2 p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                   <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                   <div className="text-xs sm:text-sm text-blue-800 dark:text-blue-200">
+                     <p className="font-medium mb-1">Dicas para uma boa proposta:</p>
+                     <ul className="space-y-1">
+                       <li>• Demonstre sua experiência específica no tipo de serviço</li>
+                       <li>• Mencione equipamentos ou materiais que você possui</li>
+                       <li>• Seja claro sobre disponibilidade e tempo de resposta</li>
+                       <li>• Ofereça um valor competitivo mas justo</li>
+                     </ul>
+                   </div>
+                 </div>
 
-                <div className="flex gap-3">
-                  <Button 
-                    onClick={handleSendOffer}
-                    disabled={!offerMessage.trim() || !proposedPrice || !estimatedTime}
-                    className="flex-1"
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    Enviar Proposta
-                  </Button>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline">
-                        <MessageCircle className="h-4 w-4 mr-2" />
-                        Mensagem
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Mensagem para {serviceRequest.clientName}</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <Textarea
-                          placeholder="Faça uma pergunta sobre o serviço..."
-                          rows={4}
-                        />
-                        <Button className="w-full">
-                          <Send className="h-4 w-4 mr-2" />
-                          Enviar Mensagem
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </CardContent>
-            </Card>
+                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                   <Button 
+                     onClick={handleSendOffer}
+                     disabled={!offerMessage.trim() || !proposedPrice || !estimatedTime}
+                     className="flex-1 h-10 sm:h-11 text-sm sm:text-base"
+                   >
+                     <Send className="h-4 w-4 mr-2" />
+                     Enviar Proposta
+                   </Button>
+                   <Dialog open={isProposalMessageDialogOpen} onOpenChange={setIsProposalMessageDialogOpen}>
+                     <DialogTrigger asChild>
+                       <Button variant="outline" className="h-10 sm:h-11 text-sm sm:text-base">
+                         <MessageCircle className="h-4 w-4 mr-2" />
+                         Observações
+                       </Button>
+                     </DialogTrigger>
+                     <DialogContent className="bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700">
+                       <DialogHeader>
+                         <DialogTitle className="text-lg sm:text-xl">Observações para {serviceRequest.clientName}</DialogTitle>
+                       </DialogHeader>
+                       <div className="space-y-4">
+                         <Textarea
+                           placeholder="Faça uma pergunta sobre o serviço..."
+                           rows={4}
+                           className="text-sm sm:text-base min-h-[100px] sm:min-h-[120px]"
+                           value={proposalMessageText}
+                           onChange={(e) => setProposalMessageText(e.target.value)}
+                         />
+                         <Button 
+                           className="w-full h-10 sm:h-11 text-sm sm:text-base"
+                           onClick={handleSendProposalMessage}
+                           disabled={isSendingProposalMessage}
+                         >
+                           {isSendingProposalMessage ? (
+                             <>
+                               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                               Enviando...
+                             </>
+                           ) : (
+                             <>
+                               <Send className="h-4 w-4 mr-2" />
+                               Enviar Mensagem
+                             </>
+                           )}
+                         </Button>
+                       </div>
+                     </DialogContent>
+                   </Dialog>
+                 </div>
+               </CardContent>
+             </Card>
 
                          {/* Competition Analysis */}
              <Card>

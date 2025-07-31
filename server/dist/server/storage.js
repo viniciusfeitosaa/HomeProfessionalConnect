@@ -541,6 +541,79 @@ export class DatabaseStorage {
             .where(eq(serviceOffers.serviceRequestId, requestId))
             .orderBy(desc(serviceOffers.createdAt));
     }
+    async getProposalsByProfessional(professionalId) {
+        const results = await db
+            .select({
+            // Service Offer fields
+            id: serviceOffers.id,
+            serviceRequestId: serviceOffers.serviceRequestId,
+            professionalId: serviceOffers.professionalId,
+            proposedPrice: serviceOffers.proposedPrice,
+            estimatedTime: serviceOffers.estimatedTime,
+            message: serviceOffers.message,
+            status: serviceOffers.status,
+            createdAt: serviceOffers.createdAt,
+            updatedAt: serviceOffers.updatedAt,
+            // Service Request fields
+            requestId: serviceRequests.id,
+            clientId: serviceRequests.clientId,
+            serviceType: serviceRequests.serviceType,
+            description: serviceRequests.description,
+            address: serviceRequests.address,
+            budget: serviceRequests.budget,
+            scheduledDate: serviceRequests.scheduledDate,
+            scheduledTime: serviceRequests.scheduledTime,
+            urgency: serviceRequests.urgency,
+            requestStatus: serviceRequests.status,
+            assignedProfessionalId: serviceRequests.assignedProfessionalId,
+            responses: serviceRequests.responses,
+            requestCreatedAt: serviceRequests.createdAt,
+            requestUpdatedAt: serviceRequests.updatedAt,
+            // Client information
+            clientName: users.name,
+            clientEmail: users.email,
+            clientPhone: users.phone,
+            clientProfileImage: users.profileImage,
+            clientCreatedAt: users.createdAt
+        })
+            .from(serviceOffers)
+            .innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id))
+            .innerJoin(users, eq(serviceRequests.clientId, users.id))
+            .where(eq(serviceOffers.professionalId, professionalId))
+            .orderBy(desc(serviceOffers.createdAt));
+        return results.map((result) => ({
+            id: result.id,
+            serviceRequestId: result.serviceRequestId,
+            professionalId: result.professionalId,
+            proposedPrice: result.proposedPrice,
+            estimatedTime: result.estimatedTime,
+            message: result.message,
+            status: result.status,
+            createdAt: result.createdAt,
+            updatedAt: result.updatedAt,
+            serviceRequest: {
+                id: result.serviceRequestId,
+                clientId: result.clientId,
+                serviceType: result.serviceType,
+                description: result.description,
+                address: result.address,
+                budget: result.budget,
+                scheduledDate: result.scheduledDate,
+                scheduledTime: result.scheduledTime,
+                urgency: result.urgency,
+                status: result.requestStatus,
+                assignedProfessionalId: result.assignedProfessionalId,
+                responses: result.responses,
+                createdAt: result.requestCreatedAt,
+                updatedAt: result.requestUpdatedAt,
+                clientName: result.clientName,
+                clientEmail: result.clientEmail,
+                clientPhone: result.clientPhone,
+                clientProfileImage: result.clientProfileImage,
+                clientCreatedAt: result.clientCreatedAt
+            }
+        }));
+    }
     async createServiceOffer(serviceOffer) {
         const [offer] = await db
             .insert(serviceOffers)

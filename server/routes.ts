@@ -609,6 +609,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Professional start conversation with client
+  app.post('/api/conversations', authenticateToken, async (req, res) => {
+    console.log('🚀 POST /api/conversations chamada');
+    console.log('📨 Body recebido:', JSON.stringify(req.body));
+    console.log('👤 Usuário autenticado:', req.user);
+    try {
+      const user = req.user as any;
+      const { clientId, serviceRequestId, initialMessage } = req.body;
+      
+      // Verificar se o usuário é um profissional
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: 'Apenas profissionais podem iniciar conversas' });
+      }
+
+      console.log('clientId recebido:', clientId);
+      console.log('serviceRequestId recebido:', serviceRequestId);
+      
+      // Verificar se o cliente existe
+      const client = await storage.getUser(clientId);
+      console.log('Resultado da busca do cliente:', client);
+
+      if (!client) {
+        return res.status(404).json({ message: 'Cliente não encontrado' });
+      }
+
+      // Verificar se a conversa já existe
+      const existingConversation = await storage.getConversation(clientId, user.id);
+      
+      if (existingConversation) {
+        // Verificar se a conversa foi deletada pelo cliente e restaurar se necessário
+        const isDeletedByClient = await storage.isConversationDeletedByUser(existingConversation.id, clientId);
+        if (isDeletedByClient) {
+          await storage.restoreConversation(existingConversation.id, clientId);
+          console.log(`✅ Conversa ${existingConversation.id} restaurada automaticamente para cliente ${clientId}`);
+        }
+
+        // Verificar se a conversa foi deletada pelo profissional e restaurar se necessário
+        const isDeletedByProfessional = await storage.isConversationDeletedByUser(existingConversation.id, user.id);
+        if (isDeletedByProfessional) {
+          await storage.restoreConversation(existingConversation.id, user.id);
+          console.log(`✅ Conversa ${existingConversation.id} restaurada automaticamente para profissional ${user.id}`);
+        }
+
+        // Se a conversa existe, apenas enviar a mensagem
+        const newMessage = await storage.createMessage({
+          conversationId: existingConversation.id,
+          senderId: user.id,
+          recipientId: clientId,
+          content: initialMessage || 'Olá! Gostaria de conversar sobre o serviço.',
+          type: 'text',
+          isRead: false
+        });
+
+        return res.status(200).json({
+          message: 'Mensagem enviada com sucesso',
+          id: existingConversation.id,
+          conversationId: existingConversation.id,
+          messageData: newMessage
+        });
+      } else {
+        // Criar nova conversa
+        const conversation = await storage.createConversation({
+          clientId: clientId,
+          professionalId: user.id,
+          deletedByClient: false,
+          deletedByProfessional: false
+        });
+
+        // Enviar mensagem inicial
+        const initialMsg = await storage.createMessage({
+          conversationId: conversation.id,
+          senderId: user.id,
+          recipientId: clientId,
+          content: initialMessage || 'Olá! Gostaria de conversar sobre o serviço.',
+          type: 'text',
+          isRead: false
+        });
+
+        return res.status(201).json({
+          message: 'Conversa iniciada com sucesso',
+          id: conversation.id,
+          conversationId: conversation.id,
+          messageData: initialMsg
+        });
+      }
+    } catch (error) {
+      console.error('Professional start conversation error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
   // User profile management
   app.put('/api/user/profile', authenticateToken, async (req, res) => {
     try {
@@ -1729,6 +1820,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Create service offer error:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Buscar todas as propostas de um profissional
+  app.get('/api/professionals/:id/proposals', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const professionalId = parseInt(req.params.id);
+
+      if (isNaN(professionalId)) {
+        return res.status(400).json({ message: "ID do profissional inválido" });
+      }
+
+      // Verificar se o usuário está acessando suas próprias propostas
+      if (user.userType !== 'provider' || user.id !== professionalId) {
+        return res.status(403).json({ message: "Acesso negado às propostas" });
+      }
+
+      // Buscar o profissional
+      const professional = await storage.getProfessionalByUserId(professionalId);
+      if (!professional) {
+        return res.status(404).json({ message: "Profissional não encontrado" });
+      }
+
+      // Buscar todas as propostas do profissional com detalhes dos serviços
+      const proposals = await storage.getProposalsByProfessional(professional.id);
+      res.json(proposals);
+    } catch (error) {
+      console.error('Get professional proposals error:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });
