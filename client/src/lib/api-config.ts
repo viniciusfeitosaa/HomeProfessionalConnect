@@ -4,9 +4,9 @@ export const API_CONFIG = {
   development: {
     baseUrl: 'http://localhost:5000',
   },
-  // For production (Netlify frontend + Replit backend)
+  // For production (Netlify frontend + Render backend)
   production: {
-    baseUrl: import.meta.env.VITE_API_URL || 'https://home-professional-connect-viniciusalves36.replit.app',
+    baseUrl: import.meta.env.VITE_API_URL || 'https://lifebee-backend.onrender.com',
   },
 }
 

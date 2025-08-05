@@ -1863,7 +1863,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('🔐 GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? 'Presente' : 'Ausente');
     console.log('🔐 GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? 'Presente' : 'Ausente');
     console.log('🔐 URL de callback configurada:', process.env.NODE_ENV === 'production' 
-      ? "https://lifebee.netlify.app/api/auth/google/callback"
+      ? "https://lifebee-backend.onrender.com/api/auth/google/callback"
       : "http://localhost:5000/api/auth/google/callback");
     console.log('🔐 ===== FIM DOS LOGS DE INÍCIO =====');
     next();
