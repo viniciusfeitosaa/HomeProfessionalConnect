@@ -16,7 +16,7 @@ console.log('🔧 GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? 'Presente' 
 console.log('🔧 GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? 'Presente' : 'Ausente');
 console.log('🔧 NODE_ENV:', process.env.NODE_ENV);
 console.log('🔧 Callback URL:', process.env.NODE_ENV === 'production' 
-  ? "https://lifebee.netlify.app/api/auth/google/callback"
+  ? "https://lifebee-backend.onrender.com/api/auth/google/callback"
   : "http://localhost:5000/api/auth/google/callback");
 
 // Google OAuth Strategy - Verificar se variáveis estão configuradas
