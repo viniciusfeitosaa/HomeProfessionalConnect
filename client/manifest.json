@@ -1,0 +1,24 @@
+{
+  "name": "LifeBee - Profissionais de Saúde",
+  "short_name": "LifeBee",
+  "description": "Conecte-se com profissionais de saúde qualificados através da LifeBee",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EAB308",
+  "theme_color": "#EAB308",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+} 

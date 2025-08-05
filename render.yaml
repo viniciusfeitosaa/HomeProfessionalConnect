@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: lifebee-backend
+    env: node
+    plan: free
+    buildCommand: npm install --legacy-peer-deps && node build.js
+    startCommand: node start-render.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false 
+

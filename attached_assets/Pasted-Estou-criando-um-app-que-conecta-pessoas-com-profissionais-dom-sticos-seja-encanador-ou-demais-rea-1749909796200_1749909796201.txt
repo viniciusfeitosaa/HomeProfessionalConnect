@@ -1,0 +1,203 @@
+Estou criando um app que conecta pessoas com profissionais domésticos, seja encanador ou demais áreas, te mandei um esquema de como quero esse app e levantei alguns requisitos 
+
+Claro! Vamos analisar a imagem da interface de um aplicativo de contratação de serviços profissionais e identificar:
+
+1. Descrição detalhada da tela
+
+
+2. Requisitos funcionais
+
+
+3. Requisitos não funcionais
+
+
+
+
+---
+
+🖼️ Descrição detalhada da tela
+
+A imagem mostra a tela inicial (provavelmente a "Home") de um aplicativo de contratação de profissionais para serviços residenciais. Veja os elementos:
+
+
+---
+
+🔝 Barra superior
+
+Horário e status do dispositivo (9:41, sinal, Wi-Fi, bateria)
+
+Nome do usuário: "Bem-vindo, Gustavo!"
+
+Ícone de notificações com um badge "2" (avisos ou atualizações pendentes)
+
+
+
+---
+
+🧑‍🔧 Cartão de agendamento
+
+Imagem de um profissional (encanador) sorridente segurando uma chave inglesa
+
+Texto informativo: "Sua visita com Marcos está marcada para amanhã às 19:30"
+
+Botão "Ver detalhes" (ação para exibir informações sobre o serviço agendado)
+
+
+
+---
+
+🔍 Barra de busca
+
+Placeholder: “Busque por serviço ou profissional”
+
+
+
+---
+
+🔘 Filtros por categoria
+
+Categorias visíveis: Encanador (selecionado), Eletricista, Ar-Condicionado, Pintura (parcialmente visível)
+
+
+
+---
+
+📋 Lista de profissionais
+
+Profissional 1
+
+Nome: Pedro Afonso
+
+Serviço: Reparo e Manutenção
+
+Distância: 5.4 km
+
+Status: Disponível agora (em verde)
+
+Avaliação: ⭐ 4.7
+
+Imagem: Pedro segurando ferramenta
+
+
+Profissional 2
+
+Nome: Lucas Abreu
+
+Serviço: Serviços Elétricos
+
+Distância: 6.6 km
+
+Status: Disponível agora (em verde)
+
+Avaliação: ⭐ 4.9
+
+Imagem: Lucas com equipamento
+
+
+
+---
+
+📱 Barra de navegação inferior (provavelmente com ícones de menu)
+
+Início (ícone de casa) — selecionado
+
+Agenda ou Serviços
+
+Mensagens/Chat
+
+Perfil ou Configurações
+
+
+
+---
+
+✅ Requisitos Funcionais (RF)
+
+1. RF001 – Permitir login/autenticação de usuários
+
+
+2. RF002 – Exibir nome do usuário após login
+
+
+3. RF003 – Exibir notificações com contador de novas mensagens/eventos
+
+
+4. RF004 – Exibir agendamentos futuros com detalhes e botão de acesso
+
+
+5. RF005 – Permitir busca por nome do serviço ou do profissional
+
+
+6. RF006 – Filtrar profissionais por categoria de serviço (ex: encanador, eletricista, etc.)
+
+
+7. RF007 – Listar profissionais com:
+
+Nome
+
+Tipo de serviço
+
+Distância
+
+Status de disponibilidade
+
+Avaliação por estrelas
+
+Imagem de perfil
+
+
+
+8. RF008 – Ordenar ou classificar profissionais (por distância, nota, disponibilidade)
+
+
+9. RF009 – Exibir barra de navegação com acesso a outras funcionalidades do app (ex: mensagens, agenda, perfil)
+
+
+10. RF010 – Exibir botão de “Ver detalhes” de agendamentos com ação de redirecionamento
+
+
+11. RF011 – Permitir abrir o perfil completo do profissional (pressupondo ação ao clicar no cartão)
+
+
+
+
+---
+
+⚙️ Requisitos Não Funcionais (RNF)
+
+1. RNF001 – Interface responsiva, adaptada para dispositivos móveis
+
+
+2. RNF002 – Tempo de carregamento rápido (UX fluida)
+
+
+3. RNF003 – Imagens otimizadas para não comprometer o desempenho
+
+
+4. RNF004 – Aplicativo com navegação intuitiva (UX centrada no usuário)
+
+
+5. RNF005 – Compatibilidade com Android e iOS
+
+
+6. RNF006 – Design visual moderno com cores chamativas e botões destacados
+
+
+7. RNF007 – Feedback visual para ações do usuário (ex: clique em botão, carregamento)
+
+
+8. RNF008 – Suporte a acessibilidade (ex: contraste de cores, tamanho da fonte, leitura por voz)
+
+
+9. RNF009 – Segurança de dados do usuário (ex: autenticação segura, criptografia de dados sensíveis)
+
+
+10. RNF010 – Sistema de notificações em tempo real
+
+
+
+
+---
+
+Se você quiser, posso ajudar a transformar isso em um documento técnico (como um PDF, um modelo de requisitos em Word ou um PM Canvas). Deseja isso?
+

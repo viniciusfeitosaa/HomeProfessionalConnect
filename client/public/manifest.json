@@ -1,0 +1,41 @@
+{
+  "name": "LifeBee - Conectando Pessoas com Profissionais de Saúde",
+  "short_name": "LifeBee",
+  "description": "Encontre profissionais de saúde qualificados perto de você. Agendamento fácil, seguro e confiável. Médicos, enfermeiros, fisioterapeutas e cuidadores.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EAB308",
+  "theme_color": "#EAB308",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "pt-BR",
+  "categories": ["health", "medical", "lifestyle"],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/service-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/favicon.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ]
+} 

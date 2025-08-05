@@ -1,0 +1,29 @@
+{
+  "include": ["./**/*", "../shared/**/*"],
+  "exclude": [
+    "../client", 
+    "../node_modules", 
+    "../dist", 
+    "../vite.config.ts",
+    "../tailwind.config.ts",
+    "../postcss.config.js",
+    "../components.json",
+    "**/*.test.ts"
+  ],
+  "compilerOptions": {
+    "outDir": "../server/dist",
+    "rootDir": "../",
+    "module": "ESNext",
+    "target": "ES2022",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "baseUrl": "..",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "paths": {
+      "@shared/*": ["shared/*"]
+    }
+  }
+} 

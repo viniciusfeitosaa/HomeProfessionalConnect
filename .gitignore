@@ -1,0 +1,12 @@
+node_modules
+# dist (removido para incluir server/dist no deploy)
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+
+# Ambiente
+.env
+
+# Uploads
+uploads/
