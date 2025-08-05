@@ -73,6 +73,16 @@ const authLimiter = rateLimit({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Test route to verify server is running
+  app.get('/api/test', (req, res) => {
+    res.json({ 
+      message: 'Server is running!', 
+      timestamp: new Date().toISOString(),
+      env: process.env.NODE_ENV,
+      googleClientId: process.env.GOOGLE_CLIENT_ID ? 'Presente' : 'Ausente'
+    });
+  });
+
   // Serve uploaded files - MUST BE BEFORE OTHER ROUTES
   const uploadsPath = path.resolve(process.cwd(), 'uploads');
   console.log('📁 Configurando middleware para arquivos estáticos em:', uploadsPath);
