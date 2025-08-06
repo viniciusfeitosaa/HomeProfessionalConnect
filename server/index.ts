@@ -32,7 +32,12 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   
   // Allow both Netlify and localhost for development
-  const allowedOrigins = ['https://lifebee.netlify.app', 'http://localhost:5173', 'http://localhost:5174'];
+  const allowedOrigins = [
+    'https://lifebee.netlify.app', 
+    'https://lifebee.com.br',
+    'http://localhost:5173', 
+    'http://localhost:5174'
+  ];
   
   console.log('🌐 CORS - Origin:', origin);
   console.log('🌐 CORS - Method:', req.method);
@@ -42,8 +47,12 @@ app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', origin);
     console.log('🌐 CORS - Origin permitido:', origin);
   } else {
-    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173');
-    console.log('🌐 CORS - Usando origin padrão: http://localhost:5173');
+    // Em produção, usar o Netlify como padrão
+    const defaultOrigin = process.env.NODE_ENV === 'production' 
+      ? 'https://lifebee.netlify.app' 
+      : 'http://localhost:5173';
+    res.setHeader('Access-Control-Allow-Origin', defaultOrigin);
+    console.log('🌐 CORS - Usando origin padrão:', defaultOrigin);
   }
   
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
@@ -106,7 +115,12 @@ app.use((req, res, next) => {
   // Inicializa o Socket.IO junto ao servidor HTTP
   const io = new SocketIOServer(server, {
     cors: {
-      origin: ["http://localhost:5173", "http://localhost:5174", "https://lifebee.netlify.app"],
+      origin: [
+        "http://localhost:5173", 
+        "http://localhost:5174", 
+        "https://lifebee.netlify.app",
+        "https://lifebee.com.br"
+      ],
       credentials: true,
     },
   });
