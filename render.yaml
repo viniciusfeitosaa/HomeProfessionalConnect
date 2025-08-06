@@ -3,8 +3,8 @@ services:
     name: lifebee-backend
     env: node
     plan: free
-    buildCommand: npm install --legacy-peer-deps
-    startCommand: node server/test-server.js
+    buildCommand: npm install --legacy-peer-deps && npm run build:render
+    startCommand: npm run start
     envVars:
       - key: NODE_ENV
         value: production
