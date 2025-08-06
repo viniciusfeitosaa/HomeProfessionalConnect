@@ -79,7 +79,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       message: 'Server is running!', 
       timestamp: new Date().toISOString(),
       env: process.env.NODE_ENV,
-      googleClientId: process.env.GOOGLE_CLIENT_ID ? 'Presente' : 'Ausente'
+      googleClientId: process.env.GOOGLE_CLIENT_ID ? 'Presente' : 'Ausente',
+      googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Presente' : 'Ausente',
+      callbackUrl: process.env.NODE_ENV === 'production'
+        ? "https://lifebee-backend.onrender.com/api/auth/google/callback"
+        : "http://localhost:5000/api/auth/google/callback"
+    });
+  });
+
+  // Test route to check if Google OAuth routes are registered
+  app.get('/api/auth/test', (req, res) => {
+    res.json({
+      message: 'Google OAuth routes are registered',
+      googleAuthUrl: '/api/auth/google',
+      googleCallbackUrl: '/api/auth/google/callback',
+      googleClientId: process.env.GOOGLE_CLIENT_ID ? 'Presente' : 'Ausente',
+      googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Presente' : 'Ausente',
+      nodeEnv: process.env.NODE_ENV || 'development',
+      callbackUrl: process.env.NODE_ENV === 'production'
+        ? "https://lifebee-backend.onrender.com/api/auth/google/callback"
+        : "http://localhost:5000/api/auth/google/callback"
     });
   });
 
