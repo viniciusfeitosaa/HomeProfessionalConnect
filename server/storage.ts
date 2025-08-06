@@ -135,6 +135,18 @@ export interface IStorage {
 
 // Database Storage Implementation
 export class DatabaseStorage implements IStorage {
+  // Método para converter URLs relativas em absolutas
+  private getFullImageUrl(relativeUrl: string): string {
+    if (relativeUrl.startsWith('http')) {
+      return relativeUrl; // Já é uma URL absoluta
+    }
+    
+    const baseUrl = process.env.NODE_ENV === 'production'
+      ? 'https://lifebee-backend.onrender.com'
+      : 'http://localhost:5000';
+    
+    return `${baseUrl}${relativeUrl}`;
+  }
   // Users
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -211,7 +223,7 @@ export class DatabaseStorage implements IStorage {
   // Professionals
   async getAllProfessionals(): Promise<Professional[]> {
     // Retorna explicitamente o campo userId
-    return await db.select({
+    const professionalsData = await db.select({
       id: professionals.id,
       userId: professionals.userId,
       name: professionals.name,
@@ -231,10 +243,16 @@ export class DatabaseStorage implements IStorage {
       imageUrl: professionals.imageUrl,
       createdAt: professionals.createdAt
     }).from(professionals).where(eq(professionals.available, true));
+
+    // Converter URLs relativas para absolutas
+    return professionalsData.map(professional => ({
+      ...professional,
+      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+    }));
   }
 
   async getProfessionalsByCategory(category: string): Promise<Professional[]> {
-    return await db.select({
+    const professionalsData = await db.select({
       id: professionals.id,
       userId: professionals.userId,
       name: professionals.name,
@@ -255,10 +273,16 @@ export class DatabaseStorage implements IStorage {
       createdAt: professionals.createdAt
     }).from(professionals)
       .where(and(eq(professionals.category, category as any), eq(professionals.available, true)));
+
+    // Converter URLs relativas para absolutas
+    return professionalsData.map(professional => ({
+      ...professional,
+      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+    }));
   }
 
   async searchProfessionals(query: string): Promise<Professional[]> {
-    return await db.select({
+    const professionalsData = await db.select({
       id: professionals.id,
       userId: professionals.userId,
       name: professionals.name,
@@ -288,11 +312,23 @@ export class DatabaseStorage implements IStorage {
           )
         )
       );
+
+    // Converter URLs relativas para absolutas
+    return professionalsData.map(professional => ({
+      ...professional,
+      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+    }));
   }
 
   async getProfessional(id: number): Promise<Professional | undefined> {
     const [professional] = await db.select().from(professionals).where(eq(professionals.id, id));
-    return professional || undefined;
+    if (!professional) return undefined;
+    
+    // Converter URL relativa para absoluta
+    return {
+      ...professional,
+      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+    };
   }
 
   async getProfessionalByUserId(userId: number): Promise<Professional | undefined> {
