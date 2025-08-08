@@ -960,6 +960,44 @@ export class DatabaseStorage implements IStorage {
       .where(eq(serviceOffers.id, id));
   }
 
+  // ==================== SERVICE REQUESTS FOR CLIENT ====================
+
+  async getServiceRequestsForClient(userId: number): Promise<any[]> {
+    console.log('🔍 Buscando pedidos para cliente ID:', userId);
+    
+    const results = await db
+      .select({
+        id: serviceRequests.id,
+        title: serviceRequests.serviceType,
+        description: serviceRequests.description,
+        category: serviceRequests.serviceType,
+        budget: serviceRequests.budget,
+        location: serviceRequests.address,
+        urgency: serviceRequests.urgency,
+        status: serviceRequests.status,
+        createdAt: serviceRequests.createdAt,
+        responses: serviceRequests.responses,
+      })
+      .from(serviceRequests)
+      .where(eq(serviceRequests.clientId, userId))
+      .orderBy(desc(serviceRequests.createdAt));
+
+    console.log('✅ Pedidos encontrados:', results.length);
+
+    return results.map((result: any) => ({
+      id: result.id,
+      title: result.title,
+      description: result.description,
+      category: result.category,
+      budget: result.budget,
+      location: result.location,
+      urgency: result.urgency,
+      status: result.status,
+      createdAt: result.createdAt,
+      responseCount: result.responses || 0
+    }));
+  }
+
   // ==================== SERVICE OFFERS FOR CLIENT ====================
 
   async getServiceOffersForClient(userId: number): Promise<any[]> {

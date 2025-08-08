@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Bell, Settings, Search, Home as HomeIcon, MessageCircle, Calendar, User as UserIcon } from "lucide-react";
+import { Bell, Settings, Search, Home as HomeIcon, MessageCircle, Briefcase, User as UserIcon } from "lucide-react";
 import { useLocation } from "wouter";
 import type { Professional, User } from "@shared/schema";
 
@@ -47,8 +47,8 @@ export default function Home() {
       case "Chat":
         setLocation("/messages");
         break;
-      case "Agenda":
-        setLocation("/agenda");
+      case "Serviços":
+        setLocation("/services");
         break;
       case "Perfil":
         setLocation("/profile");
@@ -189,7 +189,7 @@ export default function Home() {
         {[
           { icon: HomeIcon, label: "Home" },
           { icon: MessageCircle, label: "Chat" },
-          { icon: Calendar, label: "Agenda" },
+          { icon: Briefcase, label: "Serviços" },
           { icon: UserIcon, label: "Perfil" }
         ].map((item, index) => (
           <button 

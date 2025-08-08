@@ -23,6 +23,8 @@ import ProviderProposals from "@/pages/provider-proposals";
 import ServiceOffer from "@/pages/service-offer";
 import Servico from "@/pages/servico";
 import MyRequests from "@/pages/my-requests";
+import Services from "@/pages/services";
+import MyServiceRequests from "@/pages/my-service-requests";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 import AgendaProfissional from "@/pages/agenda-profissional";
@@ -87,6 +89,8 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/services" component={Services} />
+      <Route path="/my-service-requests" component={MyServiceRequests} />
       <Route path="/agenda" component={Agenda} />
       <Route path="/messages/:conversationId" component={MessagesClient} />
       <Route path="/messages" component={MessagesClient} />

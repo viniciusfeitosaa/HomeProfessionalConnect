@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Calendar, MessageCircle, User } from "lucide-react";
+import { Home, Briefcase, MessageCircle, User } from "lucide-react";
 
 interface ClientNavbarProps {
   hidePlus?: boolean;
@@ -17,9 +17,9 @@ export default function ClientNavbar({ hidePlus }: ClientNavbarProps) {
       show: true,
     },
     {
-      label: "Agenda",
-      to: "/agenda",
-      icon: <Calendar className="h-6 w-6" />,
+      label: "Serviços",
+      to: "/services",
+      icon: <Briefcase className="h-6 w-6" />,
       show: true,
     },
     {

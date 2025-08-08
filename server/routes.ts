@@ -1992,6 +1992,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //   }
   // });
 
+  // ==================== SERVICE REQUESTS ROUTES ====================
+
+  // Get all service requests for a client
+  app.get('/api/service-requests/client', authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).userId;
+      console.log('🔍 Buscando pedidos para cliente:', userId);
+      
+      const requests = await storage.getServiceRequestsForClient(userId);
+      console.log('✅ Pedidos encontrados:', requests.length);
+      
+      res.json(requests);
+    } catch (error) {
+      console.error('❌ Erro ao buscar pedidos do cliente:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  });
+
   // ==================== SERVICE OFFERS ROUTES ====================
 
   // Get all service offers for a client's requests
