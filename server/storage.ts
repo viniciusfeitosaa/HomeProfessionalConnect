@@ -245,7 +245,7 @@ export class DatabaseStorage implements IStorage {
     }).from(professionals).where(eq(professionals.available, true));
 
     // Converter URLs relativas para absolutas
-    return professionalsData.map(professional => ({
+    return professionalsData.map((professional: any) => ({
       ...professional,
       imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
     }));
@@ -275,7 +275,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(eq(professionals.category, category as any), eq(professionals.available, true)));
 
     // Converter URLs relativas para absolutas
-    return professionalsData.map(professional => ({
+    return professionalsData.map((professional: any) => ({
       ...professional,
       imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
     }));
@@ -314,7 +314,7 @@ export class DatabaseStorage implements IStorage {
       );
 
     // Converter URLs relativas para absolutas
-    return professionalsData.map(professional => ({
+    return professionalsData.map((professional: any) => ({
       ...professional,
       imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
     }));
@@ -958,6 +958,153 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(serviceOffers)
       .where(eq(serviceOffers.id, id));
+  }
+
+  // ==================== SERVICE OFFERS FOR CLIENT ====================
+
+  async getServiceOffersForClient(userId: number): Promise<any[]> {
+    console.log('🔍 Buscando propostas para cliente ID:', userId);
+    
+    const results = await db
+      .select({
+        id: serviceOffers.id,
+        serviceRequestId: serviceOffers.serviceRequestId,
+        professionalId: serviceOffers.professionalId,
+        price: serviceOffers.proposedPrice,
+        estimatedTime: serviceOffers.estimatedTime,
+        message: serviceOffers.message,
+        status: serviceOffers.status,
+        createdAt: serviceOffers.createdAt,
+        serviceTitle: serviceRequests.serviceType,
+        professionalName: professionals.name,
+        professionalRating: professionals.rating,
+        professionalTotalReviews: professionals.totalReviews,
+        professionalProfileImage: professionals.imageUrl,
+      })
+      .from(serviceOffers)
+      .innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id))
+      .innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id))
+      .where(eq(serviceRequests.clientId, userId))
+      .orderBy(desc(serviceOffers.createdAt));
+
+    console.log('✅ Propostas encontradas:', results.length);
+
+    return results.map((result: any) => ({
+      id: result.id,
+      serviceRequestId: result.serviceRequestId,
+      professionalId: result.professionalId,
+      professionalName: result.professionalName,
+      professionalRating: result.professionalRating || 5.0,
+      professionalTotalReviews: result.professionalTotalReviews || 0,
+      professionalProfileImage: result.professionalProfileImage ? this.getFullImageUrl(result.professionalProfileImage) : null,
+      price: result.price,
+      estimatedTime: result.estimatedTime,
+      message: result.message,
+      status: result.status,
+      createdAt: result.createdAt,
+      serviceTitle: result.serviceTitle
+    }));
+  }
+
+  async acceptServiceOffer(offerId: number, userId: number): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('✅ Aceitando proposta:', offerId, 'pelo cliente:', userId);
+      
+      // Verificar se a proposta existe e pertence ao cliente
+      const [offer] = await db
+        .select({
+          id: serviceOffers.id,
+          serviceRequestId: serviceOffers.serviceRequestId,
+          professionalId: serviceOffers.professionalId,
+          status: serviceOffers.status,
+          clientId: serviceRequests.clientId
+        })
+        .from(serviceOffers)
+        .innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id))
+        .where(eq(serviceOffers.id, offerId));
+
+      if (!offer) {
+        return { success: false, error: 'Proposta não encontrada' };
+      }
+
+      if (offer.clientId !== userId) {
+        return { success: false, error: 'Proposta não pertence a este cliente' };
+      }
+
+      if (offer.status !== 'pending') {
+        return { success: false, error: 'Proposta já foi processada' };
+      }
+
+      // Atualizar proposta para aceita
+      await db
+        .update(serviceOffers)
+        .set({ status: 'accepted', updatedAt: new Date() })
+        .where(eq(serviceOffers.id, offerId));
+
+      // Atualizar pedido de serviço para atribuir o profissional
+      await db
+        .update(serviceRequests)
+        .set({ 
+          assignedProfessionalId: offer.professionalId,
+          status: 'in_progress',
+          updatedAt: new Date()
+        })
+        .where(eq(serviceRequests.id, offer.serviceRequestId));
+
+      // Rejeitar outras propostas para este pedido
+      await db
+        .update(serviceOffers)
+        .set({ status: 'rejected', updatedAt: new Date() })
+        .where(and(
+          eq(serviceOffers.serviceRequestId, offer.serviceRequestId),
+          ne(serviceOffers.id, offerId)
+        ));
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Erro ao aceitar proposta:', error);
+      return { success: false, error: 'Erro interno do servidor' };
+    }
+  }
+
+  async rejectServiceOffer(offerId: number, userId: number): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('❌ Rejeitando proposta:', offerId, 'pelo cliente:', userId);
+      
+      // Verificar se a proposta existe e pertence ao cliente
+      const [offer] = await db
+        .select({
+          id: serviceOffers.id,
+          status: serviceOffers.status,
+          clientId: serviceRequests.clientId
+        })
+        .from(serviceOffers)
+        .innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id))
+        .where(eq(serviceOffers.id, offerId));
+
+      if (!offer) {
+        return { success: false, error: 'Proposta não encontrada' };
+      }
+
+      if (offer.clientId !== userId) {
+        return { success: false, error: 'Proposta não pertence a este cliente' };
+      }
+
+      if (offer.status !== 'pending') {
+        return { success: false, error: 'Proposta já foi processada' };
+      }
+
+      // Atualizar proposta para rejeitada
+      await db
+        .update(serviceOffers)
+        .set({ status: 'rejected', updatedAt: new Date() })
+        .where(eq(serviceOffers.id, offerId));
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Erro ao rejeitar proposta:', error);
+      return { success: false, error: 'Erro interno do servidor' };
+    }
   }
 }
 

@@ -12,7 +12,7 @@ if (!process.env.SESSION_SECRET) {
     process.env.SESSION_SECRET = "462850e97a4147e11d70bd6bb8675b39855643173f0d0aa8904be81060f506a7";
 }
 if (!process.env.JWT_SECRET) {
-    process.env.JWT_SECRET = "462850e97a4147e11d70bd6bb8675b39855643173f0d0aa8904be81060f506a7";
+    process.env.JWT_SECRET = "lifebee_jwt_secret_2025_vinicius_alves_secure_token_key_64_chars_long";
 }
 console.log("Current directory:", process.cwd());
 console.log("Env file path:", path.resolve(process.cwd(), '../.env'));

@@ -3,6 +3,16 @@ import { db } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
 // Database Storage Implementation
 export class DatabaseStorage {
+    // Método para converter URLs relativas em absolutas
+    getFullImageUrl(relativeUrl) {
+        if (relativeUrl.startsWith('http')) {
+            return relativeUrl; // Já é uma URL absoluta
+        }
+        const baseUrl = process.env.NODE_ENV === 'production'
+            ? 'https://lifebee-backend.onrender.com'
+            : 'http://localhost:5000';
+        return `${baseUrl}${relativeUrl}`;
+    }
     // Users
     async getUser(id) {
         const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -70,7 +80,7 @@ export class DatabaseStorage {
     // Professionals
     async getAllProfessionals() {
         // Retorna explicitamente o campo userId
-        return await db.select({
+        const professionalsData = await db.select({
             id: professionals.id,
             userId: professionals.userId,
             name: professionals.name,
@@ -90,9 +100,14 @@ export class DatabaseStorage {
             imageUrl: professionals.imageUrl,
             createdAt: professionals.createdAt
         }).from(professionals).where(eq(professionals.available, true));
+        // Converter URLs relativas para absolutas
+        return professionalsData.map((professional) => ({
+            ...professional,
+            imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+        }));
     }
     async getProfessionalsByCategory(category) {
-        return await db.select({
+        const professionalsData = await db.select({
             id: professionals.id,
             userId: professionals.userId,
             name: professionals.name,
@@ -113,9 +128,14 @@ export class DatabaseStorage {
             createdAt: professionals.createdAt
         }).from(professionals)
             .where(and(eq(professionals.category, category), eq(professionals.available, true)));
+        // Converter URLs relativas para absolutas
+        return professionalsData.map((professional) => ({
+            ...professional,
+            imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+        }));
     }
     async searchProfessionals(query) {
-        return await db.select({
+        const professionalsData = await db.select({
             id: professionals.id,
             userId: professionals.userId,
             name: professionals.name,
@@ -136,10 +156,21 @@ export class DatabaseStorage {
             createdAt: professionals.createdAt
         }).from(professionals)
             .where(and(eq(professionals.available, true), or(ilike(professionals.name, `%${query}%`), ilike(professionals.specialization, `%${query}%`), ilike(professionals.description, `%${query}%`))));
+        // Converter URLs relativas para absolutas
+        return professionalsData.map((professional) => ({
+            ...professional,
+            imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+        }));
     }
     async getProfessional(id) {
         const [professional] = await db.select().from(professionals).where(eq(professionals.id, id));
-        return professional || undefined;
+        if (!professional)
+            return undefined;
+        // Converter URL relativa para absoluta
+        return {
+            ...professional,
+            imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+        };
     }
     async getProfessionalByUserId(userId) {
         const [professional] = await db.select().from(professionals).where(eq(professionals.userId, userId));
@@ -637,6 +668,131 @@ export class DatabaseStorage {
         await db
             .delete(serviceOffers)
             .where(eq(serviceOffers.id, id));
+    }
+    // ==================== SERVICE OFFERS FOR CLIENT ====================
+    async getServiceOffersForClient(userId) {
+        console.log('🔍 Buscando propostas para cliente ID:', userId);
+        const results = await db
+            .select({
+            id: serviceOffers.id,
+            serviceRequestId: serviceOffers.serviceRequestId,
+            professionalId: serviceOffers.professionalId,
+            price: serviceOffers.proposedPrice,
+            estimatedTime: serviceOffers.estimatedTime,
+            message: serviceOffers.message,
+            status: serviceOffers.status,
+            createdAt: serviceOffers.createdAt,
+            serviceTitle: serviceRequests.serviceType,
+            professionalName: professionals.name,
+            professionalRating: professionals.rating,
+            professionalTotalReviews: professionals.totalReviews,
+            professionalProfileImage: professionals.imageUrl,
+        })
+            .from(serviceOffers)
+            .innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id))
+            .innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id))
+            .where(eq(serviceRequests.clientId, userId))
+            .orderBy(desc(serviceOffers.createdAt));
+        console.log('✅ Propostas encontradas:', results.length);
+        return results.map((result) => ({
+            id: result.id,
+            serviceRequestId: result.serviceRequestId,
+            professionalId: result.professionalId,
+            professionalName: result.professionalName,
+            professionalRating: result.professionalRating || 5.0,
+            professionalTotalReviews: result.professionalTotalReviews || 0,
+            professionalProfileImage: result.professionalProfileImage ? this.getFullImageUrl(result.professionalProfileImage) : null,
+            price: result.price,
+            estimatedTime: result.estimatedTime,
+            message: result.message,
+            status: result.status,
+            createdAt: result.createdAt,
+            serviceTitle: result.serviceTitle
+        }));
+    }
+    async acceptServiceOffer(offerId, userId) {
+        try {
+            console.log('✅ Aceitando proposta:', offerId, 'pelo cliente:', userId);
+            // Verificar se a proposta existe e pertence ao cliente
+            const [offer] = await db
+                .select({
+                id: serviceOffers.id,
+                serviceRequestId: serviceOffers.serviceRequestId,
+                professionalId: serviceOffers.professionalId,
+                status: serviceOffers.status,
+                clientId: serviceRequests.clientId
+            })
+                .from(serviceOffers)
+                .innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id))
+                .where(eq(serviceOffers.id, offerId));
+            if (!offer) {
+                return { success: false, error: 'Proposta não encontrada' };
+            }
+            if (offer.clientId !== userId) {
+                return { success: false, error: 'Proposta não pertence a este cliente' };
+            }
+            if (offer.status !== 'pending') {
+                return { success: false, error: 'Proposta já foi processada' };
+            }
+            // Atualizar proposta para aceita
+            await db
+                .update(serviceOffers)
+                .set({ status: 'accepted', updatedAt: new Date() })
+                .where(eq(serviceOffers.id, offerId));
+            // Atualizar pedido de serviço para atribuir o profissional
+            await db
+                .update(serviceRequests)
+                .set({
+                assignedProfessionalId: offer.professionalId,
+                status: 'in_progress',
+                updatedAt: new Date()
+            })
+                .where(eq(serviceRequests.id, offer.serviceRequestId));
+            // Rejeitar outras propostas para este pedido
+            await db
+                .update(serviceOffers)
+                .set({ status: 'rejected', updatedAt: new Date() })
+                .where(and(eq(serviceOffers.serviceRequestId, offer.serviceRequestId), ne(serviceOffers.id, offerId)));
+            return { success: true };
+        }
+        catch (error) {
+            console.error('❌ Erro ao aceitar proposta:', error);
+            return { success: false, error: 'Erro interno do servidor' };
+        }
+    }
+    async rejectServiceOffer(offerId, userId) {
+        try {
+            console.log('❌ Rejeitando proposta:', offerId, 'pelo cliente:', userId);
+            // Verificar se a proposta existe e pertence ao cliente
+            const [offer] = await db
+                .select({
+                id: serviceOffers.id,
+                status: serviceOffers.status,
+                clientId: serviceRequests.clientId
+            })
+                .from(serviceOffers)
+                .innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id))
+                .where(eq(serviceOffers.id, offerId));
+            if (!offer) {
+                return { success: false, error: 'Proposta não encontrada' };
+            }
+            if (offer.clientId !== userId) {
+                return { success: false, error: 'Proposta não pertence a este cliente' };
+            }
+            if (offer.status !== 'pending') {
+                return { success: false, error: 'Proposta já foi processada' };
+            }
+            // Atualizar proposta para rejeitada
+            await db
+                .update(serviceOffers)
+                .set({ status: 'rejected', updatedAt: new Date() })
+                .where(eq(serviceOffers.id, offerId));
+            return { success: true };
+        }
+        catch (error) {
+            console.error('❌ Erro ao rejeitar proposta:', error);
+            return { success: false, error: 'Erro interno do servidor' };
+        }
     }
 }
 export const storage = new DatabaseStorage();

@@ -55,6 +55,33 @@ const authLimiter = rateLimit({
     }
 });
 export async function registerRoutes(app) {
+    // Test route to verify server is running
+    app.get('/api/test', (req, res) => {
+        res.json({
+            message: 'Server is running!',
+            timestamp: new Date().toISOString(),
+            env: process.env.NODE_ENV,
+            googleClientId: process.env.GOOGLE_CLIENT_ID ? 'Presente' : 'Ausente',
+            googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Presente' : 'Ausente',
+            callbackUrl: process.env.NODE_ENV === 'production'
+                ? "https://lifebee-backend.onrender.com/api/auth/google/callback"
+                : "http://localhost:5000/api/auth/google/callback"
+        });
+    });
+    // Test route to check if Google OAuth routes are registered
+    app.get('/api/auth/test', (req, res) => {
+        res.json({
+            message: 'Google OAuth routes are registered',
+            googleAuthUrl: '/api/auth/google',
+            googleCallbackUrl: '/api/auth/google/callback',
+            googleClientId: process.env.GOOGLE_CLIENT_ID ? 'Presente' : 'Ausente',
+            googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Presente' : 'Ausente',
+            nodeEnv: process.env.NODE_ENV || 'development',
+            callbackUrl: process.env.NODE_ENV === 'production'
+                ? "https://lifebee-backend.onrender.com/api/auth/google/callback"
+                : "http://localhost:5000/api/auth/google/callback"
+        });
+    });
     // Serve uploaded files - MUST BE BEFORE OTHER ROUTES
     const uploadsPath = path.resolve(process.cwd(), 'uploads');
     console.log('📁 Configurando middleware para arquivos estáticos em:', uploadsPath);
@@ -346,7 +373,7 @@ export async function registerRoutes(app) {
                     }
                     else {
                         // Para o cliente, destaque o profissional
-                        otherUser = await storage.getProfessionalById(conv.professionalId);
+                        otherUser = await storage.getProfessional(conv.professionalId);
                         otherName = otherUser?.name || "Profissional";
                         otherAvatar = otherUser?.imageUrl || "";
                         specialization = otherUser?.specialization || "";
@@ -445,7 +472,7 @@ export async function registerRoutes(app) {
             const { professionalId, message } = req.body;
             console.log('professionalId recebido:', professionalId);
             // Verify if professional exists
-            const professional = await storage.getProfessionalById(professionalId);
+            const professional = await storage.getProfessional(professionalId);
             console.log('Resultado da busca do profissional:', professional);
             if (!professional) {
                 return res.status(404).json({ message: 'Profissional não encontrado' });
@@ -1605,18 +1632,71 @@ export async function registerRoutes(app) {
         }
     });
     // ===== ROTAS DE AUTENTICAÇÃO SOCIAL =====
+    // Rota de teste para verificar configuração OAuth
+    app.get('/api/auth/test', (req, res) => {
+        res.json({
+            googleClientId: process.env.GOOGLE_CLIENT_ID ? 'Presente' : 'Ausente',
+            googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Presente' : 'Ausente',
+            nodeEnv: process.env.NODE_ENV,
+            callbackUrl: process.env.NODE_ENV === 'production'
+                ? "https://lifebee.netlify.app/api/auth/google/callback"
+                : "http://localhost:5000/api/auth/google/callback"
+        });
+    });
+    // Test route
+    app.get('/api/test', (req, res) => {
+        console.log('🧪 Rota de teste acessada');
+        res.json({
+            message: 'Servidor funcionando!',
+            timestamp: new Date().toISOString(),
+            env: process.env.NODE_ENV || 'development'
+        });
+    });
     // Google OAuth routes
-    app.get('/api/auth/google', passport.authenticate('google', {
-        scope: ['profile', 'email']
+    app.get('/api/auth/google', (req, res, next) => {
+        console.log('🔐 ===== INÍCIO DA AUTENTICAÇÃO GOOGLE =====');
+        console.log('🔐 Método:', req.method);
+        console.log('🔐 URL:', req.url);
+        console.log('🔐 Headers:', req.headers);
+        console.log('🔐 User Agent:', req.get('User-Agent'));
+        console.log('🔐 Referer:', req.get('Referer'));
+        console.log('🔐 Origin:', req.get('Origin'));
+        console.log('🔐 GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? 'Presente' : 'Ausente');
+        console.log('🔐 GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? 'Presente' : 'Ausente');
+        console.log('🔐 URL de callback configurada:', process.env.NODE_ENV === 'production'
+            ? "https://lifebee-backend.onrender.com/api/auth/google/callback"
+            : "http://localhost:5000/api/auth/google/callback");
+        console.log('🔐 ===== FIM DOS LOGS DE INÍCIO =====');
+        next();
+    }, passport.authenticate('google', {
+        scope: ['profile', 'email', 'https://www.googleapis.com/auth/user.addresses.read', 'https://www.googleapis.com/auth/user.phonenumbers.read']
     }));
     app.get('/api/auth/google/callback', passport.authenticate('google', {
-        failureRedirect: '/login',
+        failureRedirect: process.env.NODE_ENV === 'production'
+            ? 'https://lifebee.netlify.app/login?error=google_auth_failed'
+            : 'http://localhost:5173/login?error=google_auth_failed',
         session: false
     }), async (req, res) => {
         try {
-            console.log('🔐 Google OAuth callback iniciado');
+            console.log('🔐 ===== GOOGLE OAUTH CALLBACK INICIADO =====');
+            console.log('🔐 Timestamp:', new Date().toISOString());
+            console.log('🔐 Query params:', req.query);
+            console.log('🔐 Headers:', req.headers);
+            console.log('🔐 User object:', req.user);
+            console.log('🔐 User type:', typeof req.user);
+            console.log('🔐 User keys:', req.user ? Object.keys(req.user) : 'null');
+            console.log('🔐 Session:', req.session);
+            console.log('🔐 Cookies:', req.cookies);
+            console.log('🔐 NODE_ENV:', process.env.NODE_ENV);
+            console.log('🔐 ===== FIM DOS LOGS INICIAIS =====');
             const user = req.user;
-            console.log('👤 Usuário recebido:', user ? { id: user.id, email: user.email, userType: user.userType } : 'null');
+            console.log('👤 Usuário recebido:', user ? {
+                id: user.id,
+                email: user.email,
+                userType: user.userType,
+                name: user.name,
+                googleId: user.googleId
+            } : 'null');
             if (!user) {
                 console.log('❌ Usuário não encontrado no callback');
                 return res.redirect('/login?error=google_auth_failed');
@@ -1624,42 +1704,106 @@ export async function registerRoutes(app) {
             // Generate JWT token
             const token = generateToken(user);
             console.log('🎫 Token gerado com sucesso');
+            console.log('🎫 Token length:', token.length);
             // Redirect to frontend with token
             const redirectUrl = process.env.NODE_ENV === 'production'
-                ? `https://your-domain.com/auth-callback?token=${token}&userType=${user.userType}`
+                ? `https://lifebee.netlify.app/auth-callback?token=${token}&userType=${user.userType}`
                 : `http://localhost:5173/auth-callback?token=${token}&userType=${user.userType}`;
+            console.log('🔄 ===== REDIRECIONAMENTO FINAL =====');
             console.log('🔄 Redirecionando para:', redirectUrl);
+            console.log('🔄 URL length:', redirectUrl.length);
+            console.log('🔄 Timestamp:', new Date().toISOString());
+            console.log('🔄 ===== FIM DO CALLBACK =====');
             res.redirect(redirectUrl);
         }
         catch (error) {
-            console.error('❌ Google OAuth callback error:', error);
-            res.redirect('/login?error=google_auth_failed');
+            console.error('❌ ===== ERRO NO GOOGLE OAUTH CALLBACK =====');
+            console.error('❌ Error:', error);
+            console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+            console.error('❌ Timestamp:', new Date().toISOString());
+            console.error('❌ ===== FIM DO ERRO =====');
+            const errorRedirectUrl = process.env.NODE_ENV === 'production'
+                ? 'https://lifebee.netlify.app/login?error=google_auth_failed'
+                : 'http://localhost:5173/login?error=google_auth_failed';
+            res.redirect(errorRedirectUrl);
         }
     });
-    // Apple OAuth routes
-    app.get('/api/auth/apple', passport.authenticate('apple', {
-        scope: ['name', 'email']
-    }));
-    app.get('/api/auth/apple/callback', passport.authenticate('apple', {
-        failureRedirect: '/login',
-        session: false
-    }), async (req, res) => {
+    // Apple OAuth routes (comentado temporariamente para deploy)
+    // app.get('/api/auth/apple', passport.authenticate('apple', {
+    //   scope: ['name', 'email']
+    // }));
+    // app.get('/api/auth/apple/callback', passport.authenticate('apple', { 
+    //   failureRedirect: '/login',
+    //   session: false 
+    // }), async (req, res) => {
+    //   try {
+    //     const user = req.user as any;
+    //     if (!user) {
+    //       return res.redirect('/login?error=apple_auth_failed');
+    //     }
+    //     // Generate JWT token
+    //     const token = generateToken(user);
+    //     // Redirect to frontend with token
+    //     const redirectUrl = process.env.NODE_ENV === 'production'
+    //       ? `https://lifebee.netlify.app/auth-callback?token=${token}&userType=${user.userType}`
+    //       : `http://localhost:5173/auth-callback?token=${token}&userType=${user.userType}`;
+    //     res.redirect(redirectUrl);
+    //   } catch (error) {
+    //     console.error('Apple OAuth callback error:', error);
+    //     res.redirect('/login?error=apple_auth_failed');
+    //   }
+    // });
+    // ==================== SERVICE OFFERS ROUTES ====================
+    // Get all service offers for a client's requests
+    app.get('/api/service-offers/client', authenticateToken, async (req, res) => {
         try {
-            const user = req.user;
-            if (!user) {
-                return res.redirect('/login?error=apple_auth_failed');
-            }
-            // Generate JWT token
-            const token = generateToken(user);
-            // Redirect to frontend with token
-            const redirectUrl = process.env.NODE_ENV === 'production'
-                ? `https://your-domain.com/auth-callback?token=${token}&userType=${user.userType}`
-                : `http://localhost:5173/auth-callback?token=${token}&userType=${user.userType}`;
-            res.redirect(redirectUrl);
+            const userId = req.userId;
+            console.log('🔍 Buscando propostas para cliente:', userId);
+            const offers = await storage.getServiceOffersForClient(userId);
+            console.log('✅ Propostas encontradas:', offers.length);
+            res.json(offers);
         }
         catch (error) {
-            console.error('Apple OAuth callback error:', error);
-            res.redirect('/login?error=apple_auth_failed');
+            console.error('❌ Erro ao buscar propostas do cliente:', error);
+            res.status(500).json({ error: 'Erro interno do servidor' });
+        }
+    });
+    // Accept a service offer
+    app.put('/api/service-offers/:id/accept', authenticateToken, async (req, res) => {
+        try {
+            const offerId = parseInt(req.params.id);
+            const userId = req.userId;
+            console.log('✅ Aceitando proposta:', offerId, 'pelo cliente:', userId);
+            const result = await storage.acceptServiceOffer(offerId, userId);
+            if (result.success) {
+                res.json({ message: 'Proposta aceita com sucesso' });
+            }
+            else {
+                res.status(400).json({ error: result.error || 'Erro ao aceitar proposta' });
+            }
+        }
+        catch (error) {
+            console.error('❌ Erro ao aceitar proposta:', error);
+            res.status(500).json({ error: 'Erro interno do servidor' });
+        }
+    });
+    // Reject a service offer
+    app.put('/api/service-offers/:id/reject', authenticateToken, async (req, res) => {
+        try {
+            const offerId = parseInt(req.params.id);
+            const userId = req.userId;
+            console.log('❌ Rejeitando proposta:', offerId, 'pelo cliente:', userId);
+            const result = await storage.rejectServiceOffer(offerId, userId);
+            if (result.success) {
+                res.json({ message: 'Proposta rejeitada com sucesso' });
+            }
+            else {
+                res.status(400).json({ error: result.error || 'Erro ao rejeitar proposta' });
+            }
+        }
+        catch (error) {
+            console.error('❌ Erro ao rejeitar proposta:', error);
+            res.status(500).json({ error: 'Erro interno do servidor' });
         }
     });
     const httpServer = createServer(app);

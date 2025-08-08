@@ -3,66 +3,151 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { storage } from './storage.js';
+import fetch from 'node-fetch';
 // Google OAuth Strategy
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.NODE_ENV === 'production'
-        ? "https://your-domain.com/api/auth/google/callback"
-        : "http://localhost:5000/api/auth/google/callback"
-}, async (accessToken, refreshToken, profile, done) => {
-    try {
-        console.log('🔐 Google OAuth profile iniciado');
-        console.log('📧 Email:', profile.emails?.[0]?.value);
-        console.log('👤 Nome:', profile.displayName);
-        console.log('🆔 ID:', profile.id);
-        // Check if user exists with Google ID
-        let user = await storage.getUserByGoogleId(profile.id);
-        if (user) {
-            // Update last login
-            await storage.updateUser(user.id, { lastLoginAt: new Date() });
-            return done(null, user);
-        }
-        // Check if user exists with same email
-        if (profile.emails && profile.emails[0]) {
-            user = await storage.getUserByEmail(profile.emails[0].value);
+console.log('🔧 Configurando Google OAuth Strategy...');
+console.log('🔧 GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? 'Presente' : 'Ausente');
+console.log('🔧 GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? 'Presente' : 'Ausente');
+console.log('🔧 NODE_ENV:', process.env.NODE_ENV);
+console.log('🔧 Callback URL:', process.env.NODE_ENV === 'production'
+    ? "https://lifebee-backend.onrender.com/api/auth/google/callback"
+    : "http://localhost:5000/api/auth/google/callback");
+// Google OAuth Strategy - Verificar se variáveis estão configuradas
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    console.log('⚠️ Google OAuth desabilitado - configure GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no Render');
+}
+else {
+    console.log('✅ Google OAuth habilitado - variáveis configuradas');
+    passport.use(new GoogleStrategy({
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: process.env.NODE_ENV === 'production'
+            ? "https://lifebee-backend.onrender.com/api/auth/google/callback"
+            : "http://localhost:5000/api/auth/google/callback"
+    }, async (accessToken, refreshToken, profile, done) => {
+        try {
+            console.log('🔐 Google OAuth profile iniciado');
+            console.log('📧 Email:', profile.emails?.[0]?.value);
+            console.log('👤 Nome:', profile.displayName);
+            console.log('🆔 ID:', profile.id);
+            // Fetch additional profile information from Google People API
+            let additionalProfileData = {
+                phone: null,
+                address: null
+            };
+            try {
+                console.log('🔍 Buscando dados adicionais do perfil via Google People API...');
+                const peopleApiResponse = await fetch(`https://people.googleapis.com/v1/people/me?personFields=phoneNumbers,addresses&access_token=${accessToken}`);
+                if (peopleApiResponse.ok) {
+                    const peopleData = await peopleApiResponse.json();
+                    console.log('📱 Dados do People API:', peopleData);
+                    // Extract phone number
+                    if (peopleData.phoneNumbers && peopleData.phoneNumbers.length > 0) {
+                        additionalProfileData.phone = peopleData.phoneNumbers[0].value;
+                        console.log('📱 Telefone encontrado:', additionalProfileData.phone);
+                    }
+                    // Extract address
+                    if (peopleData.addresses && peopleData.addresses.length > 0) {
+                        const address = peopleData.addresses[0];
+                        const addressParts = [];
+                        if (address.streetAddress)
+                            addressParts.push(address.streetAddress);
+                        if (address.locality)
+                            addressParts.push(address.locality);
+                        if (address.administrativeArea)
+                            addressParts.push(address.administrativeArea);
+                        if (address.postalCode)
+                            addressParts.push(address.postalCode);
+                        if (address.country)
+                            addressParts.push(address.country);
+                        additionalProfileData.address = addressParts.join(', ');
+                        console.log('🏠 Endereço encontrado:', additionalProfileData.address);
+                    }
+                }
+                else {
+                    console.log('⚠️ Não foi possível obter dados adicionais do People API:', peopleApiResponse.status);
+                }
+            }
+            catch (apiError) {
+                console.log('⚠️ Erro ao buscar dados do People API:', apiError);
+            }
+            // Check if user exists with Google ID
+            let user = await storage.getUserByGoogleId(profile.id);
             if (user) {
-                // Link Google account to existing user
-                await storage.updateUser(user.id, {
-                    googleId: profile.id,
-                    lastLoginAt: new Date(),
-                    isVerified: true
-                });
+                // Update user with additional profile data if available
+                const updateData = { lastLoginAt: new Date() };
+                if (additionalProfileData.phone && !user.phone) {
+                    updateData.phone = additionalProfileData.phone;
+                    updateData.phoneVerified = true;
+                }
+                if (additionalProfileData.address && !user.address) {
+                    updateData.address = additionalProfileData.address;
+                }
+                if (profile.photos?.[0]?.value && !user.profileImage) {
+                    updateData.profileImage = profile.photos[0].value;
+                }
+                await storage.updateUser(user.id, updateData);
                 return done(null, user);
             }
+            // Check if user exists with same email
+            if (profile.emails && profile.emails[0]) {
+                user = await storage.getUserByEmail(profile.emails[0].value);
+                if (user) {
+                    // Link Google account to existing user and update profile
+                    const updateData = {
+                        googleId: profile.id,
+                        lastLoginAt: new Date(),
+                        isVerified: true
+                    };
+                    if (additionalProfileData.phone && !user.phone) {
+                        updateData.phone = additionalProfileData.phone;
+                        updateData.phoneVerified = true;
+                    }
+                    if (additionalProfileData.address && !user.address) {
+                        updateData.address = additionalProfileData.address;
+                    }
+                    if (profile.photos?.[0]?.value && !user.profileImage) {
+                        updateData.profileImage = profile.photos[0].value;
+                    }
+                    await storage.updateUser(user.id, updateData);
+                    return done(null, user);
+                }
+            }
+            // Create new user with complete profile data
+            const newUser = await storage.createUser({
+                username: profile.emails?.[0]?.value || `google_${profile.id}`,
+                password: '', // OAuth users don't need password
+                name: profile.displayName || 'Usuário Google',
+                email: profile.emails?.[0]?.value || '',
+                phone: additionalProfileData.phone,
+                phoneVerified: additionalProfileData.phone ? true : false,
+                googleId: profile.id,
+                appleId: null,
+                address: additionalProfileData.address,
+                profileImage: profile.photos?.[0]?.value || null,
+                userType: 'client',
+                isVerified: true,
+                isBlocked: false,
+                lastLoginAt: new Date(),
+                loginAttempts: 0,
+                resetToken: null,
+                resetTokenExpiry: null
+            });
+            console.log('✅ Novo usuário criado com perfil completo:', {
+                name: newUser.name,
+                email: newUser.email,
+                phone: newUser.phone,
+                address: newUser.address,
+                profileImage: newUser.profileImage ? 'Presente' : 'Ausente'
+            });
+            return done(null, newUser);
         }
-        // Create new user
-        const newUser = await storage.createUser({
-            username: profile.emails?.[0]?.value || `google_${profile.id}`,
-            password: '', // OAuth users don't need password
-            name: profile.displayName || 'Usuário Google',
-            email: profile.emails?.[0]?.value || '',
-            phone: null,
-            phoneVerified: false,
-            googleId: profile.id,
-            appleId: null,
-            address: null,
-            profileImage: profile.photos?.[0]?.value || null,
-            userType: 'client',
-            isVerified: true,
-            isBlocked: false,
-            lastLoginAt: new Date(),
-            loginAttempts: 0,
-            resetToken: null,
-            resetTokenExpiry: null
-        });
-        return done(null, newUser);
-    }
-    catch (error) {
-        console.error('❌ Google OAuth error:', error);
-        return done(error, undefined);
-    }
-}));
+        catch (error) {
+            console.error('❌ Erro no Google OAuth:', error);
+            return done(error, undefined);
+        }
+    }));
+}
 // Apple OAuth Strategy (comentado temporariamente até configurar as credenciais)
 // passport.use('apple', new GoogleStrategy({
 //   clientID: process.env.APPLE_CLIENT_ID!,
@@ -136,11 +221,19 @@ passport.deserializeUser(async (id, done) => {
 });
 // JWT helper functions
 export const generateToken = (user) => {
-    return jwt.sign({
+    console.log('🔧 Gerando token para usuário:', {
+        id: user.id,
+        email: user.email,
+        userType: user.userType
+    });
+    console.log('🔧 JWT_SECRET presente:', !!process.env.JWT_SECRET);
+    const token = jwt.sign({
         id: user.id,
         email: user.email,
         userType: user.userType
     }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    console.log('🔧 Token gerado com sucesso, tamanho:', token.length);
+    return token;
 };
 export const verifyToken = (token) => {
     try {

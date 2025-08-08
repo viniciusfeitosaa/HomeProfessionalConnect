@@ -1992,6 +1992,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   //   }
   // });
 
+  // ==================== SERVICE OFFERS ROUTES ====================
+
+  // Get all service offers for a client's requests
+  app.get('/api/service-offers/client', authenticateToken, async (req, res) => {
+    try {
+      const userId = (req as any).userId;
+      console.log('🔍 Buscando propostas para cliente:', userId);
+      
+      const offers = await storage.getServiceOffersForClient(userId);
+      console.log('✅ Propostas encontradas:', offers.length);
+      
+      res.json(offers);
+    } catch (error) {
+      console.error('❌ Erro ao buscar propostas do cliente:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  // Accept a service offer
+  app.put('/api/service-offers/:id/accept', authenticateToken, async (req, res) => {
+    try {
+      const offerId = parseInt(req.params.id);
+      const userId = (req as any).userId;
+      
+      console.log('✅ Aceitando proposta:', offerId, 'pelo cliente:', userId);
+      
+      const result = await storage.acceptServiceOffer(offerId, userId);
+      
+      if (result.success) {
+        res.json({ message: 'Proposta aceita com sucesso' });
+      } else {
+        res.status(400).json({ error: result.error || 'Erro ao aceitar proposta' });
+      }
+    } catch (error) {
+      console.error('❌ Erro ao aceitar proposta:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  });
+
+  // Reject a service offer
+  app.put('/api/service-offers/:id/reject', authenticateToken, async (req, res) => {
+    try {
+      const offerId = parseInt(req.params.id);
+      const userId = (req as any).userId;
+      
+      console.log('❌ Rejeitando proposta:', offerId, 'pelo cliente:', userId);
+      
+      const result = await storage.rejectServiceOffer(offerId, userId);
+      
+      if (result.success) {
+        res.json({ message: 'Proposta rejeitada com sucesso' });
+      } else {
+        res.status(400).json({ error: result.error || 'Erro ao rejeitar proposta' });
+      }
+    } catch (error) {
+      console.error('❌ Erro ao rejeitar proposta:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
