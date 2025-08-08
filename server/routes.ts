@@ -433,7 +433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Campos extras para cliente já estão com valores padrão
             } else {
               // Para o cliente, destaque o profissional
-              otherUser = await storage.getProfessionalById(conv.professionalId);
+              otherUser = await storage.getProfessional(conv.professionalId);
               otherName = otherUser?.name || "Profissional";
               otherAvatar = otherUser?.imageUrl || "";
               specialization = otherUser?.specialization || "";
@@ -540,7 +540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { professionalId, message } = req.body;
       console.log('professionalId recebido:', professionalId);
       // Verify if professional exists
-      const professional = await storage.getProfessionalById(professionalId);
+      const professional = await storage.getProfessional(professionalId);
       console.log('Resultado da busca do profissional:', professional);
 
       if (!professional) {
