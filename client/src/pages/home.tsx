@@ -1,15 +1,17 @@
 
 
 import { useState, useEffect } from "react";
-import { Bell, Search, Calendar, User as UserIcon, Star, MapPin, Phone, MessageSquare, Home as HomeIcon } from "lucide-react";
+import { Bell, Search, Briefcase, User as UserIcon, Star, MapPin, Phone, MessageSquare, Home as HomeIcon } from "lucide-react";
 import { useLocation } from "wouter";
 import { getApiUrl } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { BottomNavigation } from "@/components/bottom-navigation";
 import ClientNavbar from "../components/client-navbar";
 
 export default function Home() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [professionals, setProfessionals] = useState<any[]>([]);
   const [professionalsLoading, setProfessionalsLoading] = useState(true);
@@ -114,8 +116,8 @@ export default function Home() {
       case "Chat":
         setLocation("/messages");
         break;
-      case "Agenda":
-        setLocation("/agenda");
+      case "Serviços":
+        setLocation("/services");
         break;
       case "Perfil":
         setLocation("/profile");
@@ -145,9 +147,12 @@ export default function Home() {
         <div className="flex justify-between items-center p-4">
           <div>
             <p className="text-xs sm:text-sm text-gray-600">Olá,</p>
-            <p className="font-semibold text-base sm:text-lg text-gray-900">Usuário</p>
+            <p className="font-semibold text-base sm:text-lg text-gray-900">{user?.name || "Usuário"}</p>
           </div>
-          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+          <div 
+            className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-yellow-600 transition-colors"
+            onClick={() => setLocation("/profile")}
+          >
             <UserIcon className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
           </div>
         </div>
@@ -175,7 +180,7 @@ export default function Home() {
           {[
             { icon: HomeIcon, label: "Home" },
             { icon: MessageSquare, label: "Chat" },
-            { icon: Calendar, label: "Agenda" },
+            { icon: Briefcase, label: "Serviços" },
             { icon: UserIcon, label: "Perfil" }
           ].map((item, index) => (
             <button 
@@ -202,19 +207,22 @@ export default function Home() {
   return (
     <div className="bg-gradient-to-br from-yellow-50 to-orange-50 min-h-screen">
       {/* Header Simplificado */}
-      <div className="flex justify-between items-center p-3 sm:p-4">
+            <div className="flex justify-between items-center p-3 sm:p-4">
         <div>
           <p className="text-xs sm:text-sm text-gray-600">Olá,</p>
-          <p className="font-semibold text-base sm:text-lg text-gray-900">Usuário</p>
+          <p className="font-semibold text-base sm:text-lg text-gray-900">{user?.name || "Usuário"}</p>
         </div>
         <div className="flex gap-2 sm:gap-3 items-center">
           <div className="relative">
             <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600" />
             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center font-bold">
               3
-              </span>
+            </span>
           </div>
-          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+          <div 
+            className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-yellow-600 transition-colors"
+            onClick={() => setLocation("/profile")}
+          >
             <UserIcon className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
           </div>
         </div>
