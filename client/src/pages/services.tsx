@@ -77,6 +77,13 @@ export default function Services() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [brokenOfferImage, setBrokenOfferImage] = useState<Record<number, boolean>>({});
 
+  // Utilitário: garante número a partir de string/indefinido
+  const toNumber = (value: unknown, fallback = 0): number => {
+    if (typeof value === 'number' && !Number.isNaN(value)) return value;
+    const n = parseFloat(String(value ?? ''));
+    return Number.isNaN(n) ? fallback : n;
+  };
+
   // Log para debug
   console.log('🔍 Services Component - Estado atual:', {
     activeTab,
@@ -167,6 +174,17 @@ export default function Services() {
         console.log('✅ Propostas carregadas:', data);
         let offers = Array.isArray(data) ? data : [];
 
+        // Normalizar campos vindos do endpoint agregador principal
+        if (offers.length > 0) {
+          offers = (offers as any[]).map((o: any) => ({
+            ...o,
+            professionalRating: toNumber(o?.professionalRating, 5.0),
+            professionalTotalReviews: toNumber(o?.professionalTotalReviews, 0),
+            price: typeof o?.price === 'number' ? o.price : (parseFloat(o?.price ?? o?.proposedPrice ?? '0') || 0),
+            estimatedTime: toNumber(o?.estimatedTime, 0),
+          }));
+        }
+
         // Fallback: se não vier nada, buscar por cada solicitação diretamente
         if (offers.length === 0) {
           // Garantir que pedidos estejam carregados antes do fallback
@@ -194,11 +212,11 @@ export default function Services() {
             serviceRequestId: o.serviceRequestId,
             professionalId: o.professionalId,
             professionalName: o.professionalName,
-            professionalRating: Number(o.professionalRating) || 5.0,
-            professionalTotalReviews: Number(o.professionalTotalReviews) || 0,
+            professionalRating: toNumber(o.professionalRating, 5.0),
+            professionalTotalReviews: toNumber(o.professionalTotalReviews, 0),
             professionalProfileImage: o.professionalProfileImage || null,
             price: typeof o.price === 'number' ? o.price : (parseFloat(o.price ?? o.proposedPrice ?? '0') || 0),
-            estimatedTime: o.estimatedTime,
+            estimatedTime: toNumber(o.estimatedTime, 0),
             message: o.message,
             status: o.status,
             createdAt: o.createdAt,
@@ -256,8 +274,11 @@ export default function Services() {
       });
 
       if (response.ok) {
-        await fetchServiceOffers();
+        // Remoção otimista da proposta da lista
+        setServiceOffers(prev => prev.filter(o => o.id !== offerId));
         setRejectingOfferId(null);
+        // Atualizar pedidos e sincronizar lista de propostas do backend
+        await Promise.all([fetchServiceRequests(), fetchServiceOffers()]);
       }
     } catch (error) {
       console.error('Erro ao rejeitar proposta:', error);
@@ -338,7 +359,10 @@ export default function Services() {
       offer.serviceTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
       offer.message.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || offer.status === statusFilter;
+    // Por padrão (all), ocultar propostas rejeitadas da lista
+    const matchesStatus = statusFilter === 'all' 
+      ? offer.status !== 'rejected'
+      : offer.status === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
@@ -444,7 +468,7 @@ export default function Services() {
                 {/* Campo de busca */}
                 <div className="flex-1">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-x-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
                       type="text"
                       placeholder="Buscar por profissional, serviço ou mensagem..."
@@ -526,7 +550,7 @@ export default function Services() {
                     {/* Header com foto e informações do profissional */}
                     <div className="flex items-start gap-3 sm:gap-4 mb-4">
                       <div className="relative flex-shrink-0">
-                        <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center overflow-hidden shadow-md">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-full flex items-center justify-center overflow-hidden shadow-md ring-2 ring-white">
                           {offer.professionalProfileImage && !brokenOfferImage[offer.id] ? (
                             <img
                               src={offer.professionalProfileImage.startsWith('http')
@@ -541,7 +565,9 @@ export default function Services() {
                               onError={() => setBrokenOfferImage((prev) => ({ ...prev, [offer.id]: true }))}
                             />
                           ) : (
-                            <UserIcon className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-white" />
+                            <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+                              <UserIcon className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-white" />
+                            </div>
                           )}
                         </div>
                         <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 bg-green-500 border-2 border-white rounded-full"></div>
@@ -607,7 +633,9 @@ export default function Services() {
                         <div className="mb-4 p-4 rounded-lg border bg-white">
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="text-sm font-semibold text-gray-900">Comparação com orçamento</h4>
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${withinBudget ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${withinBudget 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-sm'}`}>
                               {withinBudget ? 'Dentro do orçamento' : 'Acima do orçamento'}
                             </span>
                           </div>
@@ -652,7 +680,7 @@ export default function Services() {
                           <div className="flex-1 min-w-0">
                             <p className="text-xs text-green-700 mb-1">Preço</p>
                             <p className="text-sm sm:text-base font-semibold text-green-800 truncate">
-                              R$ {offer.price.toFixed(2)}
+                              R$ {toNumber(offer.price, 0).toFixed(2)}
                             </p>
                           </div>
                         </div>
@@ -696,7 +724,7 @@ export default function Services() {
                               <span className="sm:hidden">Rejeitar</span>
                             </button>
                           </AlertDialogTrigger>
-                          <AlertDialogContent>
+                          <AlertDialogContent className="bg-white border border-gray-200">
                             <AlertDialogHeader>
                               <AlertDialogTitle className="flex items-center gap-3">
                                 <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
@@ -704,47 +732,51 @@ export default function Services() {
                                 </div>
                                 Rejeitar Proposta
                               </AlertDialogTitle>
-                              <AlertDialogDescription className="text-left space-y-4">
-                                <p>Tem certeza que deseja rejeitar a proposta de <strong>{offer.professionalName}</strong>?</p>
-                                
-                                {/* Card do profissional no dialog */}
-                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                                  <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center overflow-hidden">
-                                      {offer.professionalProfileImage && !brokenOfferImage[offer.id] ? (
-                                        <img
-                                          src={offer.professionalProfileImage.startsWith('http')
-                                            ? offer.professionalProfileImage
-                                            : `${getApiUrl()}${offer.professionalProfileImage}`
-                                          }
-                                          alt={offer.professionalName}
-                                          className="w-full h-full object-cover"
-                                          loading="lazy"
-                                          decoding="async"
-                                          sizes="2.5rem"
-                                          onError={() => setBrokenOfferImage((prev) => ({ ...prev, [offer.id]: true }))}
-                                        />
-                                      ) : (
-                                        <UserIcon className="h-5 w-5 text-white" />
-                                      )}
-                                    </div>
-                                    <div className="flex-1">
-                                      <p className="font-semibold text-gray-900">{offer.professionalName}</p>
-                                      <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                                        <span className="flex items-center gap-1">
-                                          <DollarSign className="h-4 w-4" />
-                                          R$ {offer.price.toFixed(2)}
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                          <Clock className="h-4 w-4" />
-                                          {offer.estimatedTime} horas
-                                        </span>
+                              <AlertDialogDescription asChild>
+                                <div className="text-left space-y-4">
+                                  <p>Tem certeza que deseja rejeitar a proposta de <strong>{offer.professionalName}</strong>?</p>
+                                  
+                                  {/* Card do profissional no dialog */}
+                                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
+                                    <div className="flex items-center gap-3 mb-3">
+                                      <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center overflow-hidden">
+                                        {offer.professionalProfileImage && !brokenOfferImage[offer.id] ? (
+                                          <img
+                                            src={offer.professionalProfileImage.startsWith('http')
+                                              ? offer.professionalProfileImage
+                                              : `${getApiUrl()}${offer.professionalProfileImage}`
+                                            }
+                                            alt={offer.professionalName}
+                                            className="w-full h-full object-cover"
+                                            loading="lazy"
+                                            decoding="async"
+                                            sizes="2.5rem"
+                                            onError={() => setBrokenOfferImage((prev) => ({ ...prev, [offer.id]: true }))}
+                                          />
+                                        ) : (
+                                          <div className="w-full h-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+                                            <UserIcon className="h-5 w-5 text-white" />
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="flex-1">
+                                        <p className="font-semibold text-gray-900">{offer.professionalName}</p>
+                                        <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                                          <span className="flex items-center gap-1">
+                                            <DollarSign className="h-4 w-4" />
+                                            R$ {toNumber(offer.price, 0).toFixed(2)}
+                                          </span>
+                                          <span className="flex items-center gap-1">
+                                            <Clock className="h-4 w-4" />
+                                            {offer.estimatedTime} horas
+                                          </span>
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
+                                  
+                                  <p className="text-red-600 font-medium">Esta ação não pode ser desfeita e o profissional será notificado.</p>
                                 </div>
-                                
-                                <p className="text-red-600 font-medium">Esta ação não pode ser desfeita e o profissional será notificado.</p>
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>

@@ -335,31 +335,31 @@ export default function Messages({ params }: { params?: { conversationId?: strin
               filteredConversations.map((conversation) => (
                 <div
                   key={conversation.id}
-                  className="p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors flex items-center justify-between"
+                  className="p-3 sm:p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors flex items-center justify-between"
                   onClick={() => handleConversationClick(conversation.id)}
                 >
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="relative">
-                      <Avatar className="w-12 h-12">
+                  <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+                    <div className="relative flex-shrink-0">
+                      <Avatar className="w-10 h-10 sm:w-12 sm:h-12">
                         <AvatarImage src={conversation.professionalAvatar} alt={conversation.professionalName} />
-                        <AvatarFallback className="bg-yellow-500 text-white">
+                        <AvatarFallback className="bg-yellow-500 text-white text-xs sm:text-sm">
                           {conversation.professionalName.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
                       </Avatar>
                       {conversation.isOnline && (
-                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                        <div className="absolute -bottom-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-green-500 border-2 border-white rounded-full"></div>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 overflow-hidden">
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-semibold text-gray-900 truncate">
+                        <h3 className="font-semibold text-gray-900 truncate text-sm sm:text-base">
                           {conversation.professionalName}
                         </h3>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
                           {formatTime(conversation.lastMessageTime)}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-1 sm:gap-2 mb-1 flex-wrap">
                         <Badge variant="secondary" className="text-xs px-2 py-0 bg-yellow-100 text-yellow-800">
                           {conversation.specialization}
                         </Badge>
@@ -372,12 +372,12 @@ export default function Messages({ params }: { params?: { conversationId?: strin
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-600 truncate">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs sm:text-sm text-gray-600 truncate flex-1 min-w-0">
                           {conversation.lastMessage}
                         </p>
                         {conversation.unreadCount > 0 && (
-                          <Badge className="bg-yellow-500 text-white text-xs min-w-[20px] h-5 flex items-center justify-center">
+                          <Badge className="bg-yellow-500 text-white text-xs min-w-[20px] h-5 flex items-center justify-center flex-shrink-0">
                             {conversation.unreadCount}
                           </Badge>
                         )}
@@ -393,11 +393,11 @@ export default function Messages({ params }: { params?: { conversationId?: strin
                     </div>
                   </div>
                   <button
-                    className="ml-2 p-2 rounded-full hover:bg-red-100 text-red-600"
+                    className="ml-1 sm:ml-2 p-1.5 sm:p-2 rounded-full hover:bg-red-100 text-red-600 flex-shrink-0"
                     title="Excluir conversa"
                     onClick={e => { e.stopPropagation(); deleteConversation(conversation.id); }}
                   >
-                    <Trash2 className="h-5 w-5" />
+                    <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
                   </button>
                 </div>
               ))
@@ -465,13 +465,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm">
-                <Phone className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm">
-                <Video className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center gap-2 flex-wrap">
               <Button variant="ghost" size="sm">
                 <Calendar className="h-4 w-4" />
               </Button>

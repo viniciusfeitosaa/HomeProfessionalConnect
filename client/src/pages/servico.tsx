@@ -73,9 +73,7 @@ export default function Servico() {
   }
 
   const categories = [
-    { value: "fisioterapeuta", label: "Fisioterapeuta", icon: "🧑‍⚕️" },
-    { value: "acompanhante_hospitalar", label: "Acompanhante Hospitalar", icon: "🏥" },
-    { value: "tecnico_enfermagem", label: "Técnico em Enfermagem", icon: "🩺" }
+    { value: "acompanhante_hospitalar", label: "Acompanhante Hospitalar", icon: "🏥" }
   ];
 
 
@@ -244,10 +242,10 @@ export default function Servico() {
                     Categoria do Serviço
                   </label>
                   <Select value={category} onValueChange={setCategory} required>
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white">
                       <SelectValue placeholder="Selecione uma categoria" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       {categories.map((cat) => (
                         <SelectItem key={cat.value} value={cat.value}>
                           <span className="flex items-center gap-2">

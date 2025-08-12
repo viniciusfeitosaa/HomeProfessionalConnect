@@ -457,13 +457,7 @@ export default function MessagesProvider({ params }: { params?: { conversationId
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm">
-                <Phone className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm">
-                <Video className="h-4 w-4" />
-              </Button>
+            <div className="flex items-center gap-2 flex-wrap">
               <Button variant="ghost" size="sm">
                 <Calendar className="h-4 w-4" />
               </Button>
