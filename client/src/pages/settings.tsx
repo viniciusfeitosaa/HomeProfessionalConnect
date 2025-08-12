@@ -119,10 +119,7 @@ export default function Settings() {
 
   const handleLogout = () => {
     logout();
-    toast({
-      title: "Desconectado",
-      description: "Você foi desconectado com sucesso.",
-    });
+    window.location.href = "/login";
   };
 
   const handleDeleteAccount = async () => {

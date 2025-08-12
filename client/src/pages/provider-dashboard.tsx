@@ -163,7 +163,7 @@ export default function ProviderDashboard() {
 
   const handleLogout = () => {
     logout();
-    window.location.href = '/';
+    window.location.href = '/login';
   };
 
   const handleAvailabilityChange = async (available: boolean) => {

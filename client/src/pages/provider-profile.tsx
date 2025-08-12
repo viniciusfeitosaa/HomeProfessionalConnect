@@ -317,11 +317,7 @@ export default function ProviderProfile() {
 
   const handleLogout = () => {
     logout();
-    setLocation("/login");
-    toast({
-      title: "Logout realizado",
-      description: "Você foi desconectado com sucesso.",
-    });
+    window.location.href = "/login";
   };
 
   const getCategoryName = (category: string) => {

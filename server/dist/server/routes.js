@@ -1753,6 +1753,21 @@ export async function registerRoutes(app) {
     //     res.redirect('/login?error=apple_auth_failed');
     //   }
     // });
+    // ==================== SERVICE REQUESTS ROUTES ====================
+    // Get all service requests for a client
+    app.get('/api/service-requests/client', authenticateToken, async (req, res) => {
+        try {
+            const userId = req.userId;
+            console.log('🔍 Buscando pedidos para cliente:', userId);
+            const requests = await storage.getServiceRequestsForClient(userId);
+            console.log('✅ Pedidos encontrados:', requests.length);
+            res.json(requests);
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar pedidos do cliente:', error);
+            res.status(500).json({ error: 'Erro interno do servidor' });
+        }
+    });
     // ==================== SERVICE OFFERS ROUTES ====================
     // Get all service offers for a client's requests
     app.get('/api/service-offers/client', authenticateToken, async (req, res) => {

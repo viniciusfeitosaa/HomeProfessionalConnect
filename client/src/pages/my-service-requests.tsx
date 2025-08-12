@@ -192,7 +192,7 @@ export default function MyServiceRequests() {
               <div>
                 <p className="text-sm text-gray-600">Propostas Recebidas</p>
                 <p className="text-xl font-bold text-gray-900">
-                  {serviceRequests.reduce((acc, req) => acc + req.responseCount, 0)}
+                  {serviceRequests.reduce((acc, req) => acc + (Number((req as any).responseCount) || 0), 0)}
                 </p>
               </div>
             </div>
@@ -282,7 +282,12 @@ export default function MyServiceRequests() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-green-700 font-medium mb-1">Orçamento Máximo</p>
-                        <p className="text-sm font-semibold text-green-800">R$ {request.budget.toFixed(2)}</p>
+                         <p className="text-sm font-semibold text-green-800">
+                           R$ {(() => {
+                             const n = typeof request.budget === 'number' ? request.budget : parseFloat((request.budget as any) ?? '0');
+                             return isNaN(n) ? '0,00' : n.toFixed(2);
+                           })()}
+                         </p>
                       </div>
                     </div>
                   </div>
