@@ -106,61 +106,94 @@ export default function ProviderDashboard() {
     const n = saved ? parseFloat(saved) : 5000;
     return Number.isFinite(n) && n > 0 ? n : 5000;
   });
+  // Dados para relatório (CPF/CNPJ e período)
+  const [taxpayerId, setTaxpayerId] = useState<string>(() => localStorage.getItem('lb_report_taxpayer_id') || '');
+  const [periodStart, setPeriodStart] = useState<string>(() => {
+    const saved = localStorage.getItem('lb_report_start');
+    if (saved) return saved;
+    const d = new Date();
+    const start = new Date(d.getFullYear(), d.getMonth(), 1);
+    return start.toISOString().slice(0, 10);
+  });
+  const [periodEnd, setPeriodEnd] = useState<string>(() => {
+    const saved = localStorage.getItem('lb_report_end');
+    if (saved) return saved;
+    const d = new Date();
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    return end.toISOString().slice(0, 10);
+  });
   
-  // Gerar relatório mensal em PDF (jsPDF + autoTable)
+  // Gerar relatório em PDF (sóbrio, com período/CPF/CNPJ)
   const handleGenerateMonthlyReport = () => {
     try {
-      const now = new Date();
-      const month = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-
       const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-      const marginX = 40;
-      let cursorY = 40;
+      const marginX = 48;
+      let cursorY = 56;
 
+      doc.setTextColor(33, 33, 33);
+      doc.setFont(undefined, 'bold');
       doc.setFontSize(16);
-      doc.text(`Relatório de Ganhos - ${month}`, marginX, cursorY);
-      cursorY += 18;
-      doc.setFontSize(11);
-      doc.text(`Profissional: ${user?.name || 'Profissional'}`, marginX, cursorY);
+      doc.text('Relatório de Ganhos', marginX, cursorY);
+      cursorY += 8;
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(90, 90, 90);
+      doc.text(`Período: ${new Date(periodStart).toLocaleDateString('pt-BR')} a ${new Date(periodEnd).toLocaleDateString('pt-BR')}`, marginX, cursorY);
       cursorY += 14;
-      doc.text(`Serviços concluídos no mês: ${monthlyCompletedServices}`, marginX, cursorY);
-      cursorY += 14;
-      doc.text(`Receita do mês: R$ ${monthlyCompletedEarnings.toLocaleString('pt-BR')}`, marginX, cursorY);
-      cursorY += 14;
-      doc.text(`Meta de receita: R$ ${monthlyGoalRevenue.toLocaleString('pt-BR')}`, marginX, cursorY);
-      cursorY += 10;
 
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      const rows = providerAppointments
+      doc.setDrawColor(180, 180, 180);
+      doc.line(marginX, cursorY, 595 - marginX, cursorY);
+      cursorY += 16;
+
+      doc.setFontSize(11);
+      doc.setTextColor(33, 33, 33);
+      doc.text(`Profissional: ${user?.name || 'Profissional'}`, marginX, cursorY); cursorY += 14;
+      if (taxpayerId) { doc.text(`CPF/CNPJ: ${taxpayerId}`, marginX, cursorY); cursorY += 14; }
+      doc.text(`Meta de receita: R$ ${monthlyGoalRevenue.toLocaleString('pt-BR')}`, marginX, cursorY); cursorY += 14;
+
+      const start = new Date(periodStart);
+      const end = new Date(periodEnd);
+      const completedRows = providerAppointments
         .filter((a: any) => {
           const d = a.scheduledFor ? new Date(a.scheduledFor) : (a.createdAt ? new Date(a.createdAt) : null);
           return d && d >= start && d <= end && (a.status || '') === 'completed';
         })
-        .sort((a: any, b: any) => new Date(a.scheduledFor || a.createdAt).getTime() - new Date(b.scheduledFor || b.createdAt).getTime())
-        .map((a: any) => {
-          const price = typeof a.totalCost === 'string' ? parseFloat(a.totalCost) : Number(a.totalCost || 0);
-          const dateStr = new Date(a.scheduledFor || a.createdAt).toLocaleDateString('pt-BR');
-          const serviceStr = a.serviceType || 'Serviço';
-          return [dateStr, serviceStr, `R$ ${Number(price).toLocaleString('pt-BR')}`];
-        });
+        .sort((a: any, b: any) => new Date(a.scheduledFor || a.createdAt).getTime() - new Date(b.scheduledFor || b.createdAt).getTime());
 
-      // @ts-ignore - autotable tipagem
+      const summaryServices = completedRows.length;
+      const summaryRevenue = completedRows.reduce((sum: number, a: any) => {
+        const v = typeof a.totalCost === 'string' ? parseFloat(a.totalCost) : Number(a.totalCost || 0);
+        return sum + (Number.isFinite(v) ? v : 0);
+      }, 0);
+
+      doc.text(`Serviços concluídos no período: ${summaryServices}`, marginX, cursorY); cursorY += 14;
+      doc.text(`Receita no período: R$ ${summaryRevenue.toLocaleString('pt-BR')}`, marginX, cursorY); cursorY += 10;
+
+      const rows = completedRows.map((a: any) => {
+        const price = typeof a.totalCost === 'string' ? parseFloat(a.totalCost) : Number(a.totalCost || 0);
+        const dateStr = new Date(a.scheduledFor || a.createdAt).toLocaleDateString('pt-BR');
+        const serviceStr = a.serviceType || 'Serviço';
+        return [dateStr, serviceStr, `R$ ${Number(price).toLocaleString('pt-BR')}`];
+      });
+
+      // @ts-ignore
       autoTable(doc, {
         head: [["Data", "Serviço", "Valor (R$)"]],
         body: rows,
         startY: cursorY + 10,
-        styles: { fontSize: 10 },
-        headStyles: { fillColor: [249, 115, 22] }, // laranja
+        styles: { fontSize: 10, textColor: [33,33,33], lineColor: [200,200,200], lineWidth: 0.5 },
+        headStyles: { fillColor: [240,240,240], textColor: [33,33,33], lineColor: [200,200,200] },
         columnStyles: { 2: { halign: 'right' } },
         margin: { left: marginX, right: marginX },
       });
 
       const footerY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 24 : cursorY + 60;
       doc.setFontSize(9);
-      doc.text('Documento gerado automaticamente pelo LifeBee para apoio à declaração de IR.', marginX, footerY);
+      doc.setTextColor(120, 120, 120);
+      doc.text('Documento gerado automaticamente pelo LifeBee.', marginX, footerY);
 
-      doc.save(`Relatorio-Ganhos-${month}.pdf`);
+      const periodName = `${new Date(periodStart).toLocaleDateString('pt-BR')}__${new Date(periodEnd).toLocaleDateString('pt-BR')}`.replace(/[\\/]/g, '-');
+      doc.save(`Relatorio-Ganhos-${periodName}.pdf`);
     } catch (e) {
       alert('Não foi possível gerar o relatório agora. Tente novamente.');
     }
@@ -179,6 +212,15 @@ export default function ProviderDashboard() {
       localStorage.setItem('lb_monthly_goal_revenue', String(monthlyGoalRevenue));
     } catch {}
   }, [monthlyGoalMode, monthlyGoalServices, monthlyGoalRevenue]);
+
+  // Persistir dados do relatório
+  useEffect(() => {
+    try {
+      localStorage.setItem('lb_report_taxpayer_id', taxpayerId);
+      if (periodStart) localStorage.setItem('lb_report_start', periodStart);
+      if (periodEnd) localStorage.setItem('lb_report_end', periodEnd);
+    } catch {}
+  }, [taxpayerId, periodStart, periodEnd]);
 
   // Buscar agendamentos do profissional e calcular métricas do mês
   useEffect(() => {
@@ -2040,13 +2082,35 @@ export default function ProviderDashboard() {
                   <CardContent>
                     <div className="space-y-4">
                       {/* Seletor de modo de meta */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <button onClick={() => setMonthlyGoalMode('services')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${monthlyGoalMode === 'services' ? 'bg-yellow-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>Meta por Serviços</button>
                         <button onClick={() => setMonthlyGoalMode('revenue')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${monthlyGoalMode === 'revenue' ? 'bg-yellow-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>Meta por Receita</button>
                         <button onClick={handleGenerateMonthlyReport} className="ml-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium bg-white dark:bg-gray-900 border hover:bg-gray-50 dark:hover:bg-gray-800">
                           <FileText className="h-4 w-4" />
                           Gerar Relatório (PDF)
                         </button>
+                        <div className="flex items-center gap-2 ml-auto w-full sm:w-auto sm:flex-nowrap flex-wrap">
+                          <input
+                            type="text"
+                            placeholder="CPF/CNPJ"
+                            value={taxpayerId}
+                            onChange={(e) => setTaxpayerId(e.target.value)}
+                            className="px-3 py-1.5 rounded-md border bg-white dark:bg-gray-900 text-sm w-full sm:w-36"
+                          />
+                          <input
+                            type="date"
+                            value={periodStart}
+                            onChange={(e) => setPeriodStart(e.target.value)}
+                            className="px-3 py-1.5 rounded-md border bg-white dark:bg-gray-900 text-sm w-[140px]"
+                          />
+                          <span className="text-sm text-gray-500">a</span>
+                          <input
+                            type="date"
+                            value={periodEnd}
+                            onChange={(e) => setPeriodEnd(e.target.value)}
+                            className="px-3 py-1.5 rounded-md border bg-white dark:bg-gray-900 text-sm w-[140px]"
+                          />
+                        </div>
                       </div>
 
                       {/* Inputs de meta */}

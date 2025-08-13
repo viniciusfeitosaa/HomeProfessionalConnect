@@ -21,7 +21,7 @@ export async function apiRequest(
   }
 
   // Get API base URL from environment or use localhost for development
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://lifebee-backend.onrender.com';
   const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
 
   const res = await fetch(fullUrl, {
@@ -50,7 +50,7 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://lifebee-backend.onrender.com';
       const url = queryKey[0] as string;
       const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
       

@@ -143,7 +143,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 8080;
 app.listen(port, '0.0.0.0', () => {
   console.log(`🚀 Servidor rodando na porta ${port}`);
   console.log(`🌐 URL: https://lifebee-backend.onrender.com`);

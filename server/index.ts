@@ -149,10 +149,8 @@ app.use((req, res, next) => {
     console.error(err);
   });
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = process.env.PORT || 5000;
+  // Servir no PORT fornecido pelo Render/ambiente (sem fixar 5000)
+  const port = process.env.PORT || 8080;
   server.listen({
     port: Number(port),
     host: "0.0.0.0",

@@ -153,7 +153,7 @@ export default function Login({ onLogin }: LoginProps) {
     
     try {
       // Usar a URL completa do backend
-      const backendUrl = import.meta.env.DEV ? 'http://localhost:5000' : 'https://lifebee-backend.onrender.com';
+      const backendUrl = import.meta.env.VITE_API_URL || 'https://lifebee-backend.onrender.com';
       const authUrl = `${backendUrl}/api/auth/${provider}`;
       console.log('🔐 URL de autenticação:', authUrl);
       console.log('🔐 Redirecionando diretamente...');
