@@ -67,6 +67,7 @@ interface UserData {
   phone: string;
   userType: string;
   isVerified: boolean;
+  taxpayerId?: string;
 }
 
 export default function ProviderProfile() {
@@ -88,6 +89,7 @@ export default function ProviderProfile() {
     name: "",
     email: "",
     phone: "",
+    taxpayerId: "",
     specialization: "",
     category: "",
     subCategory: "",
@@ -133,6 +135,7 @@ export default function ProviderProfile() {
           name: professional.name || "",
           email: professional.email || "",
           phone: professional.phone || "",
+          taxpayerId: userData?.taxpayerId || localStorage.getItem('lb_report_taxpayer_id') || "",
           specialization: professional.specialization || "",
           category: professional.category || "",
           subCategory: professional.subCategory || "",
@@ -517,6 +520,18 @@ export default function ProviderProfile() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div>
+                    <Label>CPF/CNPJ</Label>
+                    {editing ? (
+                      <Input
+                        placeholder="CPF/CNPJ"
+                        value={formData.taxpayerId}
+                        onChange={(e) => setFormData(prev => ({ ...prev, taxpayerId: e.target.value }))}
+                      />
+                    ) : (
+                      <p className="font-medium">{formData.taxpayerId || "Não informado"}</p>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label>Categoria</Label>

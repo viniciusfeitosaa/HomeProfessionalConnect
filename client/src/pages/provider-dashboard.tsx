@@ -2091,13 +2091,6 @@ export default function ProviderDashboard() {
                         </button>
                         <div className="flex items-center gap-2 ml-auto w-full sm:w-auto sm:flex-nowrap flex-wrap">
                           <input
-                            type="text"
-                            placeholder="CPF/CNPJ"
-                            value={taxpayerId}
-                            onChange={(e) => setTaxpayerId(e.target.value)}
-                            className="px-3 py-1.5 rounded-md border bg-white dark:bg-gray-900 text-sm w-full sm:w-36"
-                          />
-                          <input
                             type="date"
                             value={periodStart}
                             onChange={(e) => setPeriodStart(e.target.value)}

@@ -47,7 +47,7 @@ export function BottomNavigation() {
           </Link>
 
           {/* Botão central para criar serviço */}
-          <div className="absolute left-1/2 transform -translate-x-1/2 -top-8">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
             <Link href="/servico">
               <Button
                 variant="default"
