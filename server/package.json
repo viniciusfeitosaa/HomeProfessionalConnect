@@ -7,7 +7,7 @@
     "build": "tsc",
     "build:render": "tsc --project tsconfig.render.json",
     "start": "node dist/index.js",
-    "dev": "tsx index.ts",
+    "dev": "set PORT=8080&& tsx index.ts",
     "render-start": "node dist/index.js"
   },
   "devDependencies": {

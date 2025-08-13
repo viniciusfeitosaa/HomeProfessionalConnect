@@ -1448,7 +1448,7 @@ export default function ProviderDashboard() {
               <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-32">
           {/* Header */}
           <div className="bg-white dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-700 rounded-b-lg px-3 sm:px-4 py-2 sm:py-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
+			<div className="flex flex-row items-center justify-between gap-2">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               <div className="flex-shrink-0">
                 {user?.profileImage && !imageError ? (
@@ -1483,7 +1483,7 @@ export default function ProviderDashboard() {
               </div>
               <div className="min-w-0 flex-1 overflow-hidden">
                 <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white truncate">Painel do Profissional</h1>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">Bem-vindo de volta, {user?.name || 'Profissional'}!</p>
+				<p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">Bem-vindo, {user?.name || 'Profissional'}!</p>
               </div>
             </div>
             

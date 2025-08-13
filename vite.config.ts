@@ -1,9 +1,13 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const target = env.VITE_API_URL || 'https://lifebee-backend.onrender.com';
+  const isHttps = target.startsWith('https');
+  return {
   plugins: [
     react(),
     runtimeErrorOverlay(),
@@ -37,11 +41,12 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: process.env.VITE_API_URL || 'https://lifebee-backend.onrender.com',
+        target,
         changeOrigin: true,
-        secure: true,
+        secure: isHttps,
         ws: true,
       }
     }
   },
+};
 });
