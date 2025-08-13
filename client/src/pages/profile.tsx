@@ -202,7 +202,7 @@ export default function Profile() {
 
   const handleLogout = () => {
     logout();
-    setLocation("/login");
+    window.location.href = "/";
     toast({
       title: "Logout realizado",
       description: "Você foi desconectado com sucesso.",

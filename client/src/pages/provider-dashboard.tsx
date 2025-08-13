@@ -11,7 +11,7 @@ import {
   BarChart3, PieChart, Target, Award, Bell, Settings,
   ChevronDown, User, Shield, HelpCircle, LogOut, Moon, Sun,
   X, CheckCircle, AlertCircle, Info, Heart, RefreshCw, Phone, Mail,
-  MessageSquare, Send
+  MessageSquare, Send, FileText
 } from "lucide-react";
 
 import { Link } from "wouter";
@@ -37,7 +37,7 @@ import {
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/useAuth";
 import { ProviderLayout } from "@/components/ProviderLayout";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getApiUrl } from "@/lib/api-config";
@@ -48,6 +48,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
+// Bibliotecas para geração de PDF
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import jsPDF from "jspdf";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import autoTable from "jspdf-autotable";
 
 // Componente para controlar o mapa e centralizar na localização do usuário
 function MapController({ userLocation }: { userLocation: [number, number] }) {
@@ -81,6 +89,138 @@ export default function ProviderDashboard() {
   const [mapKey, setMapKey] = useState(0); // Para forçar re-render do mapa
   const [locationUpdated, setLocationUpdated] = useState(false); // Para indicar se a localização foi atualizada
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null); // Precisão da localização
+  const [providerAppointments, setProviderAppointments] = useState<any[]>([]);
+  const [monthlyCompletedServices, setMonthlyCompletedServices] = useState<number>(0);
+  const [monthlyCompletedEarnings, setMonthlyCompletedEarnings] = useState<number>(0);
+  const [monthlyGoalMode, setMonthlyGoalMode] = useState<'services' | 'revenue'>(() => {
+    const saved = localStorage.getItem('lb_monthly_goal_mode');
+    return (saved === 'revenue' || saved === 'services') ? saved : 'services';
+  });
+  const [monthlyGoalServices, setMonthlyGoalServices] = useState<number>(() => {
+    const saved = localStorage.getItem('lb_monthly_goal_services');
+    const n = saved ? parseInt(saved) : 20;
+    return Number.isFinite(n) && n > 0 ? n : 20;
+  });
+  const [monthlyGoalRevenue, setMonthlyGoalRevenue] = useState<number>(() => {
+    const saved = localStorage.getItem('lb_monthly_goal_revenue');
+    const n = saved ? parseFloat(saved) : 5000;
+    return Number.isFinite(n) && n > 0 ? n : 5000;
+  });
+  
+  // Gerar relatório mensal em PDF (jsPDF + autoTable)
+  const handleGenerateMonthlyReport = () => {
+    try {
+      const now = new Date();
+      const month = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      const marginX = 40;
+      let cursorY = 40;
+
+      doc.setFontSize(16);
+      doc.text(`Relatório de Ganhos - ${month}`, marginX, cursorY);
+      cursorY += 18;
+      doc.setFontSize(11);
+      doc.text(`Profissional: ${user?.name || 'Profissional'}`, marginX, cursorY);
+      cursorY += 14;
+      doc.text(`Serviços concluídos no mês: ${monthlyCompletedServices}`, marginX, cursorY);
+      cursorY += 14;
+      doc.text(`Receita do mês: R$ ${monthlyCompletedEarnings.toLocaleString('pt-BR')}`, marginX, cursorY);
+      cursorY += 14;
+      doc.text(`Meta de receita: R$ ${monthlyGoalRevenue.toLocaleString('pt-BR')}`, marginX, cursorY);
+      cursorY += 10;
+
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      const rows = providerAppointments
+        .filter((a: any) => {
+          const d = a.scheduledFor ? new Date(a.scheduledFor) : (a.createdAt ? new Date(a.createdAt) : null);
+          return d && d >= start && d <= end && (a.status || '') === 'completed';
+        })
+        .sort((a: any, b: any) => new Date(a.scheduledFor || a.createdAt).getTime() - new Date(b.scheduledFor || b.createdAt).getTime())
+        .map((a: any) => {
+          const price = typeof a.totalCost === 'string' ? parseFloat(a.totalCost) : Number(a.totalCost || 0);
+          const dateStr = new Date(a.scheduledFor || a.createdAt).toLocaleDateString('pt-BR');
+          const serviceStr = a.serviceType || 'Serviço';
+          return [dateStr, serviceStr, `R$ ${Number(price).toLocaleString('pt-BR')}`];
+        });
+
+      // @ts-ignore - autotable tipagem
+      autoTable(doc, {
+        head: [["Data", "Serviço", "Valor (R$)"]],
+        body: rows,
+        startY: cursorY + 10,
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [249, 115, 22] }, // laranja
+        columnStyles: { 2: { halign: 'right' } },
+        margin: { left: marginX, right: marginX },
+      });
+
+      const footerY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 24 : cursorY + 60;
+      doc.setFontSize(9);
+      doc.text('Documento gerado automaticamente pelo LifeBee para apoio à declaração de IR.', marginX, footerY);
+
+      doc.save(`Relatorio-Ganhos-${month}.pdf`);
+    } catch (e) {
+      alert('Não foi possível gerar o relatório agora. Tente novamente.');
+    }
+  };
+
+  // Recriar o mapa quando o tema mudar para aplicar o basemap inicial correto
+  useEffect(() => {
+    setMapKey((k) => k + 1);
+  }, [theme]);
+
+  // Persistir metas no localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('lb_monthly_goal_mode', monthlyGoalMode);
+      localStorage.setItem('lb_monthly_goal_services', String(monthlyGoalServices));
+      localStorage.setItem('lb_monthly_goal_revenue', String(monthlyGoalRevenue));
+    } catch {}
+  }, [monthlyGoalMode, monthlyGoalServices, monthlyGoalRevenue]);
+
+  // Buscar agendamentos do profissional e calcular métricas do mês
+  useEffect(() => {
+    const fetchProviderAppointments = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const resp = await fetch(`${getApiUrl()}/api/appointments/provider`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json'
+          }
+        });
+        if (!resp.ok) {
+          return;
+        }
+        const data = await resp.json();
+        setProviderAppointments(Array.isArray(data) ? data : []);
+
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+        const completedThisMonth = (Array.isArray(data) ? data : []).filter((a: any) => {
+          const d = a.scheduledFor ? new Date(a.scheduledFor) : (a.createdAt ? new Date(a.createdAt) : null);
+          const status = (a.status || '').toString();
+          return d && d >= start && d <= end && status === 'completed';
+        });
+
+        const totalServices = completedThisMonth.length;
+        const totalEarnings = completedThisMonth.reduce((sum: number, a: any) => {
+          const v = typeof a.totalCost === 'string' ? parseFloat(a.totalCost) : Number(a.totalCost || 0);
+          return sum + (Number.isFinite(v) ? v : 0);
+        }, 0);
+
+        setMonthlyCompletedServices(totalServices);
+        setMonthlyCompletedEarnings(totalEarnings);
+      } catch (e) {
+        // Silencia falha
+      }
+    };
+    fetchProviderAppointments();
+  }, []);
 
   // Reset image error when user changes
   useEffect(() => {
@@ -130,6 +270,7 @@ export default function ProviderDashboard() {
   const [serviceLocations, setServiceLocations] = useState<{[key: number]: [number, number]}>({});
   const [editingLocation, setEditingLocation] = useState<number | null>(null);
   const [geocodingErrors, setGeocodingErrors] = useState<string[]>([]);
+  const [geoContext, setGeoContext] = useState<{ city?: string; state?: string; stateCode?: string } | null>(null);
 
   // Recent Performance Data - será carregado da API
   const monthlyData: any[] = [];
@@ -163,7 +304,7 @@ export default function ProviderDashboard() {
 
   const handleLogout = () => {
     logout();
-    window.location.href = '/login';
+    window.location.href = '/';
   };
 
   const handleAvailabilityChange = async (available: boolean) => {
@@ -354,7 +495,57 @@ export default function ProviderDashboard() {
   // Limpar cache quando necessário (para debug)
   // coordinatesCache.clear();
 
-  const getAddressCoordinates = async (address: string): Promise<[number, number] | null> => {
+  // Normaliza endereço para formato mais amigável ao Nominatim
+  const normalizeAddress = (raw: string): string => {
+    let a = String(raw || '').trim();
+    // Unificar separadores: trocar " - " por ", "
+    a = a.replace(/\s-\s/g, ', ');
+    // Remover múltiplas vírgulas/espaços
+    a = a.replace(/\s*,\s*/g, ', ').replace(/\s+/g, ' ').replace(/,+/g, ',');
+    // Remover rótulos comuns
+    a = a.replace(/\bcep:?\s*\d{5}-?\d{3}\b/gi, '').replace(/\bbrasil\b/gi, '');
+    // Remover vírgulas no fim
+    a = a.replace(/,\s*$/g, '');
+    return a;
+  };
+
+  // Extrai cidade/UF se presentes no texto
+  const extractCityState = (addr: string): { city?: string; state?: string } => {
+    const out: { city?: string; state?: string } = {};
+    const ufMatch = addr.match(/\b([A-Za-zÀ-ÿ\s]+),\s*([A-Za-z]{2})\b/);
+    if (ufMatch) {
+      out.city = ufMatch[1].trim();
+      out.state = ufMatch[2].trim().toUpperCase();
+      return out;
+    }
+    // Padrão com hífens: Cidade - UF
+    const hyphenMatch = addr.match(/\b([A-Za-zÀ-ÿ\s]+)\s*-\s*([A-Za-z]{2})\b/);
+    if (hyphenMatch) {
+      out.city = hyphenMatch[1].trim();
+      out.state = hyphenMatch[2].trim().toUpperCase();
+    }
+    return out;
+  };
+
+  // Monta URL do Nominatim com viés para região atual do profissional
+  const buildNominatimUrl = (q: string): string => {
+    const base = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=br&addressdetails=1&accept-language=pt-BR';
+    if (userLocation) {
+      const [lat, lng] = userLocation;
+      const delta = 0.3; // ~33km para viés mais preciso
+      const left = (lng - delta).toFixed(6);
+      const right = (lng + delta).toFixed(6);
+      const top = (lat + delta).toFixed(6);
+      const bottom = (lat - delta).toFixed(6);
+      return `${base}&q=${encodeURIComponent(q)}&viewbox=${left},${top},${right},${bottom}&bounded=1`;
+    }
+    return `${base}&q=${encodeURIComponent(q)}`;
+  };
+
+  const getAddressCoordinates = async (
+    address: string,
+    options?: { allowFallback?: boolean }
+  ): Promise<[number, number] | null> => {
     try {
       // Verificar cache primeiro
       if (coordinatesCache.has(address)) {
@@ -364,7 +555,17 @@ export default function ProviderDashboard() {
       }
 
       // Limpar e formatar o endereço
-      const cleanAddress = address.toLowerCase().trim().replace(/\s+/g, ' ');
+      const normalized = normalizeAddress(address);
+      const cleanAddress = normalized.toLowerCase();
+      const stripAccents = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const removeStreetNumber = (s: string) => s.replace(/\b\d+[\w\s\/\-]*?(?=,|$)/g, '').replace(/,\s*,/g, ',').replace(/,\s*$/, '').trim();
+      const uniq = (arr: string[]) => Array.from(new Set(arr.filter(Boolean)));
+      const baseAddressVariants = uniq([
+        cleanAddress,
+        stripAccents(cleanAddress),
+        removeStreetNumber(cleanAddress),
+        stripAccents(removeStreetNumber(cleanAddress)),
+      ]);
       
       // 1. Busca exata no mapeamento local
       for (const [key, coords] of Object.entries(knownAddresses)) {
@@ -406,72 +607,105 @@ export default function ProviderDashboard() {
       }
       
       // 3. Detectar cidade e estado do endereço
+      const cs = extractCityState(normalized);
       const cityStateMatch = cleanAddress.match(/([^,]+),\s*([a-z]{2})/);
       let city = '';
       let state = '';
       
-      if (cityStateMatch) {
+      if (cs.city && cs.state) {
+        city = cs.city;
+        state = cs.state;
+      } else if (cityStateMatch) {
         city = cityStateMatch[1].trim();
         state = cityStateMatch[2].trim().toUpperCase();
       }
       
       // 4. Geocoding externo com múltiplas tentativas baseadas na cidade detectada
-      const searchQueries = [];
+      const searchQueries: string[] = [];
       
       if (city && state) {
         // Tentativas específicas para a cidade detectada
-        searchQueries.push(
-          cleanAddress + ', ' + city + ', ' + state + ', brasil',
-          cleanAddress + ', ' + city + ', ' + state,
-          cleanAddress + ', ' + state + ', brasil',
-          cleanAddress + ', brasil'
-        );
+        baseAddressVariants.forEach((base) => {
+          searchQueries.push(
+            base + ', ' + city + ', ' + state + ', brasil',
+            base + ', ' + city + ', ' + state,
+            base + ', ' + state + ', brasil',
+            base + ', brasil'
+          );
+        });
       } else {
-        // Tentativas genéricas
-        searchQueries.push(
-          cleanAddress + ', brasil',
-          cleanAddress
-        );
+        // Sem cidade/estado no endereço: tentar com o contexto local do profissional (reverse geocoding) se disponível
+        const ctxCity = geoContext?.city ? String(geoContext.city).toLowerCase() : '';
+        const ctxState = geoContext?.stateCode || (geoContext?.state ? String(geoContext.state).toUpperCase() : '');
+        if (ctxCity && ctxState) {
+          baseAddressVariants.forEach((base) => {
+            searchQueries.push(
+              base + ', ' + ctxCity + ', ' + ctxState + ', brasil',
+              base + ', ' + ctxCity + ', ' + ctxState,
+              base + ', ' + ctxState + ', brasil',
+              base + ', brasil'
+            );
+          });
+        } else {
+          // Tentativas genéricas
+          baseAddressVariants.forEach((base) => {
+            searchQueries.push(
+              base + ', brasil',
+              base
+            );
+          });
+        }
       }
       
-      for (const query of searchQueries) {
+      // Remover duplicados preservando ordem
+      const finalQueries = uniq(searchQueries);
+
+      for (const query of finalQueries) {
         try {
           console.log(`🌐 Tentando geocoding externo para: "${query}"`);
           
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
+          const timeoutId = setTimeout(() => controller.abort(), 7000); // 7 segundos timeout
           
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=3&countrycodes=br&addressdetails=1&accept-language=pt-BR`,
-            { signal: controller.signal }
-          );
+          const url = buildNominatimUrl(query);
+          const response = await fetch(url, { signal: controller.signal, headers: { 'Accept': 'application/json' } });
           
           clearTimeout(timeoutId);
           
-          if (response.ok) {
-            const data = await response.json();
-            if (data.length > 0) {
-              // Escolher o melhor resultado baseado na relevância
-              const bestResult = data.reduce((best: any, current: any) => {
-                const currentScore = parseFloat(current.importance || 0);
-                const bestScore = parseFloat(best.importance || 0);
-                return currentScore > bestScore ? current : best;
-              });
-              
-              const lat = parseFloat(bestResult.lat);
-              const lon = parseFloat(bestResult.lon);
-              
-              // Verificar se as coordenadas são válidas para o Brasil
-              if (isValidBrazilCoordinates(lat, lon)) {
-                const coords: [number, number] = [lat, lon];
-                coordinatesCache.set(address, coords);
-                console.log(`✅ Geocoding externo bem-sucedido para "${address}": [${lat}, ${lon}] (relevância: ${bestResult.importance})`);
-                return coords;
-              } else {
-                console.log(`⚠️ Coordenadas inválidas para "${address}": [${lat}, ${lon}]`);
+              if (response.ok) {
+                const data = await response.json();
+                if (data.length > 0) {
+                  // Preferir resultados na mesma cidade/UF quando disponíveis
+                  const prefer = (item: any) => {
+                    const a = item.address || {};
+                    const icCity = (a.city || a.town || a.village || a.suburb || '').toString().toLowerCase();
+                    const icState = (a.state || '').toString().toUpperCase();
+                    let score = parseFloat(item.importance || 0);
+                    if (city && icCity.includes(city.toLowerCase())) score += 0.5;
+                    if (state && icState === state.toUpperCase()) score += 0.5;
+                    // Peso por proximidade do profissional, quando disponível (até +0.5)
+                    if (userLocation) {
+                      const dKm = calculateDistance(parseFloat(item.lat), parseFloat(item.lon), userLocation[0], userLocation[1]);
+                      const proximity = Math.max(0, 50 - dKm) / 100; // 0 a 0.5 para até 50km
+                      score += proximity;
+                    }
+                    return score;
+                  };
+                  const bestResult = data.reduce((best: any, current: any) => {
+                    return prefer(current) > prefer(best) ? current : best;
+                  });
+                  const lat = parseFloat(bestResult.lat);
+                  const lon = parseFloat(bestResult.lon);
+                  if (isValidBrazilCoordinates(lat, lon)) {
+                    const coords: [number, number] = [lat, lon];
+                    coordinatesCache.set(address, coords);
+                    console.log(`✅ Geocoding externo bem-sucedido para "${address}": [${lat}, ${lon}] (ajustado por contexto)`);
+                    return coords;
+                  } else {
+                    console.log(`⚠️ Coordenadas inválidas para "${address}": [${lat}, ${lon}]`);
+                  }
+                }
               }
-            }
-          }
         } catch (error) {
           if (error.name === 'AbortError') {
             console.warn(`⏰ Timeout na tentativa "${query}"`);
@@ -482,6 +716,10 @@ export default function ProviderDashboard() {
       }
       
       // 5. Fallback inteligente baseado na cidade detectada
+      if (options?.allowFallback === false) {
+        console.log(`🔄 Fallback desabilitado para "${address}". Retornando null.`);
+        return null;
+      }
       const fallbackCoords = getIntelligentFallbackByCity(cleanAddress, city, state);
       coordinatesCache.set(address, fallbackCoords);
       console.log(`🔄 Usando fallback inteligente para "${address}": [${fallbackCoords[0].toFixed(6)}, ${fallbackCoords[1].toFixed(6)}]`);
@@ -490,6 +728,10 @@ export default function ProviderDashboard() {
     } catch (error) {
       console.error('Erro geral no geocoding:', error);
       
+      if (options?.allowFallback === false) {
+        console.log(`🔄 Fallback final desabilitado para "${address}". Retornando null.`);
+        return null;
+      }
       // Fallback final: centro do Brasil
       const fallbackCoords: [number, number] = [-15.7942, -47.8822]; // Brasília
       coordinatesCache.set(address, fallbackCoords);
@@ -790,19 +1032,23 @@ export default function ProviderDashboard() {
         const batch = openRequests.slice(i, i + batchSize);
         
         const batchPromises = batch.map(async (request) => {
-          if (request.address) {
+          const fullAddressRaw = (request as any).address || (request as any).location || '';
+          const fullAddress = String(fullAddressRaw || '').trim();
+          const lowered = fullAddress.toLowerCase();
+          const isMissing = lowered === 'não informado' || lowered === 'nao informado' || lowered === 'não definido' || lowered === 'nao definido';
+          if (fullAddress && !isMissing && fullAddress.length >= 5) {
             try {
-              const coords = await getAddressCoordinates(request.address);
+              const coords = await getAddressCoordinates(fullAddress, { allowFallback: true });
               if (coords) {
                 locations[request.id] = coords;
-                console.log(`✅ Endereço geocodificado: ${request.address} → [${coords[0]}, ${coords[1]}]`);
+                console.log(`✅ Endereço geocodificado: ${fullAddress} → [${coords[0]}, ${coords[1]}]`);
               } else {
-                geocodingErrors.push(request.address);
-                console.warn(`❌ Falha no geocoding: ${request.address}`);
+                geocodingErrors.push(fullAddress);
+                console.warn(`❌ Falha no geocoding: ${fullAddress}`);
               }
             } catch (error) {
-              geocodingErrors.push(request.address);
-              console.error(`❌ Erro no geocoding para ${request.address}:`, error);
+              geocodingErrors.push(fullAddress);
+              console.error(`❌ Erro no geocoding para ${fullAddress}:`, error);
             }
           }
         });
@@ -872,7 +1118,7 @@ export default function ProviderDashboard() {
       };
       
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           const { latitude, longitude, accuracy } = position.coords;
           console.log('📍 Localização obtida com sucesso:', { 
             latitude, 
@@ -915,6 +1161,25 @@ export default function ProviderDashboard() {
             setTimeout(() => {
               setLocationUpdated(false);
             }, 3000);
+
+            // Reverse geocoding para obter cidade/UF do profissional e melhorar geocoding das solicitações
+            try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 5000);
+              const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1&accept-language=pt-BR`, { signal: controller.signal });
+              clearTimeout(timeoutId);
+              if (resp.ok) {
+                const data = await resp.json();
+                const addr = data?.address || {};
+                const city = addr.city || addr.town || addr.village || addr.suburb || '';
+                const state = addr.state || '';
+                const stateCode = addr['ISO3166-2-lvl4']?.split('-')?.pop?.() || addr['state_code'] || '';
+                setGeoContext({ city, state, stateCode });
+                console.log('🧭 Contexto geográfico detectado:', { city, state, stateCode });
+              }
+            } catch (e) {
+              console.warn('⚠️ Falha no reverse geocoding do contexto local:', e);
+            }
           } else {
             console.warn('📍 Coordenadas inválidas:', { latitude, longitude });
             setLocationLoading(false);
@@ -1385,43 +1650,31 @@ export default function ProviderDashboard() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Avaliação Média</p>
-                    <p className="text-2xl font-bold flex items-center gap-1">
-                      {analytics.averageRating}
-                      <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                    </p>
+            {Number(analytics?.averageRating || 0) > 0 && (
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Avaliação Média</p>
+                      <p className="text-2xl font-bold flex items-center gap-1">
+                        {analytics.averageRating}
+                        <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                      </p>
+                    </div>
+                    <div className="bg-yellow-100 dark:bg-yellow-900 p-2 rounded-full">
+                      <Award className="h-6 w-6 text-yellow-600" />
+                    </div>
                   </div>
-                  <div className="bg-yellow-100 dark:bg-yellow-900 p-2 rounded-full">
-                    <Award className="h-6 w-6 text-yellow-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">Baseado em 47 avaliações</p>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Tempo de Resposta</p>
-                    <p className="text-2xl font-bold">{analytics.responseTime}</p>
-                  </div>
-                  <div className="bg-purple-100 dark:bg-purple-900 p-2 rounded-full">
-                    <Zap className="h-6 w-6 text-purple-600" />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">Média de resposta</p>
-              </CardContent>
-            </Card>
+            {/* Card de Tempo de Resposta removido conforme solicitação */}
           </div>
 
           {/* Main Content Tabs */}
           <Tabs defaultValue="opportunities" className="space-y-6 sm:space-y-8">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto min-h-12 p-1.5 gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-2 h-auto min-h-12 p-1.5 gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
               <TabsTrigger value="opportunities" className="text-xs sm:text-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 whitespace-nowrap min-h-10 sm:min-h-11 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-md data-[state=active]:font-semibold">
                 <span className="hidden xs:inline">Oportunidades</span>
                 <span className="xs:hidden">Oport.</span>
@@ -1429,15 +1682,6 @@ export default function ProviderDashboard() {
               <TabsTrigger value="performance" className="text-xs sm:text-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 whitespace-nowrap min-h-10 sm:min-h-11 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-md data-[state=active]:font-semibold">
                 <span className="hidden xs:inline">Performance</span>
                 <span className="xs:hidden">Perf.</span>
-              </TabsTrigger>
-              <Link href="/agenda-profissional" className="contents">
-                <button type="button" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm hover:text-yellow-600 dark:hover:text-yellow-400 min-h-10 sm:min-h-11 text-center">
-                  Agenda
-                </button>
-              </Link>
-              <TabsTrigger value="earnings" className="text-xs sm:text-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 whitespace-nowrap min-h-10 sm:min-h-11 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-md data-[state=active]:font-semibold">
-                <span className="hidden xs:inline">Ganhos</span>
-                <span className="xs:hidden">Ganhos</span>
               </TabsTrigger>
             </TabsList>
 
@@ -1540,37 +1784,34 @@ export default function ProviderDashboard() {
                         key={`map-${mapKey}-${userLocation ? `${userLocation[0]}-${userLocation[1]}` : 'fallback'}`}
                       >
                         {userLocation && <MapController userLocation={userLocation} />}
-                        <TileLayer
-                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        />
+                        <LayersControl position="topright">
+                          <LayersControl.BaseLayer checked={theme !== 'dark'} name="OSM Claro">
+                            <TileLayer
+                              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            />
+                          </LayersControl.BaseLayer>
+                          <LayersControl.BaseLayer checked={theme === 'dark'} name="Carto Escuro">
+                            <TileLayer
+                              attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+                              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                            />
+                          </LayersControl.BaseLayer>
+                        </LayersControl>
                         {/* Marcador da localização atual do usuário */}
                         {userLocation && (
                           <Marker 
                             position={userLocation}
                             icon={L.divIcon({
                               className: 'custom-div-icon',
-                              html: `<div style="background-color: ${locationUpdated ? '#10b981' : '#3b82f6'}; width: 24px; height: 24px; border-radius: 50%; border: 4px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.4); animation: pulse 2s infinite; ${locationUpdated ? 'border-color: #10b981;' : ''}"></div>`,
-                              iconSize: [24, 24],
-                              iconAnchor: [12, 12]
+                              html: `<div style="position: relative; width: 28px; height: 34px;">
+                                <div style=\"position:absolute; left:50%; top:50%; transform: translate(-50%, -55%); background-color: ${locationUpdated ? '#10b981' : '#3b82f6'}; width: 24px; height: 24px; border-radius: 50%; border: 4px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.4); animation: pulse 2s infinite; ${locationUpdated ? 'border-color: #10b981;' : ''}\"></div>
+                                <div style=\"position:absolute; left:50%; bottom:0; transform: translate(-50%, 50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25));\"></div>
+                              </div>`,
+                              iconSize: [28, 34],
+                              iconAnchor: [14, 30]
                             })}
-                          >
-                            <Popup>
-                              <div className="text-center">
-                                <strong>📍 Sua localização</strong>
-                                {locationUpdated && <div className="text-green-600 text-xs font-bold">✓ Atualizada</div>}
-                                <small>Lat: {userLocation[0].toFixed(6)}</small><br />
-                                <small>Lng: {userLocation[1].toFixed(6)}</small><br />
-                                {locationAccuracy && (
-                                  <small className={`font-medium ${locationAccuracy <= 20 ? 'text-green-600' : locationAccuracy <= 50 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                    Precisão: {Math.round(locationAccuracy)}m
-                                  </small>
-                                )}
-                                <br />
-                                <small>Raio de busca: {searchRadius}km</small>
-                              </div>
-                            </Popup>
-                          </Marker>
+                          />
                         )}
                         
                         {/* Marcadores das solicitações de serviço */}
@@ -1588,9 +1829,12 @@ export default function ProviderDashboard() {
                                 draggable={isEditing}
                                 icon={L.divIcon({
                                   className: 'custom-div-icon',
-                                  html: `<div style="width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); background-image: url('/service-icon.png'); background-size: cover; background-position: center; background-repeat: no-repeat; ${isSelected ? 'animation: pulse 2s infinite;' : ''}"></div>`,
-                                  iconSize: [32, 32],
-                                  iconAnchor: [16, 16]
+                                  html: `<div style="position: relative; width: 34px; height: 34px;">
+                                    <div style=\"position:absolute; left:50%; top:50%; transform: translate(-50%, -50%); width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); background-image: url('/service-icon.png'); background-size: cover; background-position: center; background-repeat: no-repeat; ${isSelected ? 'animation: pulse 2s infinite;' : ''}\"></div>
+                                    <div style=\"position:absolute; left:50%; bottom:0; transform: translate(-50%, 50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25));\"></div>
+                                  </div>`,
+                                  iconSize: [34, 40],
+                                  iconAnchor: [17, 34]
                                 })}
                               eventHandlers={{
                                 click: () => {
@@ -1737,7 +1981,7 @@ export default function ProviderDashboard() {
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500">
                                 <span className="flex items-center gap-1 min-w-0">
                                   <MapPin className="h-3 w-3 flex-shrink-0" />
-                                  <span className="truncate">{service.address}</span>
+                                  <span className="truncate">{(service as any).address || (service as any).location || 'Não informado'}</span>
                                 </span>
                                 <span className="flex items-center gap-1 min-w-0">
                                   <Calendar className="h-3 w-3 flex-shrink-0" />
@@ -1784,78 +2028,154 @@ export default function ProviderDashboard() {
 
             {/* Performance Tab */}
             <TabsContent value="performance" className="space-y-8">
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <BarChart3 className="h-5 w-5" />
-                      Performance Mensal
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {monthlyData.map((data, index) => (
-                        <div key={data.month} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                          <div>
-                            <p className="font-medium">{data.month}</p>
-                            <p className="text-sm text-gray-600">{data.services} serviços</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-green-600">R$ {data.earnings.toLocaleString('pt-BR')}</p>
-                            {index > 0 && (
-                              <p className="text-xs text-gray-500">
-                                {data.earnings > monthlyData[index-1].earnings ? '+' : ''}
-                                {((data.earnings - monthlyData[index-1].earnings) / monthlyData[index-1].earnings * 100).toFixed(1)}%
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Metas e progresso do mês */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Target className="h-5 w-5" />
-                      Metas e Objetivos
+                      Metas do Mês
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div>
-                        <div className="flex justify-between mb-2">
-                          <span className="text-sm font-medium">Meta Mensal: R$ 5.000</span>
-                          <span className="text-sm text-gray-600">97%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div className="bg-green-600 h-2 rounded-full" style={{ width: '97%' }}></div>
-                        </div>
+                      {/* Seletor de modo de meta */}
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setMonthlyGoalMode('services')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${monthlyGoalMode === 'services' ? 'bg-yellow-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>Meta por Serviços</button>
+                        <button onClick={() => setMonthlyGoalMode('revenue')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${monthlyGoalMode === 'revenue' ? 'bg-yellow-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>Meta por Receita</button>
+                        <button onClick={handleGenerateMonthlyReport} className="ml-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium bg-white dark:bg-gray-900 border hover:bg-gray-50 dark:hover:bg-gray-800">
+                          <FileText className="h-4 w-4" />
+                          Gerar Relatório (PDF)
+                        </button>
                       </div>
-                      
-                      <div>
-                        <div className="flex justify-between mb-2">
-                          <span className="text-sm font-medium">Serviços no Mês: 25</span>
-                          <span className="text-sm text-gray-600">92%</span>
+
+                      {/* Inputs de meta */}
+                      {monthlyGoalMode === 'services' ? (
+                        <div className="space-y-2">
+                          <label className="text-sm text-gray-600 dark:text-gray-400">Defina sua meta de serviços no mês</label>
+                          <div className="flex gap-2">
+                            <input type="number" min={1} value={monthlyGoalServices} onChange={(e) => setMonthlyGoalServices(Math.max(1, parseInt(e.target.value || '0')))} className="w-28 px-3 py-2 rounded-md border bg-white dark:bg-gray-900" />
+                            <span className="self-center text-sm text-gray-500">serviços</span>
+                          </div>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: '92%' }}></div>
+                      ) : (
+                        <div className="space-y-2">
+                          <label className="text-sm text-gray-600 dark:text-gray-400">Defina sua meta de receita no mês</label>
+                          <div className="flex gap-2">
+                            <span className="self-center text-sm text-gray-500">R$</span>
+                            <input type="number" min={100} step={50} value={monthlyGoalRevenue} onChange={(e) => setMonthlyGoalRevenue(Math.max(100, parseFloat(e.target.value || '0')))} className="w-32 px-3 py-2 rounded-md border bg-white dark:bg-gray-900" />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Barras de progresso bonitas */}
+                      <div className="space-y-4">
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm font-medium">Serviços concluídos</span>
+                            <span className="text-sm text-gray-600">{monthlyCompletedServices}/{monthlyGoalServices} ({Math.min(100, Math.round((monthlyCompletedServices / (monthlyGoalServices || 1)) * 100))}%)</span>
+                          </div>
+                          <div className="w-full h-2.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                            <div className="h-2.5 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full transition-all" style={{ width: `${Math.min(100, (monthlyCompletedServices / (monthlyGoalServices || 1)) * 100)}%` }}></div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-sm font-medium">Receita do mês</span>
+                            <span className="text-sm text-gray-600">R$ {monthlyCompletedEarnings.toLocaleString('pt-BR')} / R$ {monthlyGoalRevenue.toLocaleString('pt-BR')} ({Math.min(100, Math.round((monthlyCompletedEarnings / (monthlyGoalRevenue || 1)) * 100))}%)</span>
+                          </div>
+                          <div className="w-full h-2.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                            <div className="h-2.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all" style={{ width: `${Math.min(100, (monthlyCompletedEarnings / (monthlyGoalRevenue || 1)) * 100)}%` }}></div>
+                          </div>
                         </div>
                       </div>
 
-                      <div>
-                        <div className="flex justify-between mb-2">
-                          <span className="text-sm font-medium">Avaliação 4.8+</span>
-                          <span className="text-sm text-gray-600">100%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div className="bg-yellow-600 h-2 rounded-full" style={{ width: '100%' }}></div>
-                        </div>
-                      </div>
+                      {/* Dicas rápidas */}
+                      <div className="text-xs text-gray-500">Dica: aumente sua disponibilidade e responda rápido para bater a meta!</div>
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Coluna direita: Serviços do mês + Histórico de Ganhos abaixo */}
+                <div className="space-y-8">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <BarChart3 className="h-5 w-5" />
+                        Serviços Concluídos (mês)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3 max-h-80 overflow-auto pr-1">
+                        {providerAppointments.filter((a: any) => (a.status || '') === 'completed').length === 0 && (
+                          <div className="text-sm text-gray-500">Nenhum serviço concluído neste mês ainda.</div>
+                        )}
+                        {providerAppointments
+                          .filter((a: any) => {
+                            const now = new Date();
+                            const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+                            const d = a.scheduledFor ? new Date(a.scheduledFor) : (a.createdAt ? new Date(a.createdAt) : null);
+                            return d && d >= start && d <= end && (a.status || '') === 'completed';
+                          })
+                          .sort((a: any, b: any) => new Date(b.scheduledFor || b.createdAt).getTime() - new Date(a.scheduledFor || a.createdAt).getTime())
+                          .map((a: any, idx: number) => {
+                            const price = typeof a.totalCost === 'string' ? parseFloat(a.totalCost) : Number(a.totalCost || 0);
+                            return (
+                              <div key={idx} className="flex items-center justify-between p-3 border rounded-lg bg-white dark:bg-gray-900">
+                                <div className="min-w-0">
+                                  <p className="font-medium truncate">{a.serviceType || 'Serviço'}</p>
+                                  <p className="text-xs text-gray-500 truncate">{a.professionalName || 'Cliente'} • {new Date(a.scheduledFor || a.createdAt).toLocaleDateString('pt-BR')}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-semibold text-green-600">+ R$ {Number(price).toLocaleString('pt-BR')}</p>
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700">Concluído</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5" />
+                        Histórico de Ganhos (mês)
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3 max-h-96 overflow-auto pr-1">
+                        {providerAppointments.filter((a: any) => (a.status || '') === 'completed').length === 0 && (
+                          <div className="text-sm text-gray-500">Sem ganhos registrados neste mês ainda.</div>
+                        )}
+                        {providerAppointments
+                          .filter((a: any) => {
+                            const now = new Date();
+                            const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+                            const d = a.scheduledFor ? new Date(a.scheduledFor) : (a.createdAt ? new Date(a.createdAt) : null);
+                            return d && d >= start && d <= end && (a.status || '') === 'completed';
+                          })
+                          .sort((a: any, b: any) => new Date(b.scheduledFor || b.createdAt).getTime() - new Date(a.scheduledFor || a.createdAt).getTime())
+                          .map((a: any, idx: number) => {
+                            const price = typeof a.totalCost === 'string' ? parseFloat(a.totalCost) : Number(a.totalCost || 0);
+                            return (
+                              <div key={idx} className="flex justify-between items-center p-3 border rounded-lg bg-white dark:bg-gray-900">
+                                <div>
+                                  <p className="font-medium">{a.serviceType || 'Serviço'}</p>
+                                  <p className="text-xs text-gray-600">{new Date(a.scheduledFor || a.createdAt).toLocaleDateString('pt-BR')}</p>
+                                </div>
+                                <p className="font-semibold text-green-600">+ R$ {Number(price).toLocaleString('pt-BR')}</p>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             </TabsContent>
 
@@ -1912,71 +2232,73 @@ export default function ProviderDashboard() {
 
             {/* Earnings Tab */}
             <TabsContent value="earnings" className="space-y-8">
-                              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <Card className="lg:col-span-2">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Meta de ganhos e progresso */}
+                <Card className="lg:col-span-1">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <DollarSign className="h-5 w-5" />
-                      Histórico de Ganhos
+                      <Target className="h-5 w-5" />
+                      Meta de Ganhos
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <div>
-                          <p className="font-medium">Fisioterapia Respiratória</p>
-                          <p className="text-sm text-gray-600">Maria Silva • Hoje</p>
+                      <div className="space-y-2">
+                        <label className="text-sm text-gray-600 dark:text-gray-400">Defina sua meta de receita no mês</label>
+                        <div className="flex gap-2">
+                          <span className="self-center text-sm text-gray-500">R$</span>
+                          <input type="number" min={100} step={50} value={monthlyGoalRevenue} onChange={(e) => setMonthlyGoalRevenue(Math.max(100, parseFloat(e.target.value || '0')))} className="w-32 px-3 py-2 rounded-md border bg-white dark:bg-gray-900" />
                         </div>
-                        <p className="font-semibold text-green-600">+R$ 120,00</p>
                       </div>
 
-                      <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <div>
-                          <p className="font-medium">Acompanhamento Hospitalar</p>
-                          <p className="text-sm text-gray-600">João Santos • Ontem</p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm font-medium">Receita do mês</span>
+                          <span className="text-sm text-gray-600">R$ {monthlyCompletedEarnings.toLocaleString('pt-BR')} / R$ {monthlyGoalRevenue.toLocaleString('pt-BR')}</span>
                         </div>
-                        <p className="font-semibold text-green-600">+R$ 200,00</p>
-                      </div>
-
-                      <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                        <div>
-                          <p className="font-medium">Curativo Domiciliar</p>
-                          <p className="text-sm text-gray-600">Ana Costa • 2 dias atrás</p>
+                        <div className="w-full h-3 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                          <div className="h-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all" style={{ width: `${Math.min(100, (monthlyCompletedEarnings / (monthlyGoalRevenue || 1)) * 100)}%` }}></div>
                         </div>
-                        <p className="font-semibold text-green-600">+R$ 80,00</p>
+                        <div className="text-xs text-gray-500">{Math.min(100, Math.round((monthlyCompletedEarnings / (monthlyGoalRevenue || 1)) * 100))}% da meta atingida</div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card>
+                {/* Histórico de ganhos do mês */}
+                <Card className="lg:col-span-2">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <PieChart className="h-5 w-5" />
-                      Resumo do Mês
+                      <DollarSign className="h-5 w-5" />
+                      Histórico de Ganhos (mês)
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="text-center">
-                        <p className="text-3xl font-bold text-green-600">R$ 4.850</p>
-                        <p className="text-sm text-gray-600">Total em Maio</p>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm">Fisioterapia</span>
-                          <span className="text-sm font-medium">R$ 2.400</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm">Acompanhamento</span>
-                          <span className="text-sm font-medium">R$ 1.600</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm">Curativos</span>
-                          <span className="text-sm font-medium">R$ 850</span>
-                        </div>
-                      </div>
+                    <div className="space-y-3 max-h-96 overflow-auto pr-1">
+                      {providerAppointments.filter((a: any) => (a.status || '') === 'completed').length === 0 && (
+                        <div className="text-sm text-gray-500">Sem ganhos registrados neste mês ainda.</div>
+                      )}
+                      {providerAppointments
+                        .filter((a: any) => {
+                          const now = new Date();
+                          const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                          const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+                          const d = a.scheduledFor ? new Date(a.scheduledFor) : (a.createdAt ? new Date(a.createdAt) : null);
+                          return d && d >= start && d <= end && (a.status || '') === 'completed';
+                        })
+                        .sort((a: any, b: any) => new Date(b.scheduledFor || b.createdAt).getTime() - new Date(a.scheduledFor || a.createdAt).getTime())
+                        .map((a: any, idx: number) => {
+                          const price = typeof a.totalCost === 'string' ? parseFloat(a.totalCost) : Number(a.totalCost || 0);
+                          return (
+                            <div key={idx} className="flex justify-between items-center p-3 border rounded-lg bg-white dark:bg-gray-900">
+                              <div>
+                                <p className="font-medium">{a.serviceType || 'Serviço'}</p>
+                                <p className="text-xs text-gray-600">{new Date(a.scheduledFor || a.createdAt).toLocaleDateString('pt-BR')}</p>
+                              </div>
+                              <p className="font-semibold text-green-600">+ R$ {Number(price).toLocaleString('pt-BR')}</p>
+                            </div>
+                          );
+                        })}
                     </div>
                   </CardContent>
                 </Card>
@@ -2212,3 +2534,4 @@ export default function ProviderDashboard() {
     </ProviderLayout>
   );
 }
+ 

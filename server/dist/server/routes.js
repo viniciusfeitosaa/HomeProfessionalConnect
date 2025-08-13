@@ -1757,8 +1757,11 @@ export async function registerRoutes(app) {
     // Get all service requests for a client
     app.get('/api/service-requests/client', authenticateToken, async (req, res) => {
         try {
-            const userId = req.userId;
+            const userId = req.user?.id;
             console.log('🔍 Buscando pedidos para cliente:', userId);
+            if (!userId) {
+                return res.status(401).json({ error: 'Usuário não autenticado' });
+            }
             const requests = await storage.getServiceRequestsForClient(userId);
             console.log('✅ Pedidos encontrados:', requests.length);
             res.json(requests);
@@ -1772,8 +1775,11 @@ export async function registerRoutes(app) {
     // Get all service offers for a client's requests
     app.get('/api/service-offers/client', authenticateToken, async (req, res) => {
         try {
-            const userId = req.userId;
+            const userId = req.user?.id;
             console.log('🔍 Buscando propostas para cliente:', userId);
+            if (!userId) {
+                return res.status(401).json({ error: 'Usuário não autenticado' });
+            }
             const offers = await storage.getServiceOffersForClient(userId);
             console.log('✅ Propostas encontradas:', offers.length);
             res.json(offers);
@@ -1787,8 +1793,11 @@ export async function registerRoutes(app) {
     app.put('/api/service-offers/:id/accept', authenticateToken, async (req, res) => {
         try {
             const offerId = parseInt(req.params.id);
-            const userId = req.userId;
+            const userId = req.user?.id;
             console.log('✅ Aceitando proposta:', offerId, 'pelo cliente:', userId);
+            if (!userId) {
+                return res.status(401).json({ error: 'Usuário não autenticado' });
+            }
             const result = await storage.acceptServiceOffer(offerId, userId);
             if (result.success) {
                 res.json({ message: 'Proposta aceita com sucesso' });
@@ -1806,8 +1815,11 @@ export async function registerRoutes(app) {
     app.put('/api/service-offers/:id/reject', authenticateToken, async (req, res) => {
         try {
             const offerId = parseInt(req.params.id);
-            const userId = req.userId;
+            const userId = req.user?.id;
             console.log('❌ Rejeitando proposta:', offerId, 'pelo cliente:', userId);
+            if (!userId) {
+                return res.status(401).json({ error: 'Usuário não autenticado' });
+            }
             const result = await storage.rejectServiceOffer(offerId, userId);
             if (result.success) {
                 res.json({ message: 'Proposta rejeitada com sucesso' });

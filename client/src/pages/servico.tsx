@@ -45,7 +45,7 @@ export default function Servico() {
         description: "Você precisa estar logado para acessar esta página",
         variant: "destructive",
       });
-      setLocation("/login");
+      setLocation("/");
     }
   }, [isAuthenticated, isLoading, setLocation, toast]);
 

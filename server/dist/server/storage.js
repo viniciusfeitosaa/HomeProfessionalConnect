@@ -801,6 +801,8 @@ export class DatabaseStorage {
                 .select({
                 id: serviceOffers.id,
                 status: serviceOffers.status,
+                serviceRequestId: serviceOffers.serviceRequestId,
+                professionalId: serviceOffers.professionalId,
                 clientId: serviceRequests.clientId
             })
                 .from(serviceOffers)
@@ -812,18 +814,30 @@ export class DatabaseStorage {
             if (offer.clientId !== userId) {
                 return { success: false, error: 'Proposta não pertence a este cliente' };
             }
-            if (offer.status !== 'pending') {
-                return { success: false, error: 'Proposta já foi processada' };
+            // Apagar a proposta definitivamente
+            await this.deleteServiceOffer(offerId);
+            // Atualizar contador de respostas na solicitação (decremento seguro)
+            const request = await this.getServiceRequest(offer.serviceRequestId);
+            if (request) {
+                const current = Number(request.responses) || 0;
+                const next = current > 0 ? current - 1 : 0;
+                await this.updateServiceRequest(offer.serviceRequestId, { responses: next });
             }
-            // Atualizar proposta para rejeitada
-            await db
-                .update(serviceOffers)
-                .set({ status: 'rejected', updatedAt: new Date() })
-                .where(eq(serviceOffers.id, offerId));
+            // Notificar o profissional sobre a exclusão
+            const professional = await this.getProfessional(offer.professionalId);
+            if (professional) {
+                const reqDetailed = await this.getServiceRequest(offer.serviceRequestId);
+                const serviceLabel = reqDetailed?.serviceType || 'um serviço';
+                await this.createNotification({
+                    userId: professional.userId,
+                    message: `Sua proposta para ${serviceLabel} foi rejeitada e removida pelo cliente.`,
+                    read: false
+                });
+            }
             return { success: true };
         }
         catch (error) {
-            console.error('❌ Erro ao rejeitar proposta:', error);
+            console.error('❌ Erro ao rejeitar e excluir proposta:', error);
             return { success: false, error: 'Erro interno do servidor' };
         }
     }

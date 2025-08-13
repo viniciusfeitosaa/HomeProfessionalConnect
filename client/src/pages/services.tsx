@@ -952,7 +952,11 @@ export default function Services() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs text-blue-700 mb-1">Localização</p>
-                              <p className="text-sm font-medium text-blue-800 truncate">{request.location && request.location.trim() !== '' ? request.location : 'Não informado'}</p>
+                              <p className="text-sm font-medium text-blue-800 truncate">{(() => {
+                                const raw = (request as any).location ?? (request as any).address ?? '';
+                                const text = typeof raw === 'string' ? raw : String(raw ?? '');
+                                return text.trim() !== '' ? text : 'Não informado';
+                              })()}</p>
                             </div>
                           </div>
                         </div>

@@ -119,7 +119,7 @@ export default function Settings() {
 
   const handleLogout = () => {
     logout();
-    window.location.href = "/login";
+    window.location.href = "/";
   };
 
   const handleDeleteAccount = async () => {

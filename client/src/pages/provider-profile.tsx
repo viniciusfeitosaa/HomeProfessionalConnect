@@ -317,7 +317,7 @@ export default function ProviderProfile() {
 
   const handleLogout = () => {
     logout();
-    window.location.href = "/login";
+    window.location.href = "/";
   };
 
   const getCategoryName = (category: string) => {
