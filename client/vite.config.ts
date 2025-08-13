@@ -4,6 +4,18 @@ import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    port: 5173,
+    host: true,
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_URL || 'https://lifebee-backend.onrender.com',
+        changeOrigin: true,
+        secure: true,
+        ws: true,
+      }
+    }
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -25,10 +37,6 @@ export default defineConfig({
         }
       }
     }
-  },
-  server: {
-    port: 5173,
-    host: true
   },
   define: {
     'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production')

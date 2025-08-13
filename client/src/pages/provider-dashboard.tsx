@@ -1487,7 +1487,7 @@ export default function ProviderDashboard() {
               </div>
             </div>
             
-            <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 flex-shrink-0 min-w-0">
+            <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 flex-shrink-0 min-w-0 ml-auto self-end">
               <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                 <div className="flex items-center gap-1.5">
                   <div className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`}></div>

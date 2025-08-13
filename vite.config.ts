@@ -29,9 +29,19 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    port: 5173,
+    host: true,
     fs: {
       strict: true,
       deny: ["**/.*"],
     },
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_URL || 'https://lifebee-backend.onrender.com',
+        changeOrigin: true,
+        secure: true,
+        ws: true,
+      }
+    }
   },
 });

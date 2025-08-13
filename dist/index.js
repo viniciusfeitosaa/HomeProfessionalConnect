@@ -6,9 +6,10 @@ var __export = (target, all) => {
 
 // server/index.ts
 import "dotenv/config";
-import express from "express";
+import express2 from "express";
 
 // server/routes.ts
+import express from "express";
 import { createServer } from "http";
 import session from "express-session";
 import passport2 from "passport";
@@ -24,6 +25,7 @@ __export(schema_exports, {
   messages: () => messages,
   notifications: () => notifications,
   professionals: () => professionals,
+  serviceOffers: () => serviceOffers,
   serviceRequests: () => serviceRequests,
   users: () => users,
   verificationCodes: () => verificationCodes
@@ -34,6 +36,7 @@ var users = pgTable("users", {
   username: text("username").notNull().unique(),
   password: text("password"),
   googleId: text("google_id").unique(),
+  appleId: text("apple_id").unique(),
   name: text("name").notNull(),
   email: text("email").notNull(),
   phone: text("phone"),
@@ -171,6 +174,23 @@ var serviceRequests = pgTable("service_requests", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow()
 });
+var serviceOffers = pgTable("service_offers", {
+  id: serial("id").primaryKey(),
+  serviceRequestId: integer("service_request_id").notNull(),
+  // ID da solicitação de serviço
+  professionalId: integer("professional_id").notNull(),
+  // ID do profissional que fez a proposta
+  proposedPrice: decimal("proposed_price", { precision: 8, scale: 2 }).notNull(),
+  // Preço proposto
+  estimatedTime: text("estimated_time").notNull(),
+  // Tempo estimado (ex: "1 hora", "2 horas")
+  message: text("message").notNull(),
+  // Mensagem da proposta
+  status: text("status", { enum: ["pending", "accepted", "rejected", "withdrawn"] }).default("pending"),
+  // Status da proposta
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
 
 // server/db.ts
 import "dotenv/config";
@@ -187,7 +207,7 @@ if (!process.env.SESSION_SECRET) {
   process.env.SESSION_SECRET = "462850e97a4147e11d70bd6bb8675b39855643173f0d0aa8904be81060f506a7";
 }
 if (!process.env.JWT_SECRET) {
-  process.env.JWT_SECRET = "462850e97a4147e11d70bd6bb8675b39855643173f0d0aa8904be81060f506a7";
+  process.env.JWT_SECRET = "lifebee_jwt_secret_2025_vinicius_alves_secure_token_key_64_chars_long";
 }
 console.log("Current directory:", process.cwd());
 console.log("Env file path:", path.resolve(process.cwd(), "../.env"));
@@ -219,6 +239,14 @@ try {
 // server/storage.ts
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
 var DatabaseStorage = class {
+  // Método para converter URLs relativas em absolutas
+  getFullImageUrl(relativeUrl) {
+    if (relativeUrl.startsWith("http")) {
+      return relativeUrl;
+    }
+    const baseUrl = process.env.NODE_ENV === "production" ? "https://lifebee-backend.onrender.com" : "http://localhost:5000";
+    return `${baseUrl}${relativeUrl}`;
+  }
   // Users
   async getUser(id) {
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -236,6 +264,10 @@ var DatabaseStorage = class {
     const [user] = await db.select().from(users).where(eq(users.googleId, googleId));
     return user || void 0;
   }
+  async getUserByAppleId(appleId) {
+    const [user] = await db.select().from(users).where(eq(users.appleId, appleId));
+    return user || void 0;
+  }
   async createUser(insertUser) {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
@@ -245,6 +277,7 @@ var DatabaseStorage = class {
       "username",
       "password",
       "googleId",
+      "appleId",
       "name",
       "email",
       "phone",
@@ -279,7 +312,7 @@ var DatabaseStorage = class {
   }
   // Professionals
   async getAllProfessionals() {
-    return await db.select({
+    const professionalsData = await db.select({
       id: professionals.id,
       userId: professionals.userId,
       name: professionals.name,
@@ -299,9 +332,13 @@ var DatabaseStorage = class {
       imageUrl: professionals.imageUrl,
       createdAt: professionals.createdAt
     }).from(professionals).where(eq(professionals.available, true));
+    return professionalsData.map((professional) => ({
+      ...professional,
+      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+    }));
   }
   async getProfessionalsByCategory(category) {
-    return await db.select({
+    const professionalsData = await db.select({
       id: professionals.id,
       userId: professionals.userId,
       name: professionals.name,
@@ -321,9 +358,13 @@ var DatabaseStorage = class {
       imageUrl: professionals.imageUrl,
       createdAt: professionals.createdAt
     }).from(professionals).where(and(eq(professionals.category, category), eq(professionals.available, true)));
+    return professionalsData.map((professional) => ({
+      ...professional,
+      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+    }));
   }
   async searchProfessionals(query) {
-    return await db.select({
+    const professionalsData = await db.select({
       id: professionals.id,
       userId: professionals.userId,
       name: professionals.name,
@@ -352,9 +393,21 @@ var DatabaseStorage = class {
         )
       )
     );
+    return professionalsData.map((professional) => ({
+      ...professional,
+      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+    }));
   }
   async getProfessional(id) {
     const [professional] = await db.select().from(professionals).where(eq(professionals.id, id));
+    if (!professional) return void 0;
+    return {
+      ...professional,
+      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+    };
+  }
+  async getProfessionalByUserId(userId) {
+    const [professional] = await db.select().from(professionals).where(eq(professionals.userId, userId));
     return professional || void 0;
   }
   async createProfessional(insertProfessional) {
@@ -364,6 +417,9 @@ var DatabaseStorage = class {
   async updateProfessional(id, updates) {
     const [professional] = await db.update(professionals).set(updates).where(eq(professionals.id, id)).returning();
     return professional;
+  }
+  async updateProfessionalAvailability(userId, available) {
+    await db.update(professionals).set({ available }).where(eq(professionals.userId, userId));
   }
   // Appointments
   async getAppointmentsByUser(userId) {
@@ -572,11 +628,61 @@ var DatabaseStorage = class {
     return await db.select().from(serviceRequests).where(eq(serviceRequests.clientId, clientId)).orderBy(desc(serviceRequests.createdAt));
   }
   async getServiceRequestsByCategory(category) {
-    return await db.select().from(serviceRequests).where(eq(serviceRequests.category, category)).orderBy(desc(serviceRequests.createdAt));
+    return await db.select({
+      // Service Request fields
+      id: serviceRequests.id,
+      clientId: serviceRequests.clientId,
+      category: serviceRequests.category,
+      serviceType: serviceRequests.serviceType,
+      description: serviceRequests.description,
+      address: serviceRequests.address,
+      budget: serviceRequests.budget,
+      scheduledDate: serviceRequests.scheduledDate,
+      scheduledTime: serviceRequests.scheduledTime,
+      urgency: serviceRequests.urgency,
+      status: serviceRequests.status,
+      responses: serviceRequests.responses,
+      assignedProfessionalId: serviceRequests.assignedProfessionalId,
+      createdAt: serviceRequests.createdAt,
+      updatedAt: serviceRequests.updatedAt,
+      // Client information
+      clientName: users.name,
+      clientEmail: users.email,
+      clientPhone: users.phone,
+      clientProfileImage: users.profileImage,
+      clientCreatedAt: users.createdAt
+    }).from(serviceRequests).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceRequests.category, category)).orderBy(desc(serviceRequests.createdAt));
   }
   async getServiceRequest(id) {
     const [serviceRequest] = await db.select().from(serviceRequests).where(eq(serviceRequests.id, id));
     return serviceRequest || void 0;
+  }
+  async getServiceRequestWithClient(id) {
+    const [result] = await db.select({
+      // Service Request fields
+      id: serviceRequests.id,
+      clientId: serviceRequests.clientId,
+      serviceType: serviceRequests.serviceType,
+      category: serviceRequests.category,
+      description: serviceRequests.description,
+      address: serviceRequests.address,
+      scheduledDate: serviceRequests.scheduledDate,
+      scheduledTime: serviceRequests.scheduledTime,
+      urgency: serviceRequests.urgency,
+      budget: serviceRequests.budget,
+      status: serviceRequests.status,
+      assignedProfessionalId: serviceRequests.assignedProfessionalId,
+      responses: serviceRequests.responses,
+      createdAt: serviceRequests.createdAt,
+      updatedAt: serviceRequests.updatedAt,
+      // Client information
+      clientName: users.name,
+      clientEmail: users.email,
+      clientPhone: users.phone,
+      clientProfileImage: users.profileImage,
+      clientCreatedAt: users.createdAt
+    }).from(serviceRequests).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceRequests.id, id));
+    return result || void 0;
   }
   async createServiceRequest(insertServiceRequest) {
     const [serviceRequest] = await db.insert(serviceRequests).values(insertServiceRequest).returning();
@@ -596,13 +702,375 @@ var DatabaseStorage = class {
       updatedAt: /* @__PURE__ */ new Date()
     }).where(eq(serviceRequests.id, requestId));
   }
+  // Service Offers
+  async getServiceOffersByRequest(requestId) {
+    return await db.select({
+      // Service Offer fields
+      id: serviceOffers.id,
+      serviceRequestId: serviceOffers.serviceRequestId,
+      professionalId: serviceOffers.professionalId,
+      proposedPrice: serviceOffers.proposedPrice,
+      estimatedTime: serviceOffers.estimatedTime,
+      message: serviceOffers.message,
+      status: serviceOffers.status,
+      createdAt: serviceOffers.createdAt,
+      updatedAt: serviceOffers.updatedAt,
+      // Professional information
+      professionalName: professionals.name,
+      professionalRating: professionals.rating,
+      professionalTotalReviews: professionals.totalReviews,
+      professionalProfileImage: professionals.imageUrl
+    }).from(serviceOffers).innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id)).where(eq(serviceOffers.serviceRequestId, requestId)).orderBy(desc(serviceOffers.createdAt));
+  }
+  async getProposalsByProfessional(professionalId) {
+    const results = await db.select({
+      // Service Offer fields
+      id: serviceOffers.id,
+      serviceRequestId: serviceOffers.serviceRequestId,
+      professionalId: serviceOffers.professionalId,
+      proposedPrice: serviceOffers.proposedPrice,
+      estimatedTime: serviceOffers.estimatedTime,
+      message: serviceOffers.message,
+      status: serviceOffers.status,
+      createdAt: serviceOffers.createdAt,
+      updatedAt: serviceOffers.updatedAt,
+      // Service Request fields
+      requestId: serviceRequests.id,
+      clientId: serviceRequests.clientId,
+      serviceType: serviceRequests.serviceType,
+      description: serviceRequests.description,
+      address: serviceRequests.address,
+      budget: serviceRequests.budget,
+      scheduledDate: serviceRequests.scheduledDate,
+      scheduledTime: serviceRequests.scheduledTime,
+      urgency: serviceRequests.urgency,
+      requestStatus: serviceRequests.status,
+      assignedProfessionalId: serviceRequests.assignedProfessionalId,
+      responses: serviceRequests.responses,
+      requestCreatedAt: serviceRequests.createdAt,
+      requestUpdatedAt: serviceRequests.updatedAt,
+      // Client information
+      clientName: users.name,
+      clientEmail: users.email,
+      clientPhone: users.phone,
+      clientProfileImage: users.profileImage,
+      clientCreatedAt: users.createdAt
+    }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceOffers.professionalId, professionalId)).orderBy(desc(serviceOffers.createdAt));
+    return results.map((result) => ({
+      id: result.id,
+      serviceRequestId: result.serviceRequestId,
+      professionalId: result.professionalId,
+      proposedPrice: result.proposedPrice,
+      estimatedTime: result.estimatedTime,
+      message: result.message,
+      status: result.status,
+      createdAt: result.createdAt,
+      updatedAt: result.updatedAt,
+      serviceRequest: {
+        id: result.serviceRequestId,
+        clientId: result.clientId,
+        serviceType: result.serviceType,
+        description: result.description,
+        address: result.address,
+        budget: result.budget,
+        scheduledDate: result.scheduledDate,
+        scheduledTime: result.scheduledTime,
+        urgency: result.urgency,
+        status: result.requestStatus,
+        assignedProfessionalId: result.assignedProfessionalId,
+        responses: result.responses,
+        createdAt: result.requestCreatedAt,
+        updatedAt: result.requestUpdatedAt,
+        clientName: result.clientName,
+        clientEmail: result.clientEmail,
+        clientPhone: result.clientPhone,
+        clientProfileImage: result.clientProfileImage,
+        clientCreatedAt: result.clientCreatedAt
+      }
+    }));
+  }
+  async createServiceOffer(serviceOffer) {
+    const [offer] = await db.insert(serviceOffers).values(serviceOffer).returning();
+    return offer;
+  }
+  async updateServiceOffer(id, updates) {
+    const [offer] = await db.update(serviceOffers).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceOffers.id, id)).returning();
+    return offer;
+  }
+  async deleteServiceOffer(id) {
+    await db.delete(serviceOffers).where(eq(serviceOffers.id, id));
+  }
+  // ==================== SERVICE REQUESTS FOR CLIENT ====================
+  async getServiceRequestsForClient(userId) {
+    console.log("\u{1F50D} Buscando pedidos para cliente ID:", userId);
+    const results = await db.select({
+      id: serviceRequests.id,
+      title: serviceRequests.serviceType,
+      description: serviceRequests.description,
+      category: serviceRequests.serviceType,
+      budget: serviceRequests.budget,
+      location: serviceRequests.address,
+      urgency: serviceRequests.urgency,
+      status: serviceRequests.status,
+      createdAt: serviceRequests.createdAt,
+      responses: serviceRequests.responses
+    }).from(serviceRequests).where(eq(serviceRequests.clientId, userId)).orderBy(desc(serviceRequests.createdAt));
+    console.log("\u2705 Pedidos encontrados:", results.length);
+    return results.map((result) => ({
+      id: result.id,
+      title: result.title,
+      description: result.description,
+      category: result.category,
+      budget: result.budget,
+      location: result.location,
+      urgency: result.urgency,
+      status: result.status,
+      createdAt: result.createdAt,
+      responseCount: result.responses || 0
+    }));
+  }
+  // ==================== SERVICE OFFERS FOR CLIENT ====================
+  async getServiceOffersForClient(userId) {
+    console.log("\u{1F50D} Buscando propostas para cliente ID:", userId);
+    const results = await db.select({
+      id: serviceOffers.id,
+      serviceRequestId: serviceOffers.serviceRequestId,
+      professionalId: serviceOffers.professionalId,
+      price: serviceOffers.proposedPrice,
+      estimatedTime: serviceOffers.estimatedTime,
+      message: serviceOffers.message,
+      status: serviceOffers.status,
+      createdAt: serviceOffers.createdAt,
+      serviceTitle: serviceRequests.serviceType,
+      professionalName: professionals.name,
+      professionalRating: professionals.rating,
+      professionalTotalReviews: professionals.totalReviews,
+      professionalProfileImage: professionals.imageUrl
+    }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id)).where(eq(serviceRequests.clientId, userId)).orderBy(desc(serviceOffers.createdAt));
+    console.log("\u2705 Propostas encontradas:", results.length);
+    return results.map((result) => ({
+      id: result.id,
+      serviceRequestId: result.serviceRequestId,
+      professionalId: result.professionalId,
+      professionalName: result.professionalName,
+      professionalRating: result.professionalRating || 5,
+      professionalTotalReviews: result.professionalTotalReviews || 0,
+      professionalProfileImage: result.professionalProfileImage ? this.getFullImageUrl(result.professionalProfileImage) : null,
+      price: result.price,
+      estimatedTime: result.estimatedTime,
+      message: result.message,
+      status: result.status,
+      createdAt: result.createdAt,
+      serviceTitle: result.serviceTitle
+    }));
+  }
+  async acceptServiceOffer(offerId, userId) {
+    try {
+      console.log("\u2705 Aceitando proposta:", offerId, "pelo cliente:", userId);
+      const [offer] = await db.select({
+        id: serviceOffers.id,
+        serviceRequestId: serviceOffers.serviceRequestId,
+        professionalId: serviceOffers.professionalId,
+        status: serviceOffers.status,
+        clientId: serviceRequests.clientId
+      }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).where(eq(serviceOffers.id, offerId));
+      if (!offer) {
+        return { success: false, error: "Proposta n\xE3o encontrada" };
+      }
+      if (offer.clientId !== userId) {
+        return { success: false, error: "Proposta n\xE3o pertence a este cliente" };
+      }
+      if (offer.status !== "pending") {
+        return { success: false, error: "Proposta j\xE1 foi processada" };
+      }
+      await db.update(serviceOffers).set({ status: "accepted", updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceOffers.id, offerId));
+      await db.update(serviceRequests).set({
+        assignedProfessionalId: offer.professionalId,
+        status: "in_progress",
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq(serviceRequests.id, offer.serviceRequestId));
+      await db.update(serviceOffers).set({ status: "rejected", updatedAt: /* @__PURE__ */ new Date() }).where(and(
+        eq(serviceOffers.serviceRequestId, offer.serviceRequestId),
+        ne(serviceOffers.id, offerId)
+      ));
+      return { success: true };
+    } catch (error) {
+      console.error("\u274C Erro ao aceitar proposta:", error);
+      return { success: false, error: "Erro interno do servidor" };
+    }
+  }
+  async rejectServiceOffer(offerId, userId) {
+    try {
+      console.log("\u274C Rejeitando proposta:", offerId, "pelo cliente:", userId);
+      const [offer] = await db.select({
+        id: serviceOffers.id,
+        status: serviceOffers.status,
+        serviceRequestId: serviceOffers.serviceRequestId,
+        professionalId: serviceOffers.professionalId,
+        clientId: serviceRequests.clientId
+      }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).where(eq(serviceOffers.id, offerId));
+      if (!offer) {
+        return { success: false, error: "Proposta n\xE3o encontrada" };
+      }
+      if (offer.clientId !== userId) {
+        return { success: false, error: "Proposta n\xE3o pertence a este cliente" };
+      }
+      await this.deleteServiceOffer(offerId);
+      const request = await this.getServiceRequest(offer.serviceRequestId);
+      if (request) {
+        const current = Number(request.responses) || 0;
+        const next = current > 0 ? current - 1 : 0;
+        await this.updateServiceRequest(offer.serviceRequestId, { responses: next });
+      }
+      const professional = await this.getProfessional(offer.professionalId);
+      if (professional) {
+        const reqDetailed = await this.getServiceRequest(offer.serviceRequestId);
+        const serviceLabel = reqDetailed?.serviceType || "um servi\xE7o";
+        await this.createNotification({
+          userId: professional.userId,
+          message: `Sua proposta para ${serviceLabel} foi rejeitada e removida pelo cliente.`,
+          read: false
+        });
+      }
+      return { success: true };
+    } catch (error) {
+      console.error("\u274C Erro ao rejeitar e excluir proposta:", error);
+      return { success: false, error: "Erro interno do servidor" };
+    }
+  }
 };
 var storage = new DatabaseStorage();
 
 // server/auth.ts
 import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import fetch from "node-fetch";
+console.log("\u{1F527} Configurando Google OAuth Strategy...");
+console.log("\u{1F527} GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID ? "Presente" : "Ausente");
+console.log("\u{1F527} GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET ? "Presente" : "Ausente");
+console.log("\u{1F527} NODE_ENV:", process.env.NODE_ENV);
+console.log("\u{1F527} Callback URL:", process.env.NODE_ENV === "production" ? "https://lifebee-backend.onrender.com/api/auth/google/callback" : "http://localhost:5000/api/auth/google/callback");
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+  console.log("\u26A0\uFE0F Google OAuth desabilitado - configure GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET no Render");
+} else {
+  console.log("\u2705 Google OAuth habilitado - vari\xE1veis configuradas");
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.NODE_ENV === "production" ? "https://lifebee-backend.onrender.com/api/auth/google/callback" : "http://localhost:5000/api/auth/google/callback"
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      console.log("\u{1F510} Google OAuth profile iniciado");
+      console.log("\u{1F4E7} Email:", profile.emails?.[0]?.value);
+      console.log("\u{1F464} Nome:", profile.displayName);
+      console.log("\u{1F194} ID:", profile.id);
+      let additionalProfileData = {
+        phone: null,
+        address: null
+      };
+      try {
+        console.log("\u{1F50D} Buscando dados adicionais do perfil via Google People API...");
+        const peopleApiResponse = await fetch(
+          `https://people.googleapis.com/v1/people/me?personFields=phoneNumbers,addresses&access_token=${accessToken}`
+        );
+        if (peopleApiResponse.ok) {
+          const peopleData = await peopleApiResponse.json();
+          console.log("\u{1F4F1} Dados do People API:", peopleData);
+          if (peopleData.phoneNumbers && peopleData.phoneNumbers.length > 0) {
+            additionalProfileData.phone = peopleData.phoneNumbers[0].value;
+            console.log("\u{1F4F1} Telefone encontrado:", additionalProfileData.phone);
+          }
+          if (peopleData.addresses && peopleData.addresses.length > 0) {
+            const address = peopleData.addresses[0];
+            const addressParts = [];
+            if (address.streetAddress) addressParts.push(address.streetAddress);
+            if (address.locality) addressParts.push(address.locality);
+            if (address.administrativeArea) addressParts.push(address.administrativeArea);
+            if (address.postalCode) addressParts.push(address.postalCode);
+            if (address.country) addressParts.push(address.country);
+            additionalProfileData.address = addressParts.join(", ");
+            console.log("\u{1F3E0} Endere\xE7o encontrado:", additionalProfileData.address);
+          }
+        } else {
+          console.log("\u26A0\uFE0F N\xE3o foi poss\xEDvel obter dados adicionais do People API:", peopleApiResponse.status);
+        }
+      } catch (apiError) {
+        console.log("\u26A0\uFE0F Erro ao buscar dados do People API:", apiError);
+      }
+      let user = await storage.getUserByGoogleId(profile.id);
+      if (user) {
+        const updateData = { lastLoginAt: /* @__PURE__ */ new Date() };
+        if (additionalProfileData.phone && !user.phone) {
+          updateData.phone = additionalProfileData.phone;
+          updateData.phoneVerified = true;
+        }
+        if (additionalProfileData.address && !user.address) {
+          updateData.address = additionalProfileData.address;
+        }
+        if (profile.photos?.[0]?.value && !user.profileImage) {
+          updateData.profileImage = profile.photos[0].value;
+        }
+        await storage.updateUser(user.id, updateData);
+        return done(null, user);
+      }
+      if (profile.emails && profile.emails[0]) {
+        user = await storage.getUserByEmail(profile.emails[0].value);
+        if (user) {
+          const updateData = {
+            googleId: profile.id,
+            lastLoginAt: /* @__PURE__ */ new Date(),
+            isVerified: true
+          };
+          if (additionalProfileData.phone && !user.phone) {
+            updateData.phone = additionalProfileData.phone;
+            updateData.phoneVerified = true;
+          }
+          if (additionalProfileData.address && !user.address) {
+            updateData.address = additionalProfileData.address;
+          }
+          if (profile.photos?.[0]?.value && !user.profileImage) {
+            updateData.profileImage = profile.photos[0].value;
+          }
+          await storage.updateUser(user.id, updateData);
+          return done(null, user);
+        }
+      }
+      const newUser = await storage.createUser({
+        username: profile.emails?.[0]?.value || `google_${profile.id}`,
+        password: "",
+        // OAuth users don't need password
+        name: profile.displayName || "Usu\xE1rio Google",
+        email: profile.emails?.[0]?.value || "",
+        phone: additionalProfileData.phone,
+        phoneVerified: additionalProfileData.phone ? true : false,
+        googleId: profile.id,
+        appleId: null,
+        address: additionalProfileData.address,
+        profileImage: profile.photos?.[0]?.value || null,
+        userType: "client",
+        isVerified: true,
+        isBlocked: false,
+        lastLoginAt: /* @__PURE__ */ new Date(),
+        loginAttempts: 0,
+        resetToken: null,
+        resetTokenExpiry: null
+      });
+      console.log("\u2705 Novo usu\xE1rio criado com perfil completo:", {
+        name: newUser.name,
+        email: newUser.email,
+        phone: newUser.phone,
+        address: newUser.address,
+        profileImage: newUser.profileImage ? "Presente" : "Ausente"
+      });
+      return done(null, newUser);
+    } catch (error) {
+      console.error("\u274C Erro no Google OAuth:", error);
+      return done(error, void 0);
+    }
+  }));
+}
 passport.serializeUser((user, done) => {
   done(null, user.id);
 });
@@ -615,7 +1083,13 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 var generateToken = (user) => {
-  return jwt.sign(
+  console.log("\u{1F527} Gerando token para usu\xE1rio:", {
+    id: user.id,
+    email: user.email,
+    userType: user.userType
+  });
+  console.log("\u{1F527} JWT_SECRET presente:", !!process.env.JWT_SECRET);
+  const token = jwt.sign(
     {
       id: user.id,
       email: user.email,
@@ -624,6 +1098,8 @@ var generateToken = (user) => {
     process.env.JWT_SECRET,
     { expiresIn: "7d" }
   );
+  console.log("\u{1F527} Token gerado com sucesso, tamanho:", token.length);
+  return token;
 };
 var verifyToken = (token) => {
   try {
@@ -688,7 +1164,39 @@ var rateLimitByIP = async (req, res, next) => {
 
 // server/routes.ts
 import pgSession from "connect-pg-simple";
-import "express-session";
+import multer from "multer";
+import path2 from "path";
+import fs from "fs";
+var multerStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path2.join(process.cwd(), "uploads");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, file.fieldname + "-" + uniqueSuffix + path2.extname(file.originalname));
+  }
+});
+var upload = multer({
+  storage: multerStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024
+    // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path2.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error("Apenas imagens s\xE3o permitidas!"));
+    }
+  }
+});
 var authLimiter = rateLimit({
   windowMs: 15 * 60 * 1e3,
   // 15 minutes
@@ -702,12 +1210,68 @@ var authLimiter = rateLimit({
   }
 });
 async function registerRoutes(app2) {
+  app2.get("/api/test", (req, res) => {
+    res.json({
+      message: "Server is running!",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      env: process.env.NODE_ENV,
+      googleClientId: process.env.GOOGLE_CLIENT_ID ? "Presente" : "Ausente",
+      googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? "Presente" : "Ausente",
+      callbackUrl: process.env.NODE_ENV === "production" ? "https://lifebee-backend.onrender.com/api/auth/google/callback" : "http://localhost:5000/api/auth/google/callback"
+    });
+  });
+  app2.get("/api/auth/test", (req, res) => {
+    res.json({
+      message: "Google OAuth routes are registered",
+      googleAuthUrl: "/api/auth/google",
+      googleCallbackUrl: "/api/auth/google/callback",
+      googleClientId: process.env.GOOGLE_CLIENT_ID ? "Presente" : "Ausente",
+      googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? "Presente" : "Ausente",
+      nodeEnv: process.env.NODE_ENV || "development",
+      callbackUrl: process.env.NODE_ENV === "production" ? "https://lifebee-backend.onrender.com/api/auth/google/callback" : "http://localhost:5000/api/auth/google/callback"
+    });
+  });
+  const uploadsPath = path2.resolve(process.cwd(), "uploads");
+  console.log("\u{1F4C1} Configurando middleware para arquivos est\xE1ticos em:", uploadsPath);
+  console.log("\u{1F4C1} Diret\xF3rio atual (process.cwd()):", process.cwd());
+  if (!fs.existsSync(uploadsPath)) {
+    console.log("\u{1F4C1} Criando diret\xF3rio uploads...");
+    fs.mkdirSync(uploadsPath, { recursive: true });
+  }
+  console.log("\u{1F4C1} Diret\xF3rio uploads existe:", fs.existsSync(uploadsPath));
+  try {
+    const uploadsContent = fs.readdirSync(uploadsPath);
+    console.log("\u{1F4C1} Conte\xFAdo do diret\xF3rio uploads:", uploadsContent);
+  } catch (error) {
+    console.log("\u{1F4C1} Diret\xF3rio uploads est\xE1 vazio ou n\xE3o pode ser lido:", error);
+  }
+  app2.use("/uploads", express.static(uploadsPath, {
+    setHeaders: (res, path3) => {
+      console.log("\u{1F4C2} Servindo arquivo:", path3);
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
+      res.setHeader("Cache-Control", "public, max-age=31536000");
+    }
+  }));
   app2.get("/api/health", (req, res) => {
     res.status(200).json({
       status: "OK",
       message: "Server is healthy",
       timestamp: (/* @__PURE__ */ new Date()).toISOString(),
       environment: process.env.NODE_ENV || "development"
+    });
+  });
+  app2.get("/api/test-auth", authenticateToken, (req, res) => {
+    const user = req.user;
+    res.status(200).json({
+      message: "Authentication successful",
+      user: {
+        id: user.id,
+        name: user.name,
+        userType: user.userType,
+        email: user.email
+      }
     });
   });
   app2.set("trust proxy", 1);
@@ -718,12 +1282,16 @@ async function registerRoutes(app2) {
         scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "ws:", "wss:", "https://accounts.google.com"],
+        imgSrc: ["'self'", "data:", "https:", "http:"],
+        // Permitir http para desenvolvimento
+        connectSrc: ["'self'", "ws:", "wss:", "https:", "http:", "https://accounts.google.com"],
+        // Permitir http para desenvolvimento
         frameSrc: ["'self'", "https://accounts.google.com"]
       }
     },
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: false
+    // Desabilitar para permitir cross-origin
   }));
   const PgSession = pgSession(session);
   app2.use(session({
@@ -749,31 +1317,6 @@ async function registerRoutes(app2) {
   }));
   app2.use(passport2.initialize());
   app2.use(passport2.session());
-  app2.get(
-    "/api/auth/google",
-    passport2.authenticate("google", { scope: ["profile", "email"] })
-  );
-  app2.get(
-    "/api/auth/google/callback",
-    passport2.authenticate("google", { failureRedirect: "/login" }),
-    async (req, res) => {
-      try {
-        const user = req.user;
-        const token = generateToken(user);
-        await storage.createLoginAttempt({
-          email: user.email,
-          ipAddress: req.ip || "unknown",
-          userAgent: req.get("User-Agent") || "unknown",
-          successful: true,
-          blocked: false
-        });
-        res.redirect(`/?token=${token}&userType=${user.userType}`);
-      } catch (error) {
-        console.error("Google auth callback error:", error);
-        res.redirect("/login?error=auth_failed");
-      }
-    }
-  );
   app2.post("/api/auth/login", authLimiter, rateLimitByIP, async (req, res) => {
     try {
       const { email, password, userType } = req.body;
@@ -859,6 +1402,7 @@ async function registerRoutes(app2) {
         phone: phone || null,
         phoneVerified: false,
         googleId: null,
+        appleId: null,
         address: null,
         profileImage: null,
         isVerified: false,
@@ -948,7 +1492,7 @@ async function registerRoutes(app2) {
               otherName = otherUser?.name || "Cliente";
               otherAvatar = otherUser?.profileImage || "";
             } else {
-              otherUser = await storage.getProfessionalById(conv.professionalId);
+              otherUser = await storage.getProfessional(conv.professionalId);
               otherName = otherUser?.name || "Profissional";
               otherAvatar = otherUser?.imageUrl || "";
               specialization = otherUser?.specialization || "";
@@ -1038,7 +1582,7 @@ async function registerRoutes(app2) {
       const user = req.user;
       const { professionalId, message } = req.body;
       console.log("professionalId recebido:", professionalId);
-      const professional = await storage.getProfessionalById(professionalId);
+      const professional = await storage.getProfessional(professionalId);
       console.log("Resultado da busca do profissional:", professional);
       if (!professional) {
         return res.status(404).json({ message: "Profissional n\xE3o encontrado" });
@@ -1091,6 +1635,76 @@ async function registerRoutes(app2) {
       }
     } catch (error) {
       console.error("Start conversation error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/conversations", authenticateToken, async (req, res) => {
+    console.log("\u{1F680} POST /api/conversations chamada");
+    console.log("\u{1F4E8} Body recebido:", JSON.stringify(req.body));
+    console.log("\u{1F464} Usu\xE1rio autenticado:", req.user);
+    try {
+      const user = req.user;
+      const { clientId, serviceRequestId, initialMessage } = req.body;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Apenas profissionais podem iniciar conversas" });
+      }
+      console.log("clientId recebido:", clientId);
+      console.log("serviceRequestId recebido:", serviceRequestId);
+      const client = await storage.getUser(clientId);
+      console.log("Resultado da busca do cliente:", client);
+      if (!client) {
+        return res.status(404).json({ message: "Cliente n\xE3o encontrado" });
+      }
+      const existingConversation = await storage.getConversation(clientId, user.id);
+      if (existingConversation) {
+        const isDeletedByClient = await storage.isConversationDeletedByUser(existingConversation.id, clientId);
+        if (isDeletedByClient) {
+          await storage.restoreConversation(existingConversation.id, clientId);
+          console.log(`\u2705 Conversa ${existingConversation.id} restaurada automaticamente para cliente ${clientId}`);
+        }
+        const isDeletedByProfessional = await storage.isConversationDeletedByUser(existingConversation.id, user.id);
+        if (isDeletedByProfessional) {
+          await storage.restoreConversation(existingConversation.id, user.id);
+          console.log(`\u2705 Conversa ${existingConversation.id} restaurada automaticamente para profissional ${user.id}`);
+        }
+        const newMessage = await storage.createMessage({
+          conversationId: existingConversation.id,
+          senderId: user.id,
+          recipientId: clientId,
+          content: initialMessage || "Ol\xE1! Gostaria de conversar sobre o servi\xE7o.",
+          type: "text",
+          isRead: false
+        });
+        return res.status(200).json({
+          message: "Mensagem enviada com sucesso",
+          id: existingConversation.id,
+          conversationId: existingConversation.id,
+          messageData: newMessage
+        });
+      } else {
+        const conversation = await storage.createConversation({
+          clientId,
+          professionalId: user.id,
+          deletedByClient: false,
+          deletedByProfessional: false
+        });
+        const initialMsg = await storage.createMessage({
+          conversationId: conversation.id,
+          senderId: user.id,
+          recipientId: clientId,
+          content: initialMessage || "Ol\xE1! Gostaria de conversar sobre o servi\xE7o.",
+          type: "text",
+          isRead: false
+        });
+        return res.status(201).json({
+          message: "Conversa iniciada com sucesso",
+          id: conversation.id,
+          conversationId: conversation.id,
+          messageData: initialMsg
+        });
+      }
+    } catch (error) {
+      console.error("Professional start conversation error:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
@@ -1225,6 +1839,19 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+  app2.get("/api/appointments/provider", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      const appointments2 = await storage.getAppointmentsByProfessional(user.id);
+      res.json(appointments2);
+    } catch (error) {
+      console.error("Get provider appointments error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
   app2.get("/api/notifications", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
@@ -1266,7 +1893,7 @@ async function registerRoutes(app2) {
     } catch (error) {
       console.error("Payment error:", error);
       res.status(500).json({
-        message: "Error processing payment: " + error.message
+        message: "Error processing payment: " + (error instanceof Error ? error.message : "Erro desconhecido")
       });
     }
   });
@@ -1337,6 +1964,189 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
+  app2.get("/api/provider/profile", authenticateToken, async (req, res) => {
+    try {
+      console.log("Provider profile request received");
+      const user = req.user;
+      console.log("User data:", { id: user.id, userType: user.userType });
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      console.log("Fetching professional data for user ID:", user.id);
+      const professional = await storage.getProfessionalByUserId(user.id);
+      console.log("Professional data:", professional);
+      console.log("Fetching user data for user ID:", user.id);
+      const userData = await storage.getUser(user.id);
+      console.log("User data:", userData);
+      if (!userData) {
+        return res.status(404).json({ message: "Dados do usu\xE1rio n\xE3o encontrados." });
+      }
+      if (!professional) {
+        console.log("No professional data found, creating basic profile");
+        const basicProfile = {
+          id: 0,
+          userId: user.id,
+          name: userData.name || "",
+          specialization: "",
+          category: "",
+          subCategory: "",
+          description: "",
+          experience: "",
+          certifications: "",
+          availableHours: "",
+          hourlyRate: "",
+          rating: "5.0",
+          totalReviews: 0,
+          location: "",
+          distance: "",
+          available: true,
+          imageUrl: userData.profileImage || "",
+          createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+          email: userData.email,
+          phone: userData.phone
+        };
+        console.log("Sending basic profile data:", basicProfile);
+        return res.json(basicProfile);
+      }
+      const profileData = {
+        ...professional,
+        email: userData.email,
+        phone: userData.phone
+      };
+      console.log("Sending profile data:", profileData);
+      res.json(profileData);
+    } catch (error) {
+      console.error("Get provider profile error:", error);
+      res.status(500).json({ message: "Erro interno do servidor", error: error instanceof Error ? error.message : "Erro desconhecido" });
+    }
+  });
+  app2.put("/api/provider/profile", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const {
+        name,
+        specialization,
+        category,
+        subCategory,
+        description,
+        experience,
+        certifications,
+        hourlyRate,
+        location,
+        available
+      } = req.body;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ message: "Dados do profissional n\xE3o encontrados." });
+      }
+      const updatedProfessional = await storage.updateProfessional(professional.id, {
+        name,
+        specialization,
+        category,
+        subCategory,
+        description,
+        experience,
+        certifications,
+        hourlyRate,
+        location,
+        available
+      });
+      if (name && name !== user.name) {
+        await storage.updateUser(user.id, { name });
+      }
+      res.json({
+        message: "Perfil atualizado com sucesso",
+        professional: updatedProfessional
+      });
+    } catch (error) {
+      console.error("Update provider profile error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/provider/upload-image", authenticateToken, upload.single("profileImage"), async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhuma imagem foi enviada." });
+      }
+      const imageUrl = `/uploads/${req.file.filename}`;
+      await storage.updateUser(user.id, { profileImage: imageUrl });
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (professional) {
+        await storage.updateProfessional(professional.id, { imageUrl });
+      }
+      res.json({
+        message: "Imagem de perfil atualizada com sucesso",
+        imageUrl
+      });
+    } catch (error) {
+      console.error("Upload profile image error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/user/upload-image", authenticateToken, upload.single("profileImage"), async (req, res) => {
+    try {
+      const user = req.user;
+      if (!req.file) {
+        return res.status(400).json({ message: "Nenhuma imagem foi enviada." });
+      }
+      const imageUrl = `/uploads/${req.file.filename}`;
+      await storage.updateUser(user.id, { profileImage: imageUrl });
+      if (user.userType === "provider") {
+        const professional = await storage.getProfessionalByUserId(user.id);
+        if (professional) {
+          await storage.updateProfessional(professional.id, { imageUrl });
+        }
+      }
+      res.json({
+        message: "Imagem de perfil atualizada com sucesso",
+        imageUrl
+      });
+    } catch (error) {
+      console.error("Upload profile image error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.put("/api/user/profile", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const { name, email, phone, address } = req.body;
+      if (!name || !email) {
+        return res.status(400).json({ message: "Nome e email s\xE3o obrigat\xF3rios." });
+      }
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser && existingUser.id !== user.id) {
+        return res.status(400).json({ message: "Este email j\xE1 est\xE1 em uso por outro usu\xE1rio." });
+      }
+      const updatedUser = await storage.updateUser(user.id, {
+        name,
+        email,
+        phone: phone || null,
+        address: address || null
+      });
+      res.json({
+        message: "Perfil atualizado com sucesso",
+        user: {
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          phone: updatedUser.phone,
+          address: updatedUser.address,
+          profileImage: updatedUser.profileImage,
+          userType: updatedUser.userType
+        }
+      });
+    } catch (error) {
+      console.error("Update user profile error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
   app2.get("/api/provider/settings", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
@@ -1392,6 +2202,33 @@ async function registerRoutes(app2) {
       });
     } catch (error) {
       console.error("Update provider settings error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.put("/api/provider/availability", authenticateToken, async (req, res) => {
+    console.log("\u{1F527} Rota /api/provider/availability foi chamada");
+    try {
+      const user = req.user;
+      const { available } = req.body;
+      console.log("\u{1F464} Usu\xE1rio:", user);
+      console.log("\u{1F4CA} Dados recebidos:", { available });
+      if (user.userType !== "provider") {
+        console.log("\u274C Usu\xE1rio n\xE3o \xE9 profissional:", user.userType);
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      if (typeof available !== "boolean") {
+        console.log("\u274C Tipo inv\xE1lido para available:", typeof available);
+        return res.status(400).json({ message: "O campo 'available' deve ser um valor booleano" });
+      }
+      console.log("\u2705 Atualizando disponibilidade do profissional ID:", user.id, "para:", available);
+      await storage.updateProfessionalAvailability(user.id, available);
+      console.log(`\u2705 Professional ${user.id} availability updated to: ${available}`);
+      res.json({
+        message: "Disponibilidade atualizada com sucesso",
+        available
+      });
+    } catch (error) {
+      console.error("\u{1F4A5} Update provider availability error:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
@@ -1537,6 +2374,44 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
+  app2.get("/api/service-requests/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      if (isNaN(requestId)) {
+        return res.status(400).json({ message: "ID da solicita\xE7\xE3o inv\xE1lido" });
+      }
+      const serviceRequest = await storage.getServiceRequestWithClient(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicita\xE7\xE3o n\xE3o encontrada" });
+      }
+      if (user.userType === "client" && serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ message: "Acesso negado a esta solicita\xE7\xE3o" });
+      }
+      res.json(serviceRequest);
+    } catch (error) {
+      console.error("Get service request error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/users/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const targetUserId = parseInt(req.params.id);
+      if (isNaN(targetUserId)) {
+        return res.status(400).json({ message: "ID do usu\xE1rio inv\xE1lido" });
+      }
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({ message: "Usu\xE1rio n\xE3o encontrado" });
+      }
+      const { password, ...userInfo } = targetUser;
+      res.json(userInfo);
+    } catch (error) {
+      console.error("Get user error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
   app2.delete("/api/service-requests/:id", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
@@ -1609,36 +2484,292 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
+  app2.get("/api/service-requests/:id/offers", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      if (isNaN(requestId)) {
+        return res.status(400).json({ message: "ID da solicita\xE7\xE3o inv\xE1lido" });
+      }
+      const serviceRequest = await storage.getServiceRequest(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicita\xE7\xE3o n\xE3o encontrada" });
+      }
+      if (user.userType === "client" && serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ message: "Acesso negado \xE0s propostas" });
+      }
+      const offers = await storage.getServiceOffersByRequest(requestId);
+      res.json(offers);
+    } catch (error) {
+      console.error("Get service offers error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/service-requests/:id/offers", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      const { proposedPrice, estimatedTime, message } = req.body;
+      if (isNaN(requestId)) {
+        return res.status(400).json({ message: "ID da solicita\xE7\xE3o inv\xE1lido" });
+      }
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Apenas profissionais podem fazer propostas" });
+      }
+      const serviceRequest = await storage.getServiceRequest(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicita\xE7\xE3o n\xE3o encontrada" });
+      }
+      if (serviceRequest.status !== "open") {
+        return res.status(400).json({ message: "Esta solicita\xE7\xE3o n\xE3o est\xE1 mais aceitando propostas" });
+      }
+      const existingOffers = await storage.getServiceOffersByRequest(requestId);
+      const hasExistingOffer = existingOffers.some((offer2) => offer2.professionalId === user.id);
+      if (hasExistingOffer) {
+        return res.status(400).json({ message: "Voc\xEA j\xE1 fez uma proposta para esta solicita\xE7\xE3o" });
+      }
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ message: "Dados do profissional n\xE3o encontrados" });
+      }
+      const offer = await storage.createServiceOffer({
+        serviceRequestId: requestId,
+        professionalId: professional.id,
+        proposedPrice: proposedPrice.toString(),
+        estimatedTime,
+        message,
+        status: "pending"
+      });
+      await storage.updateServiceRequest(requestId, {
+        responses: (serviceRequest.responses || 0) + 1
+      });
+      res.status(201).json({
+        message: "Proposta enviada com sucesso",
+        offer
+      });
+    } catch (error) {
+      console.error("Create service offer error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/professionals/:id/proposals", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const professionalId = parseInt(req.params.id);
+      if (isNaN(professionalId)) {
+        return res.status(400).json({ message: "ID do profissional inv\xE1lido" });
+      }
+      if (user.userType !== "provider" || user.id !== professionalId) {
+        return res.status(403).json({ message: "Acesso negado \xE0s propostas" });
+      }
+      const professional = await storage.getProfessionalByUserId(professionalId);
+      if (!professional) {
+        return res.status(404).json({ message: "Profissional n\xE3o encontrado" });
+      }
+      const proposals = await storage.getProposalsByProfessional(professional.id);
+      res.json(proposals);
+    } catch (error) {
+      console.error("Get professional proposals error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/auth/test", (req, res) => {
+    res.json({
+      googleClientId: process.env.GOOGLE_CLIENT_ID ? "Presente" : "Ausente",
+      googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? "Presente" : "Ausente",
+      nodeEnv: process.env.NODE_ENV,
+      callbackUrl: process.env.NODE_ENV === "production" ? "https://lifebee.netlify.app/api/auth/google/callback" : "http://localhost:5000/api/auth/google/callback"
+    });
+  });
+  app2.get("/api/test", (req, res) => {
+    console.log("\u{1F9EA} Rota de teste acessada");
+    res.json({
+      message: "Servidor funcionando!",
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      env: process.env.NODE_ENV || "development"
+    });
+  });
+  app2.get("/api/auth/google", (req, res, next) => {
+    console.log("\u{1F510} ===== IN\xCDCIO DA AUTENTICA\xC7\xC3O GOOGLE =====");
+    console.log("\u{1F510} M\xE9todo:", req.method);
+    console.log("\u{1F510} URL:", req.url);
+    console.log("\u{1F510} Headers:", req.headers);
+    console.log("\u{1F510} User Agent:", req.get("User-Agent"));
+    console.log("\u{1F510} Referer:", req.get("Referer"));
+    console.log("\u{1F510} Origin:", req.get("Origin"));
+    console.log("\u{1F510} GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID ? "Presente" : "Ausente");
+    console.log("\u{1F510} GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET ? "Presente" : "Ausente");
+    console.log("\u{1F510} URL de callback configurada:", process.env.NODE_ENV === "production" ? "https://lifebee-backend.onrender.com/api/auth/google/callback" : "http://localhost:5000/api/auth/google/callback");
+    console.log("\u{1F510} ===== FIM DOS LOGS DE IN\xCDCIO =====");
+    next();
+  }, passport2.authenticate("google", {
+    scope: ["profile", "email", "https://www.googleapis.com/auth/user.addresses.read", "https://www.googleapis.com/auth/user.phonenumbers.read"]
+  }));
+  app2.get("/api/auth/google/callback", passport2.authenticate("google", {
+    failureRedirect: process.env.NODE_ENV === "production" ? "https://lifebee.netlify.app/login?error=google_auth_failed" : "http://localhost:5173/login?error=google_auth_failed",
+    session: false
+  }), async (req, res) => {
+    try {
+      console.log("\u{1F510} ===== GOOGLE OAUTH CALLBACK INICIADO =====");
+      console.log("\u{1F510} Timestamp:", (/* @__PURE__ */ new Date()).toISOString());
+      console.log("\u{1F510} Query params:", req.query);
+      console.log("\u{1F510} Headers:", req.headers);
+      console.log("\u{1F510} User object:", req.user);
+      console.log("\u{1F510} User type:", typeof req.user);
+      console.log("\u{1F510} User keys:", req.user ? Object.keys(req.user) : "null");
+      console.log("\u{1F510} Session:", req.session);
+      console.log("\u{1F510} Cookies:", req.cookies);
+      console.log("\u{1F510} NODE_ENV:", process.env.NODE_ENV);
+      console.log("\u{1F510} ===== FIM DOS LOGS INICIAIS =====");
+      const user = req.user;
+      console.log("\u{1F464} Usu\xE1rio recebido:", user ? {
+        id: user.id,
+        email: user.email,
+        userType: user.userType,
+        name: user.name,
+        googleId: user.googleId
+      } : "null");
+      if (!user) {
+        console.log("\u274C Usu\xE1rio n\xE3o encontrado no callback");
+        return res.redirect("/login?error=google_auth_failed");
+      }
+      const token = generateToken(user);
+      console.log("\u{1F3AB} Token gerado com sucesso");
+      console.log("\u{1F3AB} Token length:", token.length);
+      const redirectUrl = process.env.NODE_ENV === "production" ? `https://lifebee.netlify.app/auth-callback?token=${token}&userType=${user.userType}` : `http://localhost:5173/auth-callback?token=${token}&userType=${user.userType}`;
+      console.log("\u{1F504} ===== REDIRECIONAMENTO FINAL =====");
+      console.log("\u{1F504} Redirecionando para:", redirectUrl);
+      console.log("\u{1F504} URL length:", redirectUrl.length);
+      console.log("\u{1F504} Timestamp:", (/* @__PURE__ */ new Date()).toISOString());
+      console.log("\u{1F504} ===== FIM DO CALLBACK =====");
+      res.redirect(redirectUrl);
+    } catch (error) {
+      console.error("\u274C ===== ERRO NO GOOGLE OAUTH CALLBACK =====");
+      console.error("\u274C Error:", error);
+      console.error("\u274C Error stack:", error instanceof Error ? error.stack : "No stack trace");
+      console.error("\u274C Timestamp:", (/* @__PURE__ */ new Date()).toISOString());
+      console.error("\u274C ===== FIM DO ERRO =====");
+      const errorRedirectUrl = process.env.NODE_ENV === "production" ? "https://lifebee.netlify.app/login?error=google_auth_failed" : "http://localhost:5173/login?error=google_auth_failed";
+      res.redirect(errorRedirectUrl);
+    }
+  });
+  app2.get("/api/service-requests/client", authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      console.log("\u{1F50D} Buscando pedidos para cliente:", userId);
+      if (!userId) {
+        return res.status(401).json({ error: "Usu\xE1rio n\xE3o autenticado" });
+      }
+      const requests = await storage.getServiceRequestsForClient(userId);
+      console.log("\u2705 Pedidos encontrados:", requests.length);
+      res.json(requests);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar pedidos do cliente:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/service-offers/client", authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      console.log("\u{1F50D} Buscando propostas para cliente:", userId);
+      if (!userId) {
+        return res.status(401).json({ error: "Usu\xE1rio n\xE3o autenticado" });
+      }
+      const offers = await storage.getServiceOffersForClient(userId);
+      console.log("\u2705 Propostas encontradas:", offers.length);
+      res.json(offers);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar propostas do cliente:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.put("/api/service-offers/:id/accept", authenticateToken, async (req, res) => {
+    try {
+      const offerId = parseInt(req.params.id);
+      const userId = req.user?.id;
+      console.log("\u2705 Aceitando proposta:", offerId, "pelo cliente:", userId);
+      if (!userId) {
+        return res.status(401).json({ error: "Usu\xE1rio n\xE3o autenticado" });
+      }
+      const result = await storage.acceptServiceOffer(offerId, userId);
+      if (result.success) {
+        res.json({ message: "Proposta aceita com sucesso" });
+      } else {
+        res.status(400).json({ error: result.error || "Erro ao aceitar proposta" });
+      }
+    } catch (error) {
+      console.error("\u274C Erro ao aceitar proposta:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.put("/api/service-offers/:id/reject", authenticateToken, async (req, res) => {
+    try {
+      const offerId = parseInt(req.params.id);
+      const userId = req.user?.id;
+      console.log("\u274C Rejeitando proposta:", offerId, "pelo cliente:", userId);
+      if (!userId) {
+        return res.status(401).json({ error: "Usu\xE1rio n\xE3o autenticado" });
+      }
+      const result = await storage.rejectServiceOffer(offerId, userId);
+      if (result.success) {
+        res.json({ message: "Proposta rejeitada com sucesso" });
+      } else {
+        res.status(400).json({ error: result.error || "Erro ao rejeitar proposta" });
+      }
+    } catch (error) {
+      console.error("\u274C Erro ao rejeitar proposta:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
   const httpServer = createServer(app2);
   return httpServer;
 }
 
 // server/index.ts
 import { Server as SocketIOServer } from "socket.io";
-var app = express();
+var app = express2();
 console.log("=== Backend inicializado ===");
 app.use((req, res, next) => {
+  if (req.path.startsWith("/uploads")) {
+    return next();
+  }
   const origin = req.headers.origin;
-  const allowedOrigins = ["https://lifebee.netlify.app", "http://localhost:5173", "http://localhost:5174"];
+  const allowedOrigins = [
+    "https://lifebee.netlify.app",
+    "https://lifebee.com.br",
+    "http://localhost:5173",
+    "http://localhost:5174"
+  ];
+  console.log("\u{1F310} CORS - Origin:", origin);
+  console.log("\u{1F310} CORS - Method:", req.method);
+  console.log("\u{1F310} CORS - Path:", req.path);
   if (origin && allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
+    console.log("\u{1F310} CORS - Origin permitido:", origin);
   } else {
-    res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+    const defaultOrigin = process.env.NODE_ENV === "production" ? "https://lifebee.netlify.app" : "http://localhost:5173";
+    res.setHeader("Access-Control-Allow-Origin", defaultOrigin);
+    console.log("\u{1F310} CORS - Usando origin padr\xE3o:", defaultOrigin);
   }
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.setHeader("Access-Control-Allow-Credentials", "true");
   if (req.method === "OPTIONS") {
+    console.log("\u{1F310} CORS - Respondendo a OPTIONS");
     res.status(200).end();
     return;
   }
   next();
 });
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express2.json());
+app.use(express2.urlencoded({ extended: false }));
+app.use((req, res, next) => {
+  console.log("\u{1F310} Debug Global - Requisi\xE7\xE3o:", req.method, req.path);
+  next();
+});
 app.use((req, res, next) => {
   const start = Date.now();
-  const path2 = req.path;
+  const path3 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -1647,8 +2778,8 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path2.startsWith("/api")) {
-      let logLine = `${req.method} ${path2} ${res.statusCode} in ${duration}ms`;
+    if (path3.startsWith("/api")) {
+      let logLine = `${req.method} ${path3} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -1661,7 +2792,12 @@ app.use((req, res, next) => {
   const server = await registerRoutes(app);
   const io = new SocketIOServer(server, {
     cors: {
-      origin: ["http://localhost:5173", "http://localhost:5174", "https://lifebee.netlify.app"],
+      origin: [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "https://lifebee.netlify.app",
+        "https://lifebee.com.br"
+      ],
       credentials: true
     }
   });
@@ -1683,7 +2819,7 @@ app.use((req, res, next) => {
     res.status(status).json({ message });
     console.error(err);
   });
-  const port = process.env.PORT || 5e3;
+  const port = process.env.PORT || 8080;
   server.listen({
     port: Number(port),
     host: "0.0.0.0"

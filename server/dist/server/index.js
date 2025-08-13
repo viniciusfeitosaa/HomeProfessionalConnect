@@ -4,43 +4,30 @@ import { registerRoutes } from "./routes.js";
 import { Server as SocketIOServer } from "socket.io";
 const app = express();
 console.log('=== Backend inicializado ===');
-// Configure CORS for Netlify frontend and development
+// CORS unificado (inclui preflight)
 app.use((req, res, next) => {
-    // Skip CORS for uploads - they have their own CORS configuration
-    if (req.path.startsWith('/uploads')) {
+    if (req.path.startsWith('/uploads'))
         return next();
-    }
     const origin = req.headers.origin;
-    // Allow both Netlify and localhost for development
     const allowedOrigins = [
         'https://lifebee.netlify.app',
         'https://lifebee.com.br',
         'http://localhost:5173',
         'http://localhost:5174'
     ];
-    console.log('🌐 CORS - Origin:', origin);
-    console.log('🌐 CORS - Method:', req.method);
-    console.log('🌐 CORS - Path:', req.path);
+    res.setHeader('Vary', 'Origin');
     if (origin && allowedOrigins.includes(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
-        console.log('🌐 CORS - Origin permitido:', origin);
     }
     else {
-        // Em produção, usar o Netlify como padrão
-        const defaultOrigin = process.env.NODE_ENV === 'production'
-            ? 'https://lifebee.netlify.app'
-            : 'http://localhost:5173';
+        const defaultOrigin = process.env.NODE_ENV === 'production' ? 'https://lifebee.netlify.app' : 'http://localhost:5173';
         res.setHeader('Access-Control-Allow-Origin', defaultOrigin);
-        console.log('🌐 CORS - Usando origin padrão:', defaultOrigin);
     }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    if (req.method === 'OPTIONS') {
-        console.log('🌐 CORS - Respondendo a OPTIONS');
-        res.status(200).end();
-        return;
-    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    if (req.method === 'OPTIONS')
+        return res.status(204).end();
     next();
 });
 app.use(express.json());
@@ -107,10 +94,8 @@ app.use((req, res, next) => {
         res.status(status).json({ message });
         console.error(err);
     });
-    // ALWAYS serve the app on port 5000
-    // this serves both the API and the client.
-    // It is the only port that is not firewalled.
-    const port = process.env.PORT || 5000;
+    // Servir no PORT fornecido pelo Render/ambiente (sem fixar 5000)
+    const port = process.env.PORT || 8080;
     server.listen({
         port: Number(port),
         host: "0.0.0.0",

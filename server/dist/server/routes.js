@@ -55,6 +55,34 @@ const authLimiter = rateLimit({
     }
 });
 export async function registerRoutes(app) {
+    // CORS robusto para todas as rotas da API (inclui preflight)
+    app.use((req, res, next) => {
+        const origin = req.headers.origin;
+        const allowedOrigins = [
+            'https://lifebee.netlify.app',
+            'https://lifebee.com.br',
+            'http://localhost:5173',
+            'http://localhost:5174'
+        ];
+        res.setHeader('Vary', 'Origin');
+        if (origin && allowedOrigins.includes(origin)) {
+            res.setHeader('Access-Control-Allow-Origin', origin);
+        }
+        else {
+            // Em produção, define o Netlify como padrão
+            const defaultOrigin = process.env.NODE_ENV === 'production'
+                ? 'https://lifebee.netlify.app'
+                : 'http://localhost:5173';
+            res.setHeader('Access-Control-Allow-Origin', defaultOrigin);
+        }
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+        if (req.method === 'OPTIONS') {
+            return res.status(204).end();
+        }
+        next();
+    });
     // Test route to verify server is running
     app.get('/api/test', (req, res) => {
         res.json({
