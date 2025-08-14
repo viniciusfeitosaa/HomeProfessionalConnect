@@ -817,6 +817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/user", authenticateToken, async (req, res) => {
     try {
       const user = req.user as any;
+      const createdAt = user.createdAt || user.lastLoginAt || new Date().toISOString();
       res.json({
         id: user.id,
         name: user.name,
@@ -825,7 +826,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isVerified: user.isVerified,
         phoneVerified: user.phoneVerified,
         phone: user.phone,
-        profileImage: user.profileImage
+        profileImage: user.profileImage,
+        createdAt
       });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });

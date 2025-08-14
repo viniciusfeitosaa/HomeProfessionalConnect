@@ -17,7 +17,7 @@ export default function Servico() {
   console.log('Servico component rendering');
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   
   // Todos os hooks devem ser declarados ANTES de qualquer return condicional
   const [category, setCategory] = useState("");
@@ -36,7 +36,30 @@ export default function Servico() {
   const [success, setSuccess] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
 
-  // Verificar se o usuário está autenticado
+  // Helpers de verificação
+  const isValidEmail = (email?: string) => !!(email && /.+@.+\..+/.test(email.trim()));
+  const isValidPhone = (phone?: string) => {
+    const digits = (phone || "").replace(/\D/g, "");
+    return digits.length === 11 && digits[0] !== '0' && digits[1] !== '0' && digits[2] === '9';
+  };
+  const isValidCPF = (cpfRaw?: string | null) => {
+    const raw = cpfRaw || '';
+    const cpf = raw.replace(/\D/g, '');
+    if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+    const calc = (b: number) => { let s = 0; for (let i = 0; i < b; i++) s += parseInt(cpf[i], 10) * (b + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+    return calc(9) === parseInt(cpf[9], 10) && calc(10) === parseInt(cpf[10], 10);
+  };
+  const isProfileFullyVerified = () => {
+    const emailOk = isValidEmail(user?.email);
+    const phoneOk = isValidPhone(user?.phone);
+    const cpfFromUser = (user as any)?.taxpayerId as string | undefined;
+    const cpfFromLocal = (typeof window !== 'undefined' ? localStorage.getItem('client_cpf') : '') || '';
+    const cpfOk = isValidCPF(cpfFromUser || cpfFromLocal);
+    const steps = [emailOk, phoneOk, cpfOk].filter(Boolean).length;
+    return { verified: steps === 3, steps };
+  };
+
+  // Verificar se o usuário está autenticado e verificado
   useEffect(() => {
     console.log('Auth state:', { isAuthenticated, isLoading });
     if (!isLoading && !isAuthenticated) {
@@ -46,6 +69,16 @@ export default function Servico() {
         variant: "destructive",
       });
       setLocation("/");
+    }
+    if (!isLoading && isAuthenticated) {
+      const { verified, steps } = isProfileFullyVerified();
+      if (!verified) {
+        toast({
+          title: "Verificação em andamento",
+          description: `Conclua seu cadastro (${steps}/3): Email, Telefone e CPF para criar um serviço.`
+        });
+        setLocation('/profile');
+      }
     }
   }, [isAuthenticated, isLoading, setLocation, toast]);
 

@@ -264,7 +264,29 @@ export default function MyRequests() {
               </div>
               <p className="text-gray-600 dark:text-gray-400 mb-2">Nenhuma solicitação encontrada</p>
               <p className="text-sm text-gray-500 mb-4">Você ainda não fez nenhuma solicitação de serviço</p>
-              <Button onClick={() => setLocation("/servico")}>
+              <Button onClick={() => {
+                const emailOk = !!(user?.email && /.+@.+\..+/.test(user.email.trim()));
+                const digits = (user?.phone || "").replace(/\D/g, "");
+                const phoneOk = digits.length === 11 && digits[0] !== '0' && digits[1] !== '0' && digits[2] === '9';
+                const isValidCPF = (cpfRaw: string) => {
+                  const cpf = cpfRaw.replace(/\D/g, '');
+                  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+                  const calc = (b: number) => { let s = 0; for (let i = 0; i < b; i++) s += parseInt(cpf[i], 10) * (b + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+                  return calc(9) === parseInt(cpf[9], 10) && calc(10) === parseInt(cpf[10], 10);
+                };
+                const cpfStored = (typeof window !== 'undefined' ? localStorage.getItem('client_cpf') : '') || '';
+                const cpfOk = isValidCPF(cpfStored);
+                const steps = [emailOk, phoneOk, cpfOk].filter(Boolean).length;
+                if (steps !== 3) {
+                  toast({
+                    title: "Verificação em andamento",
+                    description: `Conclua seu cadastro (${steps}/3): Email, Telefone e CPF para criar um serviço.`
+                  });
+                  setLocation('/profile');
+                  return;
+                }
+                setLocation("/servico");
+              }}>
                 Fazer Primeira Solicitação
               </Button>
             </div>
@@ -409,7 +431,29 @@ export default function MyRequests() {
           {/* New Request Button */}
           <div className="mt-6">
             <Button 
-              onClick={() => setLocation("/servico")} 
+              onClick={() => {
+                const emailOk = !!(user?.email && /.+@.+\..+/.test(user.email.trim()));
+                const digits = (user?.phone || "").replace(/\D/g, "");
+                const phoneOk = digits.length === 11 && digits[0] !== '0' && digits[1] !== '0' && digits[2] === '9';
+                const isValidCPF = (cpfRaw: string) => {
+                  const cpf = cpfRaw.replace(/\D/g, '');
+                  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+                  const calc = (b: number) => { let s = 0; for (let i = 0; i < b; i++) s += parseInt(cpf[i], 10) * (b + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+                  return calc(9) === parseInt(cpf[9], 10) && calc(10) === parseInt(cpf[10], 10);
+                };
+                const cpfStored = (typeof window !== 'undefined' ? localStorage.getItem('client_cpf') : '') || '';
+                const cpfOk = isValidCPF(cpfStored);
+                const steps = [emailOk, phoneOk, cpfOk].filter(Boolean).length;
+                if (steps !== 3) {
+                  toast({
+                    title: "Verificação em andamento",
+                    description: `Conclua seu cadastro (${steps}/3): Email, Telefone e CPF para criar um serviço.`
+                  });
+                  setLocation('/profile');
+                  return;
+                }
+                setLocation("/servico");
+              }} 
               className="w-full"
             >
               Nova Solicitação

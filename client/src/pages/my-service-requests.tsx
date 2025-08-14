@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
+import { useToast } from "@/hooks/use-toast";
 import { 
   Calendar, 
   Plus, 
@@ -35,6 +36,7 @@ interface ServiceRequest {
 export default function MyServiceRequests() {
   const [location, setLocation] = useLocation();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [serviceRequests, setServiceRequests] = useState<ServiceRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -157,12 +159,35 @@ export default function MyServiceRequests() {
                   <span className="hidden sm:inline">Propostas</span>
                 </button>
               </Link>
-              <Link href="/servico">
-                <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg">
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">Novo Pedido</span>
-                </button>
-              </Link>
+              <button
+                onClick={() => {
+                  const emailOk = !!(user?.email && /.+@.+\..+/.test(user.email.trim()));
+                  const digits = (user?.phone || "").replace(/\D/g, "");
+                  const phoneOk = digits.length === 11 && digits[0] !== '0' && digits[1] !== '0' && digits[2] === '9';
+                  const isValidCPF = (cpfRaw: string) => {
+                    const cpf = cpfRaw.replace(/\D/g, '');
+                    if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+                    const calc = (b: number) => { let s = 0; for (let i = 0; i < b; i++) s += parseInt(cpf[i], 10) * (b + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+                    return calc(9) === parseInt(cpf[9], 10) && calc(10) === parseInt(cpf[10], 10);
+                  };
+                  const cpfStored = (typeof window !== 'undefined' ? localStorage.getItem('client_cpf') : '') || '';
+                  const cpfOk = isValidCPF(cpfStored);
+                  const steps = [emailOk, phoneOk, cpfOk].filter(Boolean).length;
+                  if (steps !== 3) {
+                    toast({
+                      title: "Verificação em andamento",
+                      description: `Conclua seu cadastro (${steps}/3): Email, Telefone e CPF para criar um serviço.`
+                    });
+                    setLocation('/profile');
+                    return;
+                  }
+                  setLocation('/servico');
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Novo Pedido</span>
+              </button>
             </div>
           </div>
         </div>

@@ -725,6 +725,7 @@ export async function registerRoutes(app) {
     app.get("/api/user", authenticateToken, async (req, res) => {
         try {
             const user = req.user;
+            const createdAt = user.createdAt || user.lastLoginAt || new Date().toISOString();
             res.json({
                 id: user.id,
                 name: user.name,
@@ -733,7 +734,8 @@ export async function registerRoutes(app) {
                 isVerified: user.isVerified,
                 phoneVerified: user.phoneVerified,
                 phone: user.phone,
-                profileImage: user.profileImage
+                profileImage: user.profileImage,
+                createdAt
             });
         }
         catch (error) {

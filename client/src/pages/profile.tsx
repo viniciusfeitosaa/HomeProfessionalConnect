@@ -20,6 +20,7 @@ interface ProfileFormData {
   email: string;
   phone: string;
   address: string;
+  cpf: string;
 }
 
 export default function Profile() {
@@ -37,7 +38,8 @@ export default function Profile() {
     name: "",
     email: "",
     phone: "",
-    address: ""
+    address: "",
+    cpf: ""
   });
 
   const { data: user, isLoading } = useQuery<UserType>({
@@ -55,7 +57,8 @@ export default function Profile() {
         name: user.name || "",
         email: user.email || "",
         phone: user.phone || "",
-        address: user.address || ""
+        address: user.address || "",
+        cpf: localStorage.getItem('client_cpf') || ""
       });
     }
   }, [user]);
@@ -76,7 +79,13 @@ export default function Profile() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(data)
+        // Backend ainda não persiste CPF; enviamos mesmo assim e salvamos no localStorage
+        body: JSON.stringify({
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          address: data.address
+        })
       });
 
       if (!response.ok) {
@@ -86,6 +95,7 @@ export default function Profile() {
       return response.json();
     },
     onSuccess: () => {
+      try { localStorage.setItem('client_cpf', formData.cpf.trim()); } catch {}
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       setIsEditing(false);
       toast({
@@ -160,7 +170,8 @@ export default function Profile() {
         name: user.name || "",
         email: user.email || "",
         phone: user.phone || "",
-        address: user.address || ""
+        address: user.address || "",
+        cpf: localStorage.getItem('client_cpf') || ""
       });
     }
   };
@@ -183,6 +194,38 @@ export default function Profile() {
       [field]: value
     }));
   };
+
+  // ===== Validações simples =====
+  const isValidEmail = (val: string) => /.+@.+\..+/.test(val.trim());
+  const isValidPhone = (val: string) => {
+    const digits = val.replace(/\D/g, "");
+    // Formato nacional BR: 11 dígitos com nono dígito (9) obrigatório
+    if (digits.length !== 11) return false;
+    // DDD válido (não começa com 0)
+    if (digits[0] === '0' || digits[1] === '0') return false;
+    // Nono dígito obrigatoriamente 9
+    if (digits[2] !== '9') return false;
+    return true;
+  };
+  const isValidCPF = (cpfRaw: string) => {
+    const cpf = cpfRaw.replace(/\D/g, '');
+    if (!cpf || cpf.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(cpf)) return false;
+    const calc = (base: number) => {
+      let sum = 0;
+      for (let i = 0; i < base; i++) sum += parseInt(cpf[i], 10) * (base + 1 - i);
+      const rest = (sum * 10) % 11;
+      return rest === 10 ? 0 : rest;
+    };
+    const d1 = calc(9);
+    const d2 = calc(10);
+    return d1 === parseInt(cpf[9], 10) && d2 === parseInt(cpf[10], 10);
+  };
+
+  const emailOk = isValidEmail(formData.email);
+  const phoneOk = isValidPhone(formData.phone);
+  const cpfOk = isValidCPF(formData.cpf);
+  const completed = [emailOk, phoneOk, cpfOk].filter(Boolean).length;
 
   const handlePaymentMethods = () => {
     setLocation("/payment");
@@ -286,7 +329,7 @@ export default function Profile() {
               {user?.name || "Gustavo Silva"}
             </h1>
             <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">
-              Membro desde Janeiro 2024
+              {user?.createdAt ? `Membro desde ${new Date(user.createdAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}` : 'Membro'}
             </p>
             
             <div className="flex justify-center space-x-4 sm:space-x-6 mb-4 sm:mb-6">
@@ -372,8 +415,19 @@ export default function Profile() {
                       id="phone"
                       value={formData.phone}
                       onChange={(e) => handleInputChange('phone', e.target.value)}
-                      className="mt-1"
+                      className={`mt-1 ${formData.phone && !phoneOk ? 'border-red-500' : ''}`}
                       placeholder="(11) 99999-9999"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="cpf" className="text-xs sm:text-sm text-gray-600">CPF</Label>
+                    <Input
+                      id="cpf"
+                      value={formData.cpf}
+                      onChange={(e) => handleInputChange('cpf', e.target.value)}
+                      className={`mt-1 ${formData.cpf && !cpfOk ? 'border-red-500' : ''}`}
+                      placeholder="000.000.000-00"
                     />
                   </div>
                   
@@ -396,7 +450,7 @@ export default function Profile() {
                     <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm text-gray-600">Email</p>
-                      <p className="font-medium text-sm sm:text-base truncate">{user?.email || "gustavo@email.com"}</p>
+                      <p className="font-medium text-sm sm:text-base truncate">{(user?.email || '').trim() || 'Não informado'}</p>
                     </div>
                   </div>
                   
@@ -406,7 +460,17 @@ export default function Profile() {
                     <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm text-gray-600">Telefone</p>
-                      <p className="font-medium text-sm sm:text-base">{user?.phone || "(11) 99999-9999"}</p>
+                      <p className="font-medium text-sm sm:text-base">{(user?.phone || '').trim() || 'Não informado'}</p>
+                    </div>
+                  </div>
+                  
+                  <hr className="border-gray-200 dark:border-gray-700" />
+
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-gray-600">CPF</p>
+                      <p className="font-medium text-sm sm:text-base">{(localStorage.getItem('client_cpf') || formData.cpf || '').trim() || 'Não informado'}</p>
                     </div>
                   </div>
                   
@@ -416,7 +480,7 @@ export default function Profile() {
                     <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm text-gray-600">Endereço</p>
-                      <p className="font-medium text-sm sm:text-base">{user?.address || "São Paulo, SP"}</p>
+                      <p className="font-medium text-sm sm:text-base">{(user?.address || '').trim() || 'Não informado'}</p>
                     </div>
                   </div>
                 </>
@@ -425,27 +489,32 @@ export default function Profile() {
           </Card>
 
           {/* Account Status */}
-          <Card className="mb-4 sm:mb-6 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50">
+          <Card className={`mb-4 sm:mb-6 ${completed === 3 ? 'border-green-100 bg-gradient-to-r from-green-50 to-emerald-50' : 'border-yellow-100 bg-gradient-to-r from-yellow-50 to-amber-50'}`}>
             <CardContent className="p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                 <div className="flex items-center space-x-3 sm:space-x-4">
                   <div className="flex-shrink-0">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 ${completed === 3 ? 'bg-green-500' : 'bg-yellow-500'} rounded-full flex items-center justify-center shadow-lg`}>
                       <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1">Conta Verificada</h3>
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1">{completed === 3 ? 'Conta Verificada' : 'Verificação em andamento'}</h3>
                     <p className="text-xs sm:text-sm text-gray-600 leading-relaxed">
-                      Sua identidade foi confirmada com sucesso
+                      {completed === 3 ? 'Todos os dados foram validados' : `Complete ${completed}/3 etapas para verificar sua conta`}
                     </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${emailOk ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>Email</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${phoneOk ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>Telefone</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${cpfOk ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>CPF</span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex-shrink-0">
-                  <Badge className="bg-green-500 text-white shadow-md hover:bg-green-600 transition-colors px-3 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm font-medium border-0">
+                  <Badge className={`${completed === 3 ? 'bg-green-500' : 'bg-yellow-500'} text-white shadow-md hover:opacity-90 transition-colors px-3 sm:px-4 py-1 sm:py-2 text-xs sm:text-sm font-medium border-0`}>
                     <div className="flex items-center space-x-1 sm:space-x-2">
-                      <span className="text-base sm:text-lg">✓</span>
-                      <span>Verificado</span>
+                      <span className="text-base sm:text-lg">{completed}/3</span>
+                      <span>{completed === 3 ? 'Verificado' : 'Pendente'}</span>
                     </div>
                   </Badge>
                 </div>

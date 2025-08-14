@@ -10,7 +10,7 @@ export class DatabaseStorage {
         }
         const baseUrl = process.env.NODE_ENV === 'production'
             ? 'https://lifebee-backend.onrender.com'
-            : 'http://localhost:5000';
+            : 'http://localhost:8080';
         return `${baseUrl}${relativeUrl}`;
     }
     // Users

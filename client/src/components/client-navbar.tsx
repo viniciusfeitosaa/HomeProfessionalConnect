@@ -1,5 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import { Home, Briefcase, MessageCircle, User } from "lucide-react";
 
 interface ClientNavbarProps {
@@ -8,6 +10,9 @@ interface ClientNavbarProps {
 
 export default function ClientNavbar({ hidePlus }: ClientNavbarProps) {
   const [location] = useLocation();
+  const [, setLocation] = useLocation();
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const menuItems = [
     {
@@ -48,15 +53,37 @@ export default function ClientNavbar({ hidePlus }: ClientNavbarProps) {
         {menuItems.filter(item => item.show).map((item) => (
           <li key={item.to} className={item.isCenter ? "relative -mt-10 z-10" : ""}>
             {item.isCenter ? (
-              <Link href={item.to} aria-label="Criar Serviço">
-                <button
-                  className="gap-2 whitespace-nowrap text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary hover:bg-primary/90 rounded-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-white shadow-xl hover:shadow-2xl hover:from-yellow-600 hover:to-yellow-700 w-16 h-16 flex items-center justify-center transition-all duration-300 border-4 border-white dark:border-gray-900 focus:ring-4 focus:ring-yellow-200 dark:focus:ring-yellow-800 ring-4 ring-yellow-200 dark:ring-yellow-800"
-                  tabIndex={0}
-                  type="button"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus h-8 w-8"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
-                </button>
-              </Link>
+              <button
+                aria-label="Criar Serviço"
+                onClick={() => {
+                  const emailOk = !!(user?.email && /.+@.+\..+/.test(user.email.trim()));
+                  const digits = (user?.phone || "").replace(/\D/g, "");
+                  const phoneOk = digits.length === 11 && digits[0] !== '0' && digits[1] !== '0' && digits[2] === '9';
+                  const isValidCPF = (cpfRaw: string) => {
+                    const cpf = cpfRaw.replace(/\D/g, '');
+                    if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+                    const calc = (b: number) => { let s = 0; for (let i = 0; i < b; i++) s += parseInt(cpf[i], 10) * (b + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
+                    return calc(9) === parseInt(cpf[9], 10) && calc(10) === parseInt(cpf[10], 10);
+                  };
+                  const cpfStored = (typeof window !== 'undefined' ? localStorage.getItem('client_cpf') : '') || '';
+                  const cpfOk = isValidCPF(cpfStored);
+                  const steps = [emailOk, phoneOk, cpfOk].filter(Boolean).length;
+                  if (steps !== 3) {
+                    toast({
+                      title: "Verificação em andamento",
+                      description: `Conclua seu cadastro (${steps}/3): Email, Telefone e CPF para criar um serviço.`
+                    });
+                    setLocation('/profile');
+                    return;
+                  }
+                  setLocation('/servico');
+                }}
+                className="gap-2 whitespace-nowrap text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary hover:bg-primary/90 rounded-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-white shadow-xl hover:shadow-2xl hover:from-yellow-600 hover:to-yellow-700 w-16 h-16 flex items-center justify-center transition-all duration-300 border-4 border-white dark:border-gray-900 focus:ring-4 focus:ring-yellow-200 dark:focus:ring-yellow-800 ring-4 ring-yellow-200 dark:ring-yellow-800"
+                tabIndex={0}
+                type="button"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus h-8 w-8"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+              </button>
             ) : (
               <Link
                 href={item.to}
