@@ -96,6 +96,8 @@ export default function Profile() {
     },
     onSuccess: () => {
       try { localStorage.setItem('client_cpf', formData.cpf.trim()); } catch {}
+      // Garante que o estado local reflita o CPF salvo
+      setFormData(prev => ({ ...prev, cpf: prev.cpf.trim() }));
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       setIsEditing(false);
       toast({
@@ -175,6 +177,18 @@ export default function Profile() {
       });
     }
   };
+
+  // Após sair do modo de edição, sincroniza CPF do localStorage (caso tenha sido salvo)
+  useEffect(() => {
+    if (!isEditing) {
+      try {
+        const stored = localStorage.getItem('client_cpf') || '';
+        if (stored && stored !== formData.cpf) {
+          setFormData(prev => ({ ...prev, cpf: stored }));
+        }
+      } catch {}
+    }
+  }, [isEditing]);
 
   const handleChangePhoto = () => {
     fileInputRef.current?.click();
@@ -470,7 +484,7 @@ export default function Profile() {
                     <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs sm:text-sm text-gray-600">CPF</p>
-                      <p className="font-medium text-sm sm:text-base">{(localStorage.getItem('client_cpf') || formData.cpf || '').trim() || 'Não informado'}</p>
+                      <p className="font-medium text-sm sm:text-base">{(formData.cpf || localStorage.getItem('client_cpf') || '').trim() || 'Não informado'}</p>
                     </div>
                   </div>
                   

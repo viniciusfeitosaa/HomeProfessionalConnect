@@ -130,22 +130,7 @@ export default function ProviderProfile() {
         const professional = await professionalResponse.json();
         setProfessionalData(professional);
         
-        // Set form data
-        setFormData({
-          name: professional.name || "",
-          email: professional.email || "",
-          phone: professional.phone || "",
-          taxpayerId: userData?.taxpayerId || localStorage.getItem('lb_report_taxpayer_id') || "",
-          specialization: professional.specialization || "",
-          category: professional.category || "",
-          subCategory: professional.subCategory || "",
-          description: professional.description || "",
-          experience: professional.experience || "",
-          certifications: professional.certifications || "",
-          hourlyRate: professional.hourlyRate || "",
-          location: professional.location || "",
-          available: professional.available || true
-        });
+        // Parte profissional do form será preenchida abaixo após carregar /api/user
       }
       
       // Fetch user data
@@ -155,8 +140,24 @@ export default function ProviderProfile() {
       });
       
       if (userResponse.ok) {
-        const userData = await userResponse.json();
-        setUserData(userData);
+        const uData = await userResponse.json();
+        setUserData(uData);
+        // Completar form com dados do usuário + profissionais
+        setFormData(prev => ({
+          name: (prev.name || professionalData?.name || uData.name || ""),
+          email: (uData.email || prev.email || ""),
+          phone: (uData.phone || prev.phone || ""),
+          taxpayerId: (prev.taxpayerId || uData.taxpayerId || localStorage.getItem('lb_report_taxpayer_id') || ""),
+          specialization: (professionalData?.specialization || prev.specialization || ""),
+          category: (professionalData?.category || prev.category || ""),
+          subCategory: (professionalData?.subCategory || prev.subCategory || ""),
+          description: (professionalData?.description || prev.description || ""),
+          experience: (professionalData?.experience || prev.experience || ""),
+          certifications: (professionalData?.certifications || prev.certifications || ""),
+          hourlyRate: (professionalData?.hourlyRate || prev.hourlyRate || ""),
+          location: (professionalData?.location || uData.address || prev.location || ""),
+          available: (professionalData?.available ?? prev.available ?? true)
+        }));
       }
       
     } catch (error) {
@@ -183,26 +184,58 @@ export default function ProviderProfile() {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      
-      const response = await fetch(`${getApiUrl()}/api/provider/profile`, {
+      // 1) Atualizar dados do usuário (nome, email, telefone, endereço baseado em location)
+      const userPayload = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.location,
+      };
+      const userResp = await fetch(`${getApiUrl()}/api/user/profile`, {
         method: 'PUT',
         credentials: 'include',
         headers,
-        body: JSON.stringify(formData),
+        body: JSON.stringify(userPayload),
       });
-      
-      if (response.ok) {
+
+      // 2) Atualizar dados profissionais (apenas campos do perfil do profissional)
+      const providerPayload = {
+        name: formData.name,
+        specialization: formData.specialization,
+        category: formData.category,
+        subCategory: formData.subCategory,
+        description: formData.description,
+        experience: formData.experience,
+        certifications: formData.certifications,
+        hourlyRate: formData.hourlyRate,
+        location: formData.location,
+        available: formData.available,
+      };
+      const providerResp = await fetch(`${getApiUrl()}/api/provider/profile`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify(providerPayload),
+      });
+
+      if (userResp.ok && providerResp.ok) {
+        try { localStorage.setItem('lb_report_taxpayer_id', (formData.taxpayerId || '').trim()); } catch {}
         toast({
           title: "Sucesso",
           description: "Perfil atualizado com sucesso!",
         });
         setEditing(false);
-        fetchProfileData(); // Reload data
+        await fetchProfileData(); // Reload data
       } else {
-        const error = await response.json();
+        let message = 'Erro ao atualizar perfil';
+        try {
+          const error1 = !userResp.ok ? await userResp.json() : null;
+          const error2 = !providerResp.ok ? await providerResp.json() : null;
+          message = (error1?.message || error2?.message) || message;
+        } catch {}
         toast({
           title: "Erro",
-          description: error.message || "Erro ao atualizar perfil",
+          description: message,
           variant: "destructive",
         });
       }
@@ -323,11 +356,47 @@ export default function ProviderProfile() {
     window.location.href = "/";
   };
 
+  // ===== Validações e status de verificação (mesmo modelo da tela do cliente) =====
+  const isValidEmail = (val: string) => /.+@.+\..+/.test((val || '').trim());
+  const isValidPhone = (val: string) => {
+    const digits = (val || '').replace(/\D/g, "");
+    if (digits.length !== 11) return false;
+    if (digits[0] === '0' || digits[1] === '0') return false;
+    if (digits[2] !== '9') return false;
+    return true;
+  };
+  const isValidCPF = (cpfRaw: string) => {
+    const cpf = (cpfRaw || '').replace(/\D/g, '');
+    if (!cpf || cpf.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(cpf)) return false;
+    const calc = (base: number) => {
+      let sum = 0; for (let i = 0; i < base; i++) sum += parseInt(cpf[i], 10) * (base + 1 - i);
+      const rest = (sum * 10) % 11; return rest === 10 ? 0 : rest;
+    };
+    return calc(9) === parseInt(cpf[9], 10) && calc(10) === parseInt(cpf[10], 10);
+  };
+  const isValidCNPJ = (cnpjRaw: string) => {
+    const cnpj = (cnpjRaw || '').replace(/\D/g, '');
+    if (!cnpj || cnpj.length !== 14) return false;
+    if (/^(\d)\1{13}$/.test(cnpj)) return false;
+    const calcDigit = (base: string, weights: number[]) => {
+      const sum = base.split('').reduce((acc, num, idx) => acc + parseInt(num, 10) * weights[idx], 0);
+      const rest = sum % 11;
+      return rest < 2 ? 0 : 11 - rest;
+    };
+    const d1 = calcDigit(cnpj.slice(0, 12), [5,4,3,2,9,8,7,6,5,4,3,2]);
+    const d2 = calcDigit(cnpj.slice(0, 12) + d1.toString(), [6,5,4,3,2,9,8,7,6,5,4,3,2]);
+    return d1 === parseInt(cnpj[12], 10) && d2 === parseInt(cnpj[13], 10);
+  };
+  const emailOk = isValidEmail(userData?.email || formData.email);
+  const phoneOk = isValidPhone(userData?.phone || formData.phone);
+  const cpfSource = formData.taxpayerId || userData?.taxpayerId || localStorage.getItem('lb_report_taxpayer_id') || '';
+  const docOk = isValidCPF(cpfSource) || isValidCNPJ(cpfSource);
+  const completed = [emailOk, phoneOk, docOk].filter(Boolean).length;
+
   const getCategoryName = (category: string) => {
     const categories = {
-      fisioterapeuta: "Fisioterapeuta",
       acompanhante_hospitalar: "Acompanhante Hospitalar",
-      tecnico_enfermagem: "Técnico de Enfermagem"
     };
     return categories[category as keyof typeof categories] || category;
   };
@@ -335,11 +404,6 @@ export default function ProviderProfile() {
   const getSubCategoryName = (subCategory: string) => {
     const subCategories = {
       companhia_apoio_emocional: "Companhia e Apoio Emocional",
-      preparacao_refeicoes: "Preparação de Refeições",
-      compras_transporte: "Compras e Transporte",
-      lavanderia_limpeza: "Lavanderia e Limpeza",
-      curativos_medicacao: "Curativos e Medicação",
-      terapias_especializadas: "Terapias Especializadas",
       acompanhamento_hospitalar: "Acompanhamento Hospitalar"
     };
     return subCategories[subCategory as keyof typeof subCategories] || subCategory;
@@ -524,12 +588,17 @@ export default function ProviderProfile() {
                     <Label>CPF/CNPJ</Label>
                     {editing ? (
                       <Input
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        spellCheck={false}
                         placeholder="CPF/CNPJ"
                         value={formData.taxpayerId}
                         onChange={(e) => setFormData(prev => ({ ...prev, taxpayerId: e.target.value }))}
+                        className="bg-white dark:bg-gray-800"
                       />
                     ) : (
-                      <p className="font-medium">{formData.taxpayerId || "Não informado"}</p>
+                      <p className="font-medium">{(formData.taxpayerId || userData?.taxpayerId || localStorage.getItem('lb_report_taxpayer_id') || '').trim() || 'Não informado'}</p>
                     )}
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -540,14 +609,12 @@ export default function ProviderProfile() {
                           value={formData.category} 
                           onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="bg-white dark:bg-gray-800">
                             <SelectValue placeholder="Selecione a categoria" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="fisioterapeuta">Fisioterapeuta</SelectItem>
-                            <SelectItem value="acompanhante_hospitalar">Acompanhante Hospitalar</SelectItem>
-                            <SelectItem value="tecnico_enfermagem">Técnico de Enfermagem</SelectItem>
-                          </SelectContent>
+                           <SelectContent>
+                             <SelectItem value="acompanhante_hospitalar">Acompanhante Hospitalar</SelectItem>
+                           </SelectContent>
                         </Select>
                       ) : (
                         <p className="font-medium">{getCategoryName(professionalData.category)}</p>
@@ -561,18 +628,13 @@ export default function ProviderProfile() {
                           value={formData.subCategory} 
                           onValueChange={(value) => setFormData(prev => ({ ...prev, subCategory: value }))}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="bg-white dark:bg-gray-800">
                             <SelectValue placeholder="Selecione a subcategoria" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="companhia_apoio_emocional">Companhia e Apoio Emocional</SelectItem>
-                            <SelectItem value="preparacao_refeicoes">Preparação de Refeições</SelectItem>
-                            <SelectItem value="compras_transporte">Compras e Transporte</SelectItem>
-                            <SelectItem value="lavanderia_limpeza">Lavanderia e Limpeza</SelectItem>
-                            <SelectItem value="curativos_medicacao">Curativos e Medicação</SelectItem>
-                            <SelectItem value="terapias_especializadas">Terapias Especializadas</SelectItem>
-                            <SelectItem value="acompanhamento_hospitalar">Acompanhamento Hospitalar</SelectItem>
-                          </SelectContent>
+                           <SelectContent>
+                             <SelectItem value="companhia_apoio_emocional">Companhia e Apoio Emocional</SelectItem>
+                             <SelectItem value="acompanhamento_hospitalar">Acompanhamento Hospitalar</SelectItem>
+                           </SelectContent>
                         </Select>
                       ) : (
                         <p className="font-medium">{getSubCategoryName(professionalData.subCategory)}</p>
@@ -671,9 +733,11 @@ export default function ProviderProfile() {
                           type="email"
                           value={formData.email}
                           onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                          placeholder="Não informado"
+                          className="bg-white dark:bg-gray-800"
                         />
                       ) : (
-                        <p className="font-medium">{userData?.email || "Não informado"}</p>
+                        <p className="font-medium">{(formData.email || userData?.email || '').trim() || 'Não informado'}</p>
                       )}
                     </div>
                   </div>
@@ -686,9 +750,11 @@ export default function ProviderProfile() {
                         <Input
                           value={formData.phone}
                           onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                          placeholder="Não informado"
+                          className="bg-white dark:bg-gray-800"
                         />
                       ) : (
-                        <p className="font-medium">{userData?.phone || "Não informado"}</p>
+                        <p className="font-medium">{(formData.phone || userData?.phone || '').trim() || 'Não informado'}</p>
                       )}
                     </div>
                   </div>
@@ -697,42 +763,47 @@ export default function ProviderProfile() {
                     <MapPin className="h-5 w-5 text-gray-400 flex-shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm text-gray-600 dark:text-gray-400">Endereço</p>
-                      <p className="font-medium">{professionalData.location || "Não informado"}</p>
+                      {editing ? (
+                        <Input
+                          value={formData.location}
+                          onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                          placeholder="Não informado"
+                          className="bg-white dark:bg-gray-800"
+                        />
+                      ) : (
+                        <p className="font-medium">{(formData.location || professionalData.location || '').trim() || "Não informado"}</p>
+                      )}
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Account Status */}
-              <Card className="mb-6 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20">
+              {/* Account Status (modelo com 3 passos: Email, Telefone, CPF) */}
+              <Card className={`mb-6 ${completed === 3 ? 'border-green-100 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20' : 'border-yellow-100 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20'}`}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                      <div className={`w-12 h-12 ${completed === 3 ? 'bg-green-500' : 'bg-yellow-500'} rounded-full flex items-center justify-center shadow-lg`}>
                         <Shield className="h-6 w-6 text-white" />
                       </div>
                       <div>
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
-                          {userData?.isVerified ? "Conta Verificada" : "Conta Pendente"}
+                          {completed === 3 ? 'Conta Verificada' : 'Verificação em andamento'}
                         </h3>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {userData?.isVerified 
-                            ? "Sua identidade foi confirmada com sucesso"
-                            : "Aguardando verificação da identidade"
-                          }
+                          {completed === 3 ? 'Todos os dados foram validados' : `Complete ${completed}/3 etapas para verificar sua conta`}
                         </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${emailOk ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>Email</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${phoneOk ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>Telefone</span>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${docOk ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>CPF/CNPJ</span>
+                        </div>
                       </div>
                     </div>
-                    <Badge className={`${
-                      userData?.isVerified 
-                        ? "bg-green-500 text-white" 
-                        : "bg-yellow-500 text-white"
-                    } shadow-md hover:opacity-90 transition-opacity`}>
+                    <Badge className={`${completed === 3 ? 'bg-green-500' : 'bg-yellow-500'} text-white shadow-md hover:opacity-90 transition-opacity`}>
                       <div className="flex items-center space-x-2">
-                        <span className="text-lg">
-                          {userData?.isVerified ? "✓" : "⏳"}
-                        </span>
-                        <span>{userData?.isVerified ? "Verificado" : "Pendente"}</span>
+                        <span className="text-lg">{completed}/3</span>
+                        <span>{completed === 3 ? 'Verificado' : 'Pendente'}</span>
                       </div>
                     </Badge>
                   </div>

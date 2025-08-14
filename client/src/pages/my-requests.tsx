@@ -221,12 +221,8 @@ export default function MyRequests() {
   // Função para obter categoria em português
   const getCategoryText = (category: string) => {
     switch (category) {
-      case 'fisioterapeuta':
-        return 'Fisioterapeuta';
       case 'acompanhante_hospitalar':
         return 'Acompanhante Hospitalar';
-      case 'tecnico_enfermagem':
-        return 'Técnico de Enfermagem';
       default:
         return category;
     }

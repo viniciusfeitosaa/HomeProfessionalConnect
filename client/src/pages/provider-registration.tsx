@@ -13,29 +13,12 @@ import { LifeBeeLogo } from "@/components/lifebee-logo";
 import { ProviderLayout } from "@/components/ProviderLayout";
 
 const serviceCategories = {
-  fisioterapeuta: {
-    name: "Fisioterapeuta",
-    icon: "🏃‍♂️",
-    subServices: [
-      { id: "terapias_especializadas", name: "Terapias Especializadas" }
-    ]
-  },
   acompanhante_hospitalar: {
     name: "Acompanhante Hospitalar", 
     icon: "🏥",
     subServices: [
       { id: "acompanhamento_hospitalar", name: "Acompanhamento Hospitalar" },
       { id: "companhia_apoio_emocional", name: "Companhia e Apoio Emocional" }
-    ]
-  },
-  tecnico_enfermagem: {
-    name: "Técnico em Enfermagem",
-    icon: "💉", 
-    subServices: [
-      { id: "curativos_medicacao", name: "Curativos e Medicação" },
-      { id: "preparacao_refeicoes", name: "Preparação de Refeições" },
-      { id: "compras_transporte", name: "Compras e Transporte" },
-      { id: "lavanderia_limpeza", name: "Lavanderia e Limpeza" }
     ]
   }
 };
@@ -170,7 +153,7 @@ export default function ProviderRegistration({ onComplete }: ProviderRegistratio
               <div>
                 <label className="text-sm font-medium mb-2 block">Categoria Principal</label>
                 <Select value={formData.category} onValueChange={(value) => updateFormData("category", value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white dark:bg-gray-800">
                     <SelectValue placeholder="Selecione sua área de atuação" />
                   </SelectTrigger>
                   <SelectContent>
@@ -187,7 +170,7 @@ export default function ProviderRegistration({ onComplete }: ProviderRegistratio
                 <div>
                   <label className="text-sm font-medium mb-2 block">Serviço Específico</label>
                   <Select value={formData.subService} onValueChange={(value) => updateFormData("subService", value)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white dark:bg-gray-800">
                       <SelectValue placeholder="Selecione o serviço específico" />
                     </SelectTrigger>
                     <SelectContent>

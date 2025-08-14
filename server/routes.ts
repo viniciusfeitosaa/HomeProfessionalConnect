@@ -1156,6 +1156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         location, 
         available 
       } = req.body;
+      console.log('➡️ PUT /api/provider/profile body:', req.body);
       
       // Verify user is a provider
       if (user.userType !== 'provider') {
@@ -1163,28 +1164,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Get professional data
-      const professional = await storage.getProfessionalByUserId(user.id);
-      
+      let professional = await storage.getProfessionalByUserId(user.id);
+
+      // Se não existir, criar um perfil básico com valores válidos mínimos
       if (!professional) {
-        return res.status(404).json({ message: "Dados do profissional não encontrados." });
+        const minimalCategory = (typeof category === 'string' && category.trim()) || 'acompanhante_hospitalar';
+        const minimalSub = (typeof subCategory === 'string' && subCategory.trim()) || 'companhia_apoio_emocional';
+        const createValues: any = {
+          userId: user.id,
+          name: (typeof name === 'string' && name.trim()) || user.name || '',
+          specialization: (typeof specialization === 'string' ? specialization : '') || '',
+          category: minimalCategory as any,
+          subCategory: minimalSub as any,
+          description: (typeof description === 'string' ? description : '') || '',
+          available: typeof available === 'boolean' ? available : true,
+        };
+        if (typeof experience === 'string') createValues.experience = experience;
+        if (typeof certifications === 'string') createValues.certifications = certifications;
+        if (hourlyRate !== undefined && hourlyRate !== null && String(hourlyRate).toString().trim() !== '') createValues.hourlyRate = String(hourlyRate) as any;
+        if (typeof location === 'string') createValues.location = location;
+        professional = await storage.createProfessional(createValues);
       }
 
-      // Update professional data
-      const updatedProfessional = await storage.updateProfessional(professional.id, {
-        name,
-        specialization,
-        category,
-        subCategory,
-        description,
-        experience,
-        certifications,
-        hourlyRate,
-        location,
-        available
-      });
+      // Montar updates parciais, evitando sobrescrever com strings vazias/valores inválidos
+      const updates: any = {};
+      if (typeof name === 'string' && name.trim() !== '') updates.name = name.trim();
+      if (typeof specialization === 'string') updates.specialization = specialization;
+      if (typeof category === 'string' && category.trim() !== '') updates.category = category as any;
+      if (typeof subCategory === 'string' && subCategory.trim() !== '') updates.subCategory = subCategory as any;
+      if (typeof description === 'string') updates.description = description;
+      if (typeof experience === 'string') updates.experience = experience;
+      if (typeof certifications === 'string') updates.certifications = certifications;
+      if (hourlyRate !== undefined && hourlyRate !== null && String(hourlyRate).toString().trim() !== '') updates.hourlyRate = String(hourlyRate) as any;
+      if (typeof location === 'string') updates.location = location;
+      if (typeof available === 'boolean') updates.available = available;
+
+      // Se não houver nenhum campo para atualizar, evitar chamada de update vazia
+      console.log('🔧 Provider profile updates:', { userId: user.id, updates });
+      const updatedProfessional = Object.keys(updates).length === 0
+        ? professional
+        : await storage.updateProfessional(professional.id, updates);
 
       // Update user data if name changed
-      if (name && name !== user.name) {
+      if (typeof name === 'string' && name.trim() !== '' && name !== user.name) {
         await storage.updateUser(user.id, { name });
       }
 
@@ -1194,7 +1216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Update provider profile error:', error);
-      res.status(500).json({ message: 'Erro interno do servidor' });
+      res.status(500).json({ message: 'Erro interno do servidor', error: (error as any)?.message || 'unknown' });
     }
   });
 

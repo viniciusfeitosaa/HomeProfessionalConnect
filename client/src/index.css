@@ -89,4 +89,10 @@
       opacity: 1;
     }
   }
+  
+  /* Fundo sólido para wrappers do Radix Popper (evita transparência no dropdown/combobox) */
+  [data-radix-popper],
+  [data-radix-popper-content-wrapper] {
+    background-color: var(--popover);
+  }
 }

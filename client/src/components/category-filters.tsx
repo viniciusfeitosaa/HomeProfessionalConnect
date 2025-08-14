@@ -6,9 +6,7 @@ interface CategoryFiltersProps {
 }
 
 const categories = [
-  { id: "fisioterapeuta", label: "🏃‍♂️ Fisioterapeuta" },
   { id: "acompanhante_hospitalar", label: "🏥 Acompanhante Hospitalar" },
-  { id: "tecnico_enfermagem", label: "💉 Técnico em Enfermagem" },
 ];
 
 export function CategoryFilters({ selectedCategory, onCategoryChange }: CategoryFiltersProps) {

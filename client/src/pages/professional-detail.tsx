@@ -65,15 +65,11 @@ export default function ProfessionalDetail({ params }: { params: { id: string } 
   }
 
   const categoryIcons = {
-    fisioterapeuta: "🏃‍♂️",
-    acompanhante_hospitalar: "🏥", 
-    tecnico_enfermagem: "💉"
+    acompanhante_hospitalar: "🏥"
   };
 
   const categoryNames = {
-    fisioterapeuta: "Fisioterapeuta",
-    acompanhante_hospitalar: "Acompanhante Hospitalar",
-    tecnico_enfermagem: "Técnico em Enfermagem"
+    acompanhante_hospitalar: "Acompanhante Hospitalar"
   };
 
   const categoryIcon = categoryIcons[currentProfessional.category] || "👨‍⚕️";

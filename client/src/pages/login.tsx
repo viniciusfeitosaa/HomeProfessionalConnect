@@ -313,7 +313,7 @@ export default function Login({ onLogin }: LoginProps) {
               Conectamos você com profissionais de saúde qualificados
             </h2>
             <p className="text-gray-600 dark:text-gray-300 text-sm sm:text-base lg:text-lg">
-              Fisioterapeutas, técnicos em enfermagem e acompanhantes hospitalares prontos para cuidar de você
+              Acompanhantes hospitalares prontos para cuidar de você
             </p>
           </div>
 

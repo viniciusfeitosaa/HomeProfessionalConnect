@@ -29,9 +29,7 @@ export default function Home() {
     { icon: "🏠", label: "Gestão do Lar", category: "acompanhante_hospitalar" },
     { icon: "🤝", label: "Cuidados Paliativos", category: "acompanhante_hospitalar" },
     { icon: "🧑‍🦽", label: "Acompanhante Hospitalar", category: "acompanhante_hospitalar" },
-    { icon: "🧑‍⚕️", label: "Fisioterapia", category: "fisioterapeuta" },
     { icon: "🧑‍🤝‍🧑", label: "Apoio Emocional", category: "acompanhante_hospitalar" },
-    { icon: "🩺", label: "Exames Domiciliares", category: "tecnico_enfermagem" },
   ];
 
   const handleServiceClick = (category: string) => {

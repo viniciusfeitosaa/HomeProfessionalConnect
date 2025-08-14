@@ -997,7 +997,7 @@ export default function ProviderDashboard() {
       }
 
       // Buscar solicitações para todas as categorias que o profissional atende
-      const categories = ['fisioterapeuta', 'acompanhante_hospitalar', 'tecnico_enfermagem'];
+      const categories = ['acompanhante_hospitalar'];
       const allRequests: any[] = [];
       let totalFound = 0;
 
@@ -1080,7 +1080,7 @@ export default function ProviderDashboard() {
           const isMissing = lowered === 'não informado' || lowered === 'nao informado' || lowered === 'não definido' || lowered === 'nao definido';
           if (fullAddress && !isMissing && fullAddress.length >= 5) {
             try {
-              const coords = await getAddressCoordinates(fullAddress, { allowFallback: true });
+              const coords = await getAddressCoordinates(fullAddress, { allowFallback: false });
               if (coords) {
                 locations[request.id] = coords;
                 console.log(`✅ Endereço geocodificado: ${fullAddress} → [${coords[0]}, ${coords[1]}]`);

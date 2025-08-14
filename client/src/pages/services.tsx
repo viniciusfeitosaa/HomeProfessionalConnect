@@ -338,14 +338,7 @@ export default function Services() {
 
   const formatCategory = (category: string) => {
     const categoryMap: { [key: string]: string } = {
-      'acompanhante_hospitalar': 'Acompanhante Hospitalar',
-      'cuidador_idosos': 'Cuidador de Idosos',
-      'enfermagem_domiciliar': 'Enfermagem Domiciliar',
-      'fisioterapia': 'Fisioterapia',
-      'nutricao': 'Nutrição',
-      'psicologia': 'Psicologia',
-      'terapia_ocupacional': 'Terapia Ocupacional',
-      'servicos_gerais': 'Serviços Gerais'
+      'acompanhante_hospitalar': 'Acompanhante Hospitalar'
     };
     
     return categoryMap[category] || category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -976,7 +969,7 @@ export default function Services() {
                               <MapPin className="h-3 w-3 text-white" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs text-blue-700 mb-1">Localização</p>
+                            <p className="text-xs text-blue-700 mb-1">Localização</p>
                               <p className="text-sm font-medium text-blue-800 truncate">{(() => {
                                 const raw = (request as any).location ?? (request as any).address ?? '';
                                 const text = typeof raw === 'string' ? raw : String(raw ?? '');
@@ -992,7 +985,7 @@ export default function Services() {
                               <DollarSign className="h-3 w-3 text-white" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs text-green-700 mb-1">Orçamento</p>
+                            <p className="text-xs text-green-700 mb-1">Orçamento</p>
                               <p className="text-sm font-medium text-green-800 truncate">
                                 R$ {(() => {
                                   const n = typeof request.budget === 'number' ? request.budget : parseFloat((request.budget as any) ?? '0');
