@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1752797014603,
-      "tag": "0000_chief_penance",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1753825000000,
-      "tag": "0002_add_service_offers",
+      "when": 1755266630172,
+      "tag": "0000_clever_daredevil",
       "breakpoints": true
     }
   ]

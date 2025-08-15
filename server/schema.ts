@@ -135,9 +135,12 @@ export const serviceRequests = pgTable("service_requests", {
   scheduledTime: text("scheduled_time").notNull(), // Hora no formato HH:MM
   urgency: text("urgency", { enum: ["low", "medium", "high"] }).default("medium"),
   budget: decimal("budget", { precision: 8, scale: 2 }), // Orçamento opcional
-  status: text("status", { enum: ["open", "in_progress", "assigned", "completed", "cancelled"] }).default("open"),
+  status: text("status", { enum: ["open", "in_progress", "assigned", "completed", "cancelled", "awaiting_confirmation"] }).default("open"),
   assignedProfessionalId: integer("assigned_professional_id"), // Profissional designado
   responses: integer("responses").default(0), // Número de profissionais que responderam
+  serviceStartedAt: timestamp("service_started_at"), // Quando o profissional iniciou o serviço
+  serviceCompletedAt: timestamp("service_completed_at"), // Quando o profissional marcou como concluído
+  clientConfirmedAt: timestamp("client_confirmed_at"), // Quando o cliente confirmou a conclusão
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -148,6 +151,7 @@ export const serviceOffers = pgTable("service_offers", {
   serviceRequestId: integer("service_request_id").notNull(), // ID da solicitação de serviço
   professionalId: integer("professional_id").notNull(), // ID do profissional que fez a proposta
   proposedPrice: decimal("proposed_price", { precision: 8, scale: 2 }).notNull(), // Preço proposto
+  finalPrice: decimal("final_price", { precision: 8, scale: 2 }), // Preço final acordado
   estimatedTime: text("estimated_time").notNull(), // Tempo estimado (ex: "1 hora", "2 horas")
   message: text("message").notNull(), // Mensagem da proposta
   status: text("status", { enum: ["pending", "accepted", "rejected", "withdrawn"] }).default("pending"), // Status da proposta
@@ -164,8 +168,26 @@ export type LoginAttempt = typeof loginAttempts.$inferSelect;
 export type VerificationCode = typeof verificationCodes.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
+// Tabela para acompanhar o progresso do serviço
+export const serviceProgress = pgTable("service_progress", {
+  id: serial("id").primaryKey(),
+  serviceRequestId: integer("service_request_id").notNull(),
+  professionalId: integer("professional_id").notNull(),
+  status: text("status", { 
+    enum: ["accepted", "started", "in_progress", "completed", "awaiting_confirmation", "confirmed", "payment_released"] 
+  }).notNull().default("accepted"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  confirmedAt: timestamp("confirmed_at"),
+  paymentReleasedAt: timestamp("payment_released_at"),
+  notes: text("notes"), // Observações do profissional
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export type ServiceRequest = typeof serviceRequests.$inferSelect;
 export type ServiceOffer = typeof serviceOffers.$inferSelect;
+export type ServiceProgress = typeof serviceProgress.$inferSelect;
 
 // Tipos para inserção (sem campos auto-gerados)
 export type InsertUser = Omit<User, 'id' | 'createdAt' | 'updatedAt'>;
@@ -178,3 +200,4 @@ export type InsertConversation = Omit<Conversation, 'id' | 'createdAt' | 'update
 export type InsertMessage = Omit<Message, 'id' | 'timestamp'>;
 export type InsertServiceRequest = Omit<ServiceRequest, 'id' | 'createdAt' | 'updatedAt'>;
 export type InsertServiceOffer = Omit<ServiceOffer, 'id' | 'createdAt' | 'updatedAt'>;
+export type InsertServiceProgress = Omit<ServiceProgress, 'id' | 'createdAt' | 'updatedAt'>;

@@ -18,7 +18,8 @@ import {
   ArrowLeft,
   Eye,
   Filter,
-  Search
+  Search,
+  CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { getApiUrl } from '../lib/api-config';
@@ -75,6 +76,7 @@ export default function Services() {
   const [activeTab, setActiveTab] = useState<'requests' | 'offers'>('requests');
   const [rejectingOfferId, setRejectingOfferId] = useState<number | null>(null);
   const [startingConversationId, setStartingConversationId] = useState<number | null>(null);
+  const [confirmingServiceId, setConfirmingServiceId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [brokenOfferImage, setBrokenOfferImage] = useState<Record<number, boolean>>({});
@@ -315,6 +317,46 @@ export default function Services() {
       console.error('Erro ao iniciar conversa:', error);
     } finally {
       setStartingConversationId(null);
+    }
+  };
+
+  const confirmServiceCompletion = async (serviceRequestId: number) => {
+    try {
+      setConfirmingServiceId(serviceRequestId);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${getApiUrl()}/api/service/${serviceRequestId}/confirm`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Sucesso!",
+          description: "Serviço confirmado como concluído. O pagamento será liberado para o profissional.",
+        });
+        
+        // Recarregar dados para atualizar o status
+        await Promise.all([fetchServiceOffers(), fetchServiceRequests()]);
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Erro",
+          description: errorData.message || "Não foi possível confirmar a conclusão do serviço",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao confirmar conclusão do serviço:', error);
+      toast({
+        title: "Erro",
+        description: "Erro de conexão ao confirmar conclusão do serviço",
+        variant: "destructive"
+      });
+    } finally {
+      setConfirmingServiceId(null);
     }
   };
 
@@ -822,6 +864,39 @@ export default function Services() {
                           <span className="hidden sm:inline">Conversar</span>
                           <span className="sm:hidden">Chat</span>
                         </button>
+                      </div>
+                    )}
+
+                    {/* Botão para confirmar conclusão do serviço (apenas para propostas aceitas) */}
+                    {offer.status === 'accepted' && (
+                      <div className="pt-4 border-t border-gray-200">
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200 mb-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                            <p className="text-sm font-semibold text-green-800">Proposta Aceita</p>
+                          </div>
+                          <p className="text-sm text-green-700">
+                            O profissional foi contratado e está realizando o serviço. 
+                            Quando o serviço for concluído, confirme para liberar o pagamento.
+                          </p>
+                        </div>
+                        
+                        <button
+                          onClick={() => confirmServiceCompletion(offer.serviceRequestId)}
+                          disabled={confirmingServiceId === offer.serviceRequestId}
+                          className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {confirmingServiceId === offer.serviceRequestId ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4" />
+                          )}
+                          <span>Confirmar Conclusão do Serviço</span>
+                        </button>
+                        
+                        <p className="text-xs text-gray-500 text-center mt-2">
+                          Clique aqui quando o profissional concluir o serviço para liberar o pagamento
+                        </p>
                       </div>
                     )}
                   </div>

@@ -9,6 +9,7 @@ import {
   messages,
   serviceRequests,
   serviceOffers,
+  serviceProgress,
   type User,
   type Professional,
   type Appointment,
@@ -19,6 +20,7 @@ import {
   type Message,
   type ServiceRequest,
   type ServiceOffer,
+  type ServiceProgress,
   type InsertUser,
   type InsertProfessional,
   type InsertAppointment,
@@ -29,6 +31,7 @@ import {
   type InsertMessage,
   type InsertServiceRequest,
   type InsertServiceOffer,
+  type InsertServiceProgress,
 } from "./schema.js";
 import { db } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
@@ -46,6 +49,7 @@ export interface IStorage {
   updateUserLoginAttempts(id: number, attempts: number): Promise<void>;
   blockUser(id: number): Promise<void>;
   verifyUser(id: number): Promise<void>;
+  getAllUsers(): Promise<User[]>;
   
   // Professionals
   getAllProfessionals(): Promise<Professional[]>;
@@ -131,12 +135,22 @@ export interface IStorage {
   createServiceOffer(serviceOffer: InsertServiceOffer): Promise<ServiceOffer>;
   updateServiceOffer(id: number, updates: Partial<ServiceOffer>): Promise<ServiceOffer>;
   deleteServiceOffer(id: number): Promise<void>;
+  
+  // Service Progress Management
+  startService(serviceRequestId: number, professionalId: number): Promise<{ success: boolean; error?: string }>;
+  completeService(serviceRequestId: number, professionalId: number, notes?: string): Promise<{ success: boolean; error?: string }>;
+  confirmServiceCompletion(serviceRequestId: number, clientId: number): Promise<{ success: boolean; error?: string }>;
+  getServiceProgress(serviceRequestId: number): Promise<ServiceProgress | null>;
 }
 
 // Database Storage Implementation
 export class DatabaseStorage implements IStorage {
   // Método para converter URLs relativas em absolutas
-  private getFullImageUrl(relativeUrl: string): string {
+  private getFullImageUrl(relativeUrl: string | null): string | null {
+    if (!relativeUrl) {
+      return null;
+    }
+    
     if (relativeUrl.startsWith('http')) {
       return relativeUrl; // Já é uma URL absoluta
     }
@@ -149,8 +163,37 @@ export class DatabaseStorage implements IStorage {
   }
   // Users
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    try {
+      console.log('🔍 Storage.getUser - Buscando usuário com ID:', id);
+      console.log('🔍 Storage.getUser - Tipo do ID:', typeof id);
+      
+      if (!id || isNaN(id)) {
+        console.log('❌ Storage.getUser - ID inválido:', id);
+        return undefined;
+      }
+      
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      console.log('✅ Storage.getUser - Usuário encontrado:', user ? 'Sim' : 'Não');
+      
+      if (user) {
+        console.log('✅ Storage.getUser - Dados do usuário:', { id: user.id, name: user.name, email: user.email });
+      }
+      
+      return user || undefined;
+    } catch (error) {
+      console.error('❌ Storage.getUser - Erro:', error);
+      throw error;
+    }
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    try {
+      const allUsers = await db.select().from(users);
+      return allUsers;
+    } catch (error) {
+      console.error('❌ Storage.getAllUsers - Erro:', error);
+      throw error;
+    }
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
@@ -963,85 +1006,105 @@ export class DatabaseStorage implements IStorage {
   // ==================== SERVICE REQUESTS FOR CLIENT ====================
 
   async getServiceRequestsForClient(userId: number): Promise<any[]> {
-    console.log('🔍 Buscando pedidos para cliente ID:', userId);
-    
-    const results = await db
-      .select({
-        id: serviceRequests.id,
-        title: serviceRequests.serviceType,
-        description: serviceRequests.description,
-        category: serviceRequests.serviceType,
-        budget: serviceRequests.budget,
-        location: serviceRequests.address,
-        urgency: serviceRequests.urgency,
-        status: serviceRequests.status,
-        createdAt: serviceRequests.createdAt,
-        responses: serviceRequests.responses,
-      })
-      .from(serviceRequests)
-      .where(eq(serviceRequests.clientId, userId))
-      .orderBy(desc(serviceRequests.createdAt));
+    try {
+      console.log('🔍 Buscando pedidos para cliente ID:', userId);
+      
+      if (!userId || isNaN(userId)) {
+        throw new Error('ID do usuário inválido');
+      }
+      
+      const results = await db
+        .select({
+          id: serviceRequests.id,
+          title: serviceRequests.serviceType,
+          description: serviceRequests.description,
+          category: serviceRequests.serviceType,
+          budget: serviceRequests.budget,
+          location: serviceRequests.address,
+          urgency: serviceRequests.urgency,
+          status: serviceRequests.status,
+          createdAt: serviceRequests.createdAt,
+          responses: serviceRequests.responses,
+        })
+        .from(serviceRequests)
+        .where(eq(serviceRequests.clientId, userId))
+        .orderBy(desc(serviceRequests.createdAt));
 
-    console.log('✅ Pedidos encontrados:', results.length);
+      console.log('✅ Pedidos encontrados:', results.length);
 
-    return results.map((result: any) => ({
-      id: result.id,
-      title: result.title,
-      description: result.description,
-      category: result.category,
-      budget: result.budget,
-      location: result.location,
-      urgency: result.urgency,
-      status: result.status,
-      createdAt: result.createdAt,
-      responseCount: result.responses || 0
-    }));
+      return results.map((result: any) => ({
+        id: result.id,
+        title: result.title,
+        description: result.description,
+        category: result.category,
+        budget: result.budget,
+        location: result.location,
+        urgency: result.urgency,
+        status: result.status,
+        createdAt: result.createdAt,
+        responseCount: result.responses || 0
+      }));
+    } catch (error) {
+      console.error('❌ Erro em getServiceRequestsForClient:', error);
+      throw error; // Re-throw para ser tratado na rota
+    }
   }
 
   // ==================== SERVICE OFFERS FOR CLIENT ====================
 
   async getServiceOffersForClient(userId: number): Promise<any[]> {
-    console.log('🔍 Buscando propostas para cliente ID:', userId);
-    
-    const results = await db
-      .select({
-        id: serviceOffers.id,
-        serviceRequestId: serviceOffers.serviceRequestId,
-        professionalId: serviceOffers.professionalId,
-        price: serviceOffers.proposedPrice,
-        estimatedTime: serviceOffers.estimatedTime,
-        message: serviceOffers.message,
-        status: serviceOffers.status,
-        createdAt: serviceOffers.createdAt,
-        serviceTitle: serviceRequests.serviceType,
-        professionalName: professionals.name,
-        professionalRating: professionals.rating,
-        professionalTotalReviews: professionals.totalReviews,
-        professionalProfileImage: professionals.imageUrl,
-      })
-      .from(serviceOffers)
-      .innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id))
-      .innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id))
-      .where(eq(serviceRequests.clientId, userId))
-      .orderBy(desc(serviceOffers.createdAt));
+    try {
+      console.log('🔍 Buscando propostas para cliente ID:', userId);
+      
+      if (!userId || isNaN(userId)) {
+        throw new Error('ID do usuário inválido');
+      }
+      
+      const results = await db
+        .select({
+          id: serviceOffers.id,
+          serviceRequestId: serviceOffers.serviceRequestId,
+          professionalId: serviceOffers.professionalId,
+          proposedPrice: serviceOffers.proposedPrice,
+          finalPrice: serviceOffers.finalPrice,
+          estimatedTime: serviceOffers.estimatedTime,
+          message: serviceOffers.message,
+          status: serviceOffers.status,
+          createdAt: serviceOffers.createdAt,
+          serviceTitle: serviceRequests.serviceType,
+          professionalName: professionals.name,
+          professionalRating: professionals.rating,
+          professionalTotalReviews: professionals.totalReviews,
+          professionalProfileImage: professionals.imageUrl,
+        })
+        .from(serviceOffers)
+        .innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id))
+        .innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id))
+        .where(eq(serviceRequests.clientId, userId))
+        .orderBy(desc(serviceOffers.createdAt));
 
-    console.log('✅ Propostas encontradas:', results.length);
+      console.log('✅ Propostas encontradas:', results.length);
 
-    return results.map((result: any) => ({
-      id: result.id,
-      serviceRequestId: result.serviceRequestId,
-      professionalId: result.professionalId,
-      professionalName: result.professionalName,
-      professionalRating: result.professionalRating || 5.0,
-      professionalTotalReviews: result.professionalTotalReviews || 0,
-      professionalProfileImage: result.professionalProfileImage ? this.getFullImageUrl(result.professionalProfileImage) : null,
-      price: result.price,
-      estimatedTime: result.estimatedTime,
-      message: result.message,
-      status: result.status,
-      createdAt: result.createdAt,
-      serviceTitle: result.serviceTitle
-    }));
+      return results.map((result: any) => ({
+        id: result.id,
+        serviceRequestId: result.serviceRequestId,
+        professionalId: result.professionalId,
+        professionalName: result.professionalName,
+        professionalRating: result.professionalRating || 5.0,
+        professionalTotalReviews: result.professionalTotalReviews || 0,
+        professionalProfileImage: result.professionalProfileImage ? this.getFullImageUrl(result.professionalProfileImage) : null,
+        proposedPrice: result.proposedPrice,
+        finalPrice: result.finalPrice,
+        estimatedTime: result.estimatedTime,
+        message: result.message,
+        status: result.status,
+        createdAt: result.createdAt,
+        serviceTitle: result.serviceTitle
+      }));
+    } catch (error) {
+      console.error('❌ Erro em getServiceOffersForClient:', error);
+      throw error; // Re-throw para ser tratado na rota
+    }
   }
 
   async acceptServiceOffer(offerId: number, userId: number): Promise<{ success: boolean; error?: string }> {
@@ -1084,10 +1147,26 @@ export class DatabaseStorage implements IStorage {
         .update(serviceRequests)
         .set({ 
           assignedProfessionalId: offer.professionalId,
-          status: 'in_progress',
+          status: 'assigned',
           updatedAt: new Date()
         })
         .where(eq(serviceRequests.id, offer.serviceRequestId));
+
+      // Definir preço final como o proposto
+      await db
+        .update(serviceOffers)
+        .set({ 
+          finalPrice: offer.proposedPrice,
+          updatedAt: new Date() 
+        })
+        .where(eq(serviceOffers.id, offerId));
+
+      // Criar registro de progresso do serviço
+      await db.insert(serviceProgress).values({
+        serviceRequestId: offer.serviceRequestId,
+        professionalId: offer.professionalId,
+        status: 'accepted'
+      });
 
       // Rejeitar outras propostas para este pedido
       await db
@@ -1102,6 +1181,187 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('❌ Erro ao aceitar proposta:', error);
       return { success: false, error: 'Erro interno do servidor' };
+    }
+  }
+
+  // Métodos para gerenciar o progresso do serviço
+  async startService(serviceRequestId: number, professionalId: number): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('🚀 Iniciando serviço:', serviceRequestId, 'pelo profissional:', professionalId);
+      
+      // Verificar se o serviço foi atribuído a este profissional
+      const [request] = await db
+        .select({
+          id: serviceRequests.id,
+          status: serviceRequests.status,
+          assignedProfessionalId: serviceRequests.assignedProfessionalId
+        })
+        .from(serviceRequests)
+        .where(eq(serviceRequests.id, serviceRequestId));
+
+      if (!request) {
+        return { success: false, error: 'Solicitação não encontrada' };
+      }
+
+      if (request.assignedProfessionalId !== professionalId) {
+        return { success: false, error: 'Serviço não foi atribuído a este profissional' };
+      }
+
+      if (request.status !== 'assigned') {
+        return { success: false, error: 'Serviço não está em estado de iniciar' };
+      }
+
+      // Atualizar status da solicitação
+      await db
+        .update(serviceRequests)
+        .set({ 
+          status: 'in_progress',
+          serviceStartedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(serviceRequests.id, serviceRequestId));
+
+      // Atualizar progresso
+      await db
+        .update(serviceProgress)
+        .set({ 
+          status: 'started',
+          startedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(serviceProgress.serviceRequestId, serviceRequestId),
+          eq(serviceProgress.professionalId, professionalId)
+        ));
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Erro ao iniciar serviço:', error);
+      return { success: false, error: 'Erro interno do servidor' };
+    }
+  }
+
+  async completeService(serviceRequestId: number, professionalId: number, notes?: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('✅ Concluindo serviço:', serviceRequestId, 'pelo profissional:', professionalId);
+      
+      // Verificar se o serviço está em andamento
+      const [request] = await db
+        .select({
+          id: serviceRequests.id,
+          status: serviceRequests.status,
+          assignedProfessionalId: serviceRequests.assignedProfessionalId
+        })
+        .from(serviceRequests)
+        .where(eq(serviceRequests.id, serviceRequestId));
+
+      if (!request) {
+        return { success: false, error: 'Solicitação não encontrada' };
+      }
+
+      if (request.assignedProfessionalId !== professionalId) {
+        return { success: false, error: 'Serviço não foi atribuído a este profissional' };
+      }
+
+      if (request.status !== 'in_progress') {
+        return { success: false, error: 'Serviço não está em andamento' };
+      }
+
+      // Atualizar status da solicitação para aguardando confirmação
+      await db
+        .update(serviceRequests)
+        .set({ 
+          status: 'awaiting_confirmation',
+          serviceCompletedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(serviceRequests.id, serviceRequestId));
+
+      // Atualizar progresso
+      await db
+        .update(serviceProgress)
+        .set({ 
+          status: 'awaiting_confirmation',
+          completedAt: new Date(),
+          notes: notes || null,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(serviceProgress.serviceRequestId, serviceRequestId),
+          eq(serviceProgress.professionalId, professionalId)
+        ));
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Erro ao concluir serviço:', error);
+      return { success: false, error: 'Erro interno do servidor' };
+    }
+  }
+
+  async confirmServiceCompletion(serviceRequestId: number, clientId: number): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('✅ Cliente confirmando conclusão do serviço:', serviceRequestId);
+      
+      // Verificar se o serviço pertence ao cliente e está aguardando confirmação
+      const [request] = await db
+        .select({
+          id: serviceRequests.id,
+          status: serviceRequests.status,
+          clientId: serviceRequests.clientId
+        })
+        .from(serviceRequests)
+        .where(eq(serviceRequests.id, serviceRequestId));
+
+      if (!request) {
+        return { success: false, error: 'Solicitação não encontrada' };
+      }
+
+      if (request.clientId !== clientId) {
+        return { success: false, error: 'Serviço não pertence a este cliente' };
+      }
+
+      if (request.status !== 'awaiting_confirmation') {
+        return { success: false, error: 'Serviço não está aguardando confirmação' };
+      }
+
+      // Atualizar status da solicitação para concluído
+      await db
+        .update(serviceRequests)
+        .set({ 
+          status: 'completed',
+          clientConfirmedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(serviceRequests.id, serviceRequestId));
+
+      // Atualizar progresso
+      await db
+        .update(serviceProgress)
+        .set({ 
+          status: 'confirmed',
+          confirmedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(serviceProgress.serviceRequestId, serviceRequestId));
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Erro ao confirmar conclusão do serviço:', error);
+      return { success: false, error: 'Erro interno do servidor' };
+    }
+  }
+
+  async getServiceProgress(serviceRequestId: number): Promise<ServiceProgress | null> {
+    try {
+      const [progress] = await db
+        .select()
+        .from(serviceProgress)
+        .where(eq(serviceProgress.serviceRequestId, serviceRequestId));
+
+      return progress || null;
+    } catch (error) {
+      console.error('❌ Erro ao buscar progresso do serviço:', error);
+      return null;
     }
   }
 

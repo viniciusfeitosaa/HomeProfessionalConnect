@@ -267,8 +267,12 @@ export const generateToken = (user: User): string => {
 
 export const verifyToken = (token: string): any => {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET!);
+    console.log('🔐 VerifyToken - Verificando token...');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+    console.log('✅ VerifyToken - Token válido:', decoded);
+    return decoded;
   } catch (error) {
+    console.error('❌ VerifyToken - Erro ao verificar token:', error);
     return null;
   }
 };
@@ -288,29 +292,74 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
+  console.log('🔐 ===== INÍCIO DO MIDDLEWARE DE AUTENTICAÇÃO =====');
+  console.log('🔐 AuthenticateToken - Auth header:', authHeader ? 'Presente' : 'Ausente');
+  console.log('🔐 AuthenticateToken - Token:', token ? 'Presente' : 'Ausente');
+  console.log('🔐 AuthenticateToken - Token length:', token ? token.length : 0);
+  console.log('🔐 AuthenticateToken - URL da requisição:', req.url);
+  console.log('🔐 AuthenticateToken - Método:', req.method);
+
   if (!token) {
+    console.log('❌ AuthenticateToken - Token ausente');
+    console.log('🔐 ===== FIM DO MIDDLEWARE - TOKEN AUSENTE =====');
     return res.status(401).json({ message: 'Token de acesso necessário' });
   }
 
   try {
+    console.log('🔐 AuthenticateToken - Verificando token...');
     const decoded = verifyToken(token);
+    console.log('🔐 AuthenticateToken - Token decodificado:', decoded);
+    console.log('🔐 AuthenticateToken - Tipo do decoded:', typeof decoded);
+    console.log('🔐 AuthenticateToken - Keys do decoded:', decoded ? Object.keys(decoded) : 'null');
+    
+    if (!decoded) {
+      console.log('❌ AuthenticateToken - Token inválido (não decodificado)');
+      console.log('🔐 ===== FIM DO MIDDLEWARE - TOKEN INVÁLIDO =====');
+      return res.status(403).json({ message: 'Token inválido' });
+    }
+
     const userId = decoded.userId || decoded.id; // Support both formats
+    console.log('🔐 AuthenticateToken - UserId extraído:', userId);
+    console.log('🔐 AuthenticateToken - Tipo do userId:', typeof userId);
+    console.log('🔐 AuthenticateToken - userId é NaN?', isNaN(userId));
+    
+    if (!userId) {
+      console.log('❌ AuthenticateToken - UserId não encontrado no token');
+      console.log('🔐 AuthenticateToken - decoded.userId:', decoded.userId);
+      console.log('🔐 AuthenticateToken - decoded.id:', decoded.id);
+      console.log('🔐 ===== FIM DO MIDDLEWARE - USERID NÃO ENCONTRADO =====');
+      return res.status(400).json({ message: 'ID da solicitação inválido' });
+    }
+
+    console.log('🔐 AuthenticateToken - Buscando usuário no banco...');
     const user = await storage.getUser(userId);
+    console.log('🔐 AuthenticateToken - Usuário encontrado:', user ? 'Sim' : 'Não');
+    console.log('🔐 AuthenticateToken - Dados do usuário:', user ? { id: user.id, name: user.name, email: user.email, userType: user.userType } : 'null');
     
     if (!user || user.isBlocked) {
+      console.log('❌ AuthenticateToken - Usuário não encontrado ou bloqueado');
+      console.log('🔐 ===== FIM DO MIDDLEWARE - USUÁRIO NÃO ENCONTRADO =====');
       return res.status(403).json({ message: 'Usuário não encontrado ou bloqueado' });
     }
 
+    console.log('✅ AuthenticateToken - Usuário autenticado com sucesso:', user.id, user.name);
     req.user = user;
+    console.log('🔐 ===== FIM DO MIDDLEWARE - AUTENTICAÇÃO BEM-SUCEDIDA =====');
     next();
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('❌ AuthenticateToken - Erro:', error);
+    console.log('🔐 ===== FIM DO MIDDLEWARE - ERRO =====');
     return res.status(403).json({ message: 'Token inválido' });
   }
 };
 
 // Anti-fraud middleware
 export const rateLimitByIP = async (req: Request, res: Response, next: NextFunction) => {
+  // Skip rate limiting in development
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production') {
+    return next();
+  }
+
   const ip = req.ip || (req as any).connection?.remoteAddress || 'unknown';
   const userAgent = req.get('User-Agent') || 'unknown';
 
@@ -318,9 +367,9 @@ export const rateLimitByIP = async (req: Request, res: Response, next: NextFunct
     // Check recent login attempts from this IP
     const recentAttempts = await storage.getRecentLoginAttempts(ip, 15); // Last 15 minutes
     
-    if (recentAttempts.length >= 5) {
+    if (recentAttempts.length >= 10) { // Increased from 5 to 10
       const failedAttempts = recentAttempts.filter(attempt => !attempt.successful);
-      if (failedAttempts.length >= 3) {
+      if (failedAttempts.length >= 5) { // Increased from 3 to 5
         // Log suspicious activity
         await storage.createLoginAttempt({
           email: req.body.email || null,

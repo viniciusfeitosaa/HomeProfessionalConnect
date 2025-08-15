@@ -17,6 +17,8 @@ CREATE TABLE "conversations" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"client_id" integer NOT NULL,
 	"professional_id" integer NOT NULL,
+	"deleted_by_client" boolean DEFAULT false,
+	"deleted_by_professional" boolean DEFAULT false,
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp DEFAULT now()
 );
@@ -71,6 +73,33 @@ CREATE TABLE "professionals" (
 	"created_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
+CREATE TABLE "service_offers" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"service_request_id" integer NOT NULL,
+	"professional_id" integer NOT NULL,
+	"proposed_price" numeric(8, 2) NOT NULL,
+	"final_price" numeric(8, 2),
+	"estimated_time" text NOT NULL,
+	"message" text NOT NULL,
+	"status" text DEFAULT 'pending',
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "service_progress" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"service_request_id" integer NOT NULL,
+	"professional_id" integer NOT NULL,
+	"status" text DEFAULT 'accepted' NOT NULL,
+	"started_at" timestamp,
+	"completed_at" timestamp,
+	"confirmed_at" timestamp,
+	"payment_released_at" timestamp,
+	"notes" text,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
 CREATE TABLE "service_requests" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"client_id" integer NOT NULL,
@@ -85,6 +114,9 @@ CREATE TABLE "service_requests" (
 	"status" text DEFAULT 'open',
 	"assigned_professional_id" integer,
 	"responses" integer DEFAULT 0,
+	"service_started_at" timestamp,
+	"service_completed_at" timestamp,
+	"client_confirmed_at" timestamp,
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp DEFAULT now()
 );
@@ -94,6 +126,7 @@ CREATE TABLE "users" (
 	"username" text NOT NULL,
 	"password" text,
 	"google_id" text,
+	"apple_id" text,
 	"name" text NOT NULL,
 	"email" text NOT NULL,
 	"phone" text,
@@ -110,7 +143,8 @@ CREATE TABLE "users" (
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp DEFAULT now(),
 	CONSTRAINT "users_username_unique" UNIQUE("username"),
-	CONSTRAINT "users_google_id_unique" UNIQUE("google_id")
+	CONSTRAINT "users_google_id_unique" UNIQUE("google_id"),
+	CONSTRAINT "users_apple_id_unique" UNIQUE("apple_id")
 );
 --> statement-breakpoint
 CREATE TABLE "verification_codes" (

@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
+import { sql } from "drizzle-orm";
 import { registerRoutes } from "./routes.js";
 import { seedDatabase } from "./seedData.js";
 import { Server as SocketIOServer } from "socket.io";
@@ -53,6 +54,26 @@ app.use(express.urlencoded({ extended: false }));
 app.use((req, res, next) => {
   console.log('🌐 Debug Global - Requisição:', req.method, req.path);
   next();
+});
+
+// Middleware de verificação de saúde do banco
+app.use(async (req, res, next) => {
+  if (req.path.startsWith('/api') && req.path !== '/api/health') {
+    try {
+      // Verificar se o banco está respondendo
+      const { db } = await import('./db.js');
+      await db.execute(sql`SELECT 1`);
+      next();
+    } catch (error) {
+      console.error('❌ Erro de conexão com banco:', error);
+      res.status(503).json({ 
+        error: 'Serviço temporariamente indisponível',
+        message: 'Erro de conexão com banco de dados'
+      });
+    }
+  } else {
+    next();
+  }
 });
 
 app.use((req, res, next) => {
@@ -123,8 +144,28 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    console.error(err);
+    // Log detalhado do erro
+    console.error('❌ Erro global capturado:');
+    console.error('Status:', status);
+    console.error('Message:', message);
+    console.error('Stack:', err.stack);
+    console.error('Error object:', err);
+
+    // Resposta de erro
+    const errorResponse: any = { 
+      message: process.env.NODE_ENV === 'production' ? 'Erro interno do servidor' : message 
+    };
+    
+    // Adicionar detalhes em desenvolvimento
+    if (process.env.NODE_ENV === 'development') {
+      errorResponse.details = {
+        stack: err.stack,
+        name: err.name,
+        code: err.code
+      };
+    }
+
+    res.status(status).json(errorResponse);
   });
 
   // Servir no PORT fornecido pelo Render/ambiente (sem fixar 5000)
