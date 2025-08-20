@@ -1969,7 +1969,12 @@ export async function registerRoutes(app) {
             if (user.userType !== 'provider') {
                 return res.status(403).json({ error: 'Apenas profissionais podem concluir serviços' });
             }
-            const result = await storage.completeService(serviceRequestId, user.id, notes);
+            // Buscar o ID do profissional na tabela professionals
+            const professional = await storage.getProfessionalByUserId(user.id);
+            if (!professional) {
+                return res.status(400).json({ error: 'Profissional não encontrado' });
+            }
+            const result = await storage.completeService(serviceRequestId, professional.id, notes);
             if (result.success) {
                 res.json({ message: 'Serviço concluído com sucesso. Aguardando confirmação do cliente.' });
             }
@@ -1992,7 +1997,11 @@ export async function registerRoutes(app) {
             }
             const result = await storage.confirmServiceCompletion(serviceRequestId, user.id);
             if (result.success) {
-                res.json({ message: 'Serviço confirmado com sucesso. Pagamento será liberado para o profissional.' });
+                res.json({
+                    message: 'Serviço confirmado com sucesso. Pagamento será liberado para o profissional.',
+                    requiresReview: true,
+                    serviceRequestId: serviceRequestId
+                });
             }
             else {
                 res.status(400).json({ error: result.error || 'Erro ao confirmar serviço' });
@@ -2000,6 +2009,84 @@ export async function registerRoutes(app) {
         }
         catch (error) {
             console.error('❌ Erro ao confirmar serviço:', error);
+            res.status(500).json({ error: 'Erro interno do servidor' });
+        }
+    });
+    // Create service review
+    app.post('/api/service/:id/review', authenticateToken, async (req, res) => {
+        try {
+            const serviceRequestId = parseInt(req.params.id);
+            const user = req.user;
+            const { rating, comment } = req.body;
+            if (user.userType !== 'client') {
+                return res.status(403).json({ error: 'Apenas clientes podem avaliar serviços' });
+            }
+            if (!rating || rating < 1 || rating > 5) {
+                return res.status(400).json({ error: 'Avaliação deve ser entre 1 e 5 estrelas' });
+            }
+            // Buscar informações do serviço e proposta aceita
+            const request = await storage.getServiceRequest(serviceRequestId);
+            if (!request) {
+                return res.status(404).json({ error: 'Serviço não encontrado' });
+            }
+            if (request.clientId !== user.id) {
+                return res.status(403).json({ error: 'Apenas o cliente pode avaliar este serviço' });
+            }
+            if (request.status !== 'completed') {
+                return res.status(400).json({ error: 'Serviço deve estar concluído para ser avaliado' });
+            }
+            // Buscar a proposta aceita
+            const offers = await storage.getServiceOffers(serviceRequestId);
+            const acceptedOffer = offers.find(offer => offer.status === 'accepted');
+            if (!acceptedOffer) {
+                return res.status(400).json({ error: 'Proposta aceita não encontrada' });
+            }
+            // Verificar se já existe uma avaliação para este serviço
+            const existingReview = await storage.getServiceReviewByService(serviceRequestId);
+            if (existingReview) {
+                return res.status(400).json({ error: 'Este serviço já foi avaliado' });
+            }
+            // Criar a avaliação
+            const review = await storage.createServiceReview({
+                serviceRequestId,
+                serviceOfferId: acceptedOffer.id,
+                clientId: user.id,
+                professionalId: acceptedOffer.professionalId,
+                rating,
+                comment: comment || null
+            });
+            res.json({
+                message: 'Avaliação enviada com sucesso!',
+                review: {
+                    id: review.id,
+                    rating: review.rating,
+                    comment: review.comment,
+                    createdAt: review.createdAt
+                }
+            });
+        }
+        catch (error) {
+            console.error('❌ Erro ao criar avaliação:', error);
+            res.status(500).json({ error: 'Erro interno do servidor' });
+        }
+    });
+    // Get service reviews for a professional
+    app.get('/api/professional/:id/reviews', async (req, res) => {
+        try {
+            const professionalId = parseInt(req.params.id);
+            const reviews = await storage.getServiceReviewsByProfessional(professionalId);
+            res.json({
+                reviews: reviews.map(review => ({
+                    id: review.id,
+                    rating: review.rating,
+                    comment: review.comment,
+                    createdAt: review.createdAt,
+                    serviceRequestId: review.serviceRequestId
+                }))
+            });
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar avaliações do profissional:', error);
             res.status(500).json({ error: 'Erro interno do servidor' });
         }
     });
@@ -2078,6 +2165,99 @@ export async function registerRoutes(app) {
         }
         catch (error) {
             console.error('❌ Erro no endpoint de teste:', error);
+            res.status(500).json({ error: 'Erro interno do servidor' });
+        }
+    });
+    // Get transactions for professional
+    app.get('/api/professional/transactions', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ error: 'Apenas profissionais podem acessar transações' });
+            }
+            const professional = await storage.getProfessionalByUserId(user.id);
+            if (!professional) {
+                return res.status(404).json({ error: 'Profissional não encontrado' });
+            }
+            const transactions = await storage.getTransactionsByProfessional(professional.id);
+            // Calcular estatísticas
+            const totalEarnings = transactions
+                .filter(t => t.status === 'completed')
+                .reduce((sum, t) => sum + Number(t.amount), 0);
+            const pendingAmount = transactions
+                .filter(t => t.status === 'pending')
+                .reduce((sum, t) => sum + Number(t.amount), 0);
+            res.json({
+                transactions,
+                statistics: {
+                    totalEarnings: totalEarnings.toFixed(2),
+                    pendingAmount: pendingAmount.toFixed(2),
+                    totalTransactions: transactions.length,
+                    completedTransactions: transactions.filter(t => t.status === 'completed').length
+                }
+            });
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar transações do profissional:', error);
+            res.status(500).json({ error: 'Erro interno do servidor' });
+        }
+    });
+    // Get transactions for client
+    app.get('/api/client/transactions', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            if (user.userType !== 'client') {
+                return res.status(403).json({ error: 'Apenas clientes podem acessar transações' });
+            }
+            const transactions = await storage.getTransactionsByClient(user.id);
+            res.json(transactions);
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar transações do cliente:', error);
+            res.status(500).json({ error: 'Erro interno do servidor' });
+        }
+    });
+    // Rota para buscar serviços concluídos do profissional
+    app.get('/api/professional/:id/completed-services', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ error: 'Apenas profissionais podem acessar este recurso' });
+            }
+            // Buscar o profissional pelo userId para obter o ID correto
+            const professional = await storage.getProfessionalByUserId(user.id);
+            if (!professional) {
+                return res.status(404).json({ error: 'Profissional não encontrado' });
+            }
+            console.log('🔍 Buscando serviços para profissional ID:', professional.id, 'userId:', user.id);
+            const completedServices = await storage.getProfessionalCompletedServices(professional.id);
+            res.json({
+                success: true,
+                data: completedServices
+            });
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar serviços concluídos:', error);
+            res.status(500).json({ error: 'Erro interno do servidor' });
+        }
+    });
+    // Rota para buscar avaliações de um profissional
+    app.get('/api/professional/:id/reviews', async (req, res) => {
+        try {
+            const professionalId = parseInt(req.params.id);
+            const reviews = await storage.getServiceReviewsByProfessional(professionalId);
+            res.json({
+                reviews: reviews.map(review => ({
+                    id: review.id,
+                    rating: review.rating,
+                    comment: review.comment,
+                    createdAt: review.createdAt,
+                    serviceRequestId: review.serviceRequestId
+                }))
+            });
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar avaliações do profissional:', error);
             res.status(500).json({ error: 'Erro interno do servidor' });
         }
     });

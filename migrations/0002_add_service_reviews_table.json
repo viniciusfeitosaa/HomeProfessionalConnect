@@ -1,0 +1,141 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "service_reviews": {
+      "name": "service_reviews",
+      "schema": "",
+      "columns": [
+        {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": false,
+          "hasDefault": true
+        },
+        {
+          "name": "service_request_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "hasDefault": false
+        },
+        {
+          "name": "service_offer_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "hasDefault": false
+        },
+        {
+          "name": "client_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "hasDefault": false
+        },
+        {
+          "name": "professional_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "hasDefault": false
+        },
+        {
+          "name": "rating",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "hasDefault": false
+        },
+        {
+          "name": "comment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "hasDefault": false
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "hasDefault": true
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "hasDefault": true
+        }
+      ],
+      "indexes": [
+        {
+          "name": "service_reviews_professional_id_idx",
+          "columns": ["professional_id"]
+        },
+        {
+          "name": "service_reviews_client_id_idx",
+          "columns": ["client_id"]
+        },
+        {
+          "name": "service_reviews_service_request_id_idx",
+          "columns": ["service_request_id"]
+        },
+        {
+          "name": "service_reviews_rating_idx",
+          "columns": ["rating"]
+        },
+        {
+          "name": "service_reviews_created_at_idx",
+          "columns": ["created_at"]
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "service_reviews_service_request_id_fkey",
+          "tableName": "service_reviews",
+          "columns": ["service_request_id"],
+          "referencedTableName": "service_requests",
+          "referencedColumns": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        {
+          "name": "service_reviews_service_offer_id_fkey",
+          "tableName": "service_reviews",
+          "columns": ["service_offer_id"],
+          "referencedTableName": "service_offers",
+          "referencedColumns": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        {
+          "name": "service_reviews_client_id_fkey",
+          "tableName": "service_reviews",
+          "columns": ["client_id"],
+          "referencedTableName": "users",
+          "referencedColumns": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        {
+          "name": "service_reviews_professional_id_fkey",
+          "tableName": "service_reviews",
+          "columns": ["professional_id"],
+          "referencedTableName": "professionals",
+          "referencedColumns": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      ],
+      "uniqueConstraints": [
+        {
+          "name": "service_reviews_unique_service_client",
+          "columns": ["service_request_id", "client_id"]
+        }
+      ]
+    }
+  }
+}

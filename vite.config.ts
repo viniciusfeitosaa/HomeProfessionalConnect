@@ -3,22 +3,27 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const target = env.VITE_API_URL || 'https://lifebee-backend.onrender.com';
   const isHttps = target.startsWith('https');
+  
+  // Importar o plugin cartographer de forma assíncrona se necessário
+  let cartographerPlugin = null;
+  if (process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined) {
+    try {
+      const cartographerModule = await import("@replit/vite-plugin-cartographer");
+      cartographerPlugin = cartographerModule.cartographer();
+    } catch (error) {
+      console.warn("Cartographer plugin não pôde ser carregado:", error);
+    }
+  }
+  
   return {
   plugins: [
     react(),
     runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
-          ),
-        ]
-      : []),
+    ...(cartographerPlugin ? [cartographerPlugin] : []),
   ],
   resolve: {
     alias: {

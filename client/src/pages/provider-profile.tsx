@@ -259,6 +259,7 @@ export default function ProviderProfile() {
         name: professionalData.name || "",
         email: userData.email || "",
         phone: userData.phone || "",
+        taxpayerId: formData.taxpayerId || "",
         specialization: professionalData.specialization || "",
         category: professionalData.category || "",
         subCategory: professionalData.subCategory || "",

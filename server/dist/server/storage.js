@@ -1,4 +1,4 @@
-import { users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, serviceOffers, serviceProgress, } from "./schema.js";
+import { users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, serviceOffers, serviceProgress, transactions, serviceReviews, } from "./schema.js";
 import { db } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
 // Database Storage Implementation
@@ -678,6 +678,13 @@ export class DatabaseStorage {
             }
         }));
     }
+    async getServiceOffers(serviceRequestId) {
+        return await db
+            .select()
+            .from(serviceOffers)
+            .where(eq(serviceOffers.serviceRequestId, serviceRequestId))
+            .orderBy(desc(serviceOffers.createdAt));
+    }
     async createServiceOffer(serviceOffer) {
         const [offer] = await db
             .insert(serviceOffers)
@@ -759,14 +766,21 @@ export class DatabaseStorage {
                 status: serviceOffers.status,
                 createdAt: serviceOffers.createdAt,
                 serviceTitle: serviceRequests.serviceType,
+                serviceStatus: serviceRequests.status,
                 professionalName: professionals.name,
                 professionalRating: professionals.rating,
                 professionalTotalReviews: professionals.totalReviews,
                 professionalProfileImage: professionals.imageUrl,
+                // Adicionar informações sobre avaliação se o serviço estiver concluído
+                hasReview: serviceReviews.id,
+                reviewRating: serviceReviews.rating,
+                reviewComment: serviceReviews.comment,
+                reviewCreatedAt: serviceReviews.createdAt
             })
                 .from(serviceOffers)
                 .innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id))
                 .innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id))
+                .leftJoin(serviceReviews, and(eq(serviceReviews.serviceRequestId, serviceRequests.id), eq(serviceReviews.clientId, userId)))
                 .where(eq(serviceRequests.clientId, userId))
                 .orderBy(desc(serviceOffers.createdAt));
             console.log('✅ Propostas encontradas:', results.length);
@@ -784,7 +798,13 @@ export class DatabaseStorage {
                 message: result.message,
                 status: result.status,
                 createdAt: result.createdAt,
-                serviceTitle: result.serviceTitle
+                serviceTitle: result.serviceTitle,
+                serviceStatus: result.serviceStatus,
+                // Incluir informações sobre avaliação
+                hasReview: !!result.hasReview,
+                reviewRating: result.reviewRating,
+                reviewComment: result.reviewComment,
+                reviewCreatedAt: result.reviewCreatedAt
             }));
         }
         catch (error) {
@@ -906,6 +926,18 @@ export class DatabaseStorage {
     async completeService(serviceRequestId, professionalId, notes) {
         try {
             console.log('✅ Concluindo serviço:', serviceRequestId, 'pelo profissional:', professionalId);
+            // Primeiro, buscar o profissional pelo userId para obter o ID correto
+            const [professional] = await db
+                .select({ id: professionals.id })
+                .from(professionals)
+                .where(eq(professionals.userId, professionalId));
+            console.log('🔍 Profissional encontrado:', professional);
+            if (!professional) {
+                console.log('❌ Profissional não encontrado para userId:', professionalId);
+                return { success: false, error: 'Profissional não encontrado' };
+            }
+            const actualProfessionalId = professional.id;
+            console.log('🔍 ID real do profissional:', actualProfessionalId);
             // Verificar se o serviço está em andamento
             const [request] = await db
                 .select({
@@ -916,13 +948,30 @@ export class DatabaseStorage {
                 .from(serviceRequests)
                 .where(eq(serviceRequests.id, serviceRequestId));
             if (!request) {
+                console.log('❌ Solicitação não encontrada:', serviceRequestId);
                 return { success: false, error: 'Solicitação não encontrada' };
             }
-            if (request.assignedProfessionalId !== professionalId) {
+            console.log('🔍 Dados da solicitação:', request);
+            if (request.assignedProfessionalId !== actualProfessionalId) {
+                console.log('❌ Serviço não atribuído a este profissional. Atribuído a:', request.assignedProfessionalId, 'Profissional atual:', actualProfessionalId);
                 return { success: false, error: 'Serviço não foi atribuído a este profissional' };
             }
-            if (request.status !== 'in_progress') {
-                return { success: false, error: 'Serviço não está em andamento' };
+            if (request.status !== 'in_progress' && request.status !== 'open') {
+                console.log('❌ Status incorreto do serviço:', request.status, 'Esperado: in_progress ou open');
+                return { success: false, error: 'Serviço deve estar em andamento ou aberto com proposta aceita para ser concluído' };
+            }
+            // Se o status for 'open', verificar se há uma proposta aceita
+            if (request.status === 'open') {
+                console.log('🔍 Serviço em status open, verificando proposta aceita...');
+                const [acceptedOffer] = await db
+                    .select({ id: serviceOffers.id })
+                    .from(serviceOffers)
+                    .where(and(eq(serviceOffers.serviceRequestId, serviceRequestId), eq(serviceOffers.professionalId, actualProfessionalId), eq(serviceOffers.status, 'accepted')));
+                if (!acceptedOffer) {
+                    console.log('❌ Proposta aceita não encontrada para serviço em status open:', serviceRequestId);
+                    return { success: false, error: 'Serviço deve ter uma proposta aceita para ser concluído' };
+                }
+                console.log('✅ Proposta aceita encontrada para serviço em status open:', acceptedOffer.id);
             }
             // Atualizar status da solicitação para aguardando confirmação
             await db
@@ -933,6 +982,8 @@ export class DatabaseStorage {
                 updatedAt: new Date()
             })
                 .where(eq(serviceRequests.id, serviceRequestId));
+            console.log('✅ Status da solicitação atualizado para awaiting_confirmation');
+            console.log('✅ Serviço marcado como concluído pelo profissional');
             // Atualizar progresso
             await db
                 .update(serviceProgress)
@@ -942,7 +993,8 @@ export class DatabaseStorage {
                 notes: notes || null,
                 updatedAt: new Date()
             })
-                .where(and(eq(serviceProgress.serviceRequestId, serviceRequestId), eq(serviceProgress.professionalId, professionalId)));
+                .where(and(eq(serviceProgress.serviceRequestId, serviceRequestId), eq(serviceProgress.professionalId, actualProfessionalId)));
+            console.log('✅ Progresso atualizado para awaiting_confirmation');
             return { success: true };
         }
         catch (error) {
@@ -953,24 +1005,64 @@ export class DatabaseStorage {
     async confirmServiceCompletion(serviceRequestId, clientId) {
         try {
             console.log('✅ Cliente confirmando conclusão do serviço:', serviceRequestId);
-            // Verificar se o serviço pertence ao cliente e está aguardando confirmação
+            // Buscar informações completas do serviço e proposta aceita
             const [request] = await db
                 .select({
                 id: serviceRequests.id,
                 status: serviceRequests.status,
-                clientId: serviceRequests.clientId
+                clientId: serviceRequests.clientId,
+                assignedProfessionalId: serviceRequests.assignedProfessionalId
             })
                 .from(serviceRequests)
                 .where(eq(serviceRequests.id, serviceRequestId));
+            console.log('🔍 Dados da solicitação encontrada:', request);
             if (!request) {
+                console.log('❌ Solicitação não encontrada:', serviceRequestId);
                 return { success: false, error: 'Solicitação não encontrada' };
             }
             if (request.clientId !== clientId) {
+                console.log('❌ Cliente incorreto:', request.clientId, 'Esperado:', clientId);
                 return { success: false, error: 'Serviço não pertence a este cliente' };
             }
             if (request.status !== 'awaiting_confirmation') {
+                console.log('❌ Status incorreto do serviço:', request.status, 'Esperado: awaiting_confirmation');
                 return { success: false, error: 'Serviço não está aguardando confirmação' };
             }
+            if (!request.assignedProfessionalId) {
+                console.log('❌ Nenhum profissional designado para serviço:', serviceRequestId);
+                return { success: false, error: 'Nenhum profissional foi designado para este serviço' };
+            }
+            // Buscar a proposta aceita para obter o valor
+            const [acceptedOffer] = await db
+                .select({
+                id: serviceOffers.id,
+                proposedPrice: serviceOffers.proposedPrice,
+                finalPrice: serviceOffers.finalPrice
+            })
+                .from(serviceOffers)
+                .where(and(eq(serviceOffers.serviceRequestId, serviceRequestId), eq(serviceOffers.professionalId, request.assignedProfessionalId), eq(serviceOffers.status, 'accepted')));
+            console.log('🔍 Proposta aceita encontrada:', acceptedOffer);
+            if (!acceptedOffer) {
+                console.log('❌ Proposta aceita não encontrada para serviço:', serviceRequestId);
+                return { success: false, error: 'Proposta aceita não encontrada' };
+            }
+            // Determinar o valor final (finalPrice ou proposedPrice)
+            const finalAmount = acceptedOffer.finalPrice || acceptedOffer.proposedPrice;
+            console.log('💰 Valor final para transação:', finalAmount, 'Tipo:', typeof finalAmount);
+            // Criar transação de pagamento
+            const transaction = await this.createTransaction({
+                serviceRequestId,
+                serviceOfferId: acceptedOffer.id,
+                clientId,
+                professionalId: request.assignedProfessionalId,
+                amount: Number(finalAmount),
+                status: 'completed',
+                type: 'service_payment',
+                description: `Pagamento pelo serviço #${serviceRequestId}`,
+                paymentMethod: 'pix',
+                completedAt: new Date()
+            });
+            console.log('✅ Transação criada com sucesso:', transaction.id, 'Valor:', transaction.amount);
             // Atualizar status da solicitação para concluído
             await db
                 .update(serviceRequests)
@@ -980,15 +1072,34 @@ export class DatabaseStorage {
                 updatedAt: new Date()
             })
                 .where(eq(serviceRequests.id, serviceRequestId));
-            // Atualizar progresso
+            console.log('✅ Status da solicitação atualizado para completed');
+            // Atualizar progresso para payment_released
             await db
                 .update(serviceProgress)
                 .set({
-                status: 'confirmed',
+                status: 'payment_released',
                 confirmedAt: new Date(),
+                paymentReleasedAt: new Date(),
                 updatedAt: new Date()
             })
                 .where(eq(serviceProgress.serviceRequestId, serviceRequestId));
+            console.log('✅ Progresso atualizado para payment_released');
+            // Notificar o profissional sobre o pagamento liberado
+            const professional = await this.getProfessional(request.assignedProfessionalId);
+            if (professional) {
+                await this.createNotification({
+                    userId: professional.userId,
+                    message: `Pagamento de R$ ${finalAmount} foi liberado pelo serviço #${serviceRequestId}.`,
+                    read: false
+                });
+            }
+            // Excluir todas as propostas não aceitas para este serviço
+            console.log('🗑️ Excluindo propostas não aceitas...');
+            await db
+                .delete(serviceOffers)
+                .where(and(eq(serviceOffers.serviceRequestId, serviceRequestId), ne(serviceOffers.status, 'accepted')));
+            console.log('✅ Propostas não aceitas excluídas com sucesso');
+            console.log('✅ Serviço concluído com sucesso! ID:', serviceRequestId);
             return { success: true };
         }
         catch (error) {
@@ -1055,6 +1166,227 @@ export class DatabaseStorage {
         catch (error) {
             console.error('❌ Erro ao rejeitar e excluir proposta:', error);
             return { success: false, error: 'Erro interno do servidor' };
+        }
+    }
+    // Transactions
+    async createTransaction(transaction) {
+        try {
+            console.log('✅ Criando transação:', transaction);
+            const [newTransaction] = await db
+                .insert(transactions)
+                .values(transaction)
+                .returning();
+            return newTransaction;
+        }
+        catch (error) {
+            console.error('❌ Erro ao criar transação:', error);
+            throw error;
+        }
+    }
+    async getTransactionsByProfessional(professionalId) {
+        try {
+            const professionalTransactions = await db
+                .select()
+                .from(transactions)
+                .where(eq(transactions.professionalId, professionalId))
+                .orderBy(desc(transactions.createdAt));
+            return professionalTransactions;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar transações do profissional:', error);
+            return [];
+        }
+    }
+    async getTransactionsByClient(clientId) {
+        try {
+            const clientTransactions = await db
+                .select()
+                .from(transactions)
+                .where(eq(transactions.clientId, clientId))
+                .orderBy(desc(transactions.createdAt));
+            return clientTransactions;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar transações do cliente:', error);
+            return [];
+        }
+    }
+    async updateTransactionStatus(id, status) {
+        try {
+            const [updatedTransaction] = await db
+                .update(transactions)
+                .set({
+                status,
+                updatedAt: new Date(),
+                ...(status === 'completed' && { completedAt: new Date() })
+            })
+                .where(eq(transactions.id, id))
+                .returning();
+            return updatedTransaction;
+        }
+        catch (error) {
+            console.error('❌ Erro ao atualizar status da transação:', error);
+            throw error;
+        }
+    }
+    async getTransactionById(id) {
+        try {
+            const [transaction] = await db
+                .select()
+                .from(transactions)
+                .where(eq(transactions.id, id));
+            return transaction || null;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar transação por ID:', error);
+            return null;
+        }
+    }
+    // Service Reviews
+    async createServiceReview(review) {
+        try {
+            console.log('✅ Criando avaliação de serviço:', review);
+            const [newReview] = await db
+                .insert(serviceReviews)
+                .values(review)
+                .returning();
+            // Atualizar a avaliação média do profissional
+            await this.updateProfessionalRating(review.professionalId);
+            return newReview;
+        }
+        catch (error) {
+            console.error('❌ Erro ao criar avaliação de serviço:', error);
+            throw error;
+        }
+    }
+    async getServiceReviewsByProfessional(professionalId) {
+        try {
+            const reviews = await db
+                .select()
+                .from(serviceReviews)
+                .where(eq(serviceReviews.professionalId, professionalId))
+                .orderBy(desc(serviceReviews.createdAt));
+            return reviews;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar avaliações do profissional:', error);
+            throw error;
+        }
+    }
+    async getServiceReviewsByClient(clientId) {
+        try {
+            const reviews = await db
+                .select()
+                .from(serviceReviews)
+                .where(eq(serviceReviews.clientId, clientId))
+                .orderBy(desc(serviceReviews.createdAt));
+            return reviews;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar avaliações do cliente:', error);
+            throw error;
+        }
+    }
+    async getProfessionalCompletedServices(professionalId) {
+        try {
+            console.log('🔍 Buscando serviços concluídos do profissional:', professionalId);
+            const results = await db
+                .select({
+                serviceRequestId: serviceRequests.id,
+                serviceTitle: serviceRequests.serviceType,
+                clientName: users.name,
+                clientEmail: users.email,
+                amount: sql `COALESCE(${serviceOffers.finalPrice}, ${serviceOffers.proposedPrice})`,
+                status: serviceRequests.status,
+                completedAt: serviceRequests.clientConfirmedAt,
+                // Informações da avaliação
+                reviewRating: serviceReviews.rating,
+                reviewComment: serviceReviews.comment,
+                reviewCreatedAt: serviceReviews.createdAt,
+                // Informações da transação
+                transactionId: transactions.id,
+                transactionStatus: transactions.status,
+                transactionCompletedAt: transactions.completedAt
+            })
+                .from(serviceRequests)
+                .innerJoin(serviceOffers, and(eq(serviceOffers.serviceRequestId, serviceRequests.id), eq(serviceOffers.professionalId, professionalId), eq(serviceOffers.status, 'accepted')))
+                .innerJoin(users, eq(serviceRequests.clientId, users.id))
+                .leftJoin(serviceReviews, eq(serviceReviews.serviceRequestId, serviceRequests.id))
+                .leftJoin(transactions, and(eq(transactions.serviceRequestId, serviceRequests.id), eq(transactions.professionalId, professionalId), eq(transactions.type, 'service_payment')))
+                .where(and(eq(serviceRequests.assignedProfessionalId, professionalId), eq(serviceRequests.status, 'completed')))
+                .orderBy(desc(serviceRequests.clientConfirmedAt));
+            console.log('✅ Serviços concluídos encontrados:', results.length);
+            console.log('🔍 Dados dos serviços:', results.map((r) => ({ id: r.serviceRequestId, status: r.status, amount: r.amount })));
+            const mappedResults = results.map((result) => ({
+                serviceRequestId: result.serviceRequestId,
+                serviceTitle: result.serviceTitle,
+                clientName: result.clientName,
+                clientEmail: result.clientEmail,
+                amount: Number(result.amount),
+                status: result.status,
+                completedAt: result.completedAt,
+                hasReview: !!result.reviewRating,
+                reviewRating: result.reviewRating,
+                reviewComment: result.reviewComment,
+                reviewCreatedAt: result.reviewCreatedAt,
+                transactionId: result.transactionId,
+                transactionStatus: result.transactionStatus,
+                transactionCompletedAt: result.transactionCompletedAt
+            }));
+            console.log('✅ Resultados mapeados:', mappedResults.length);
+            return mappedResults;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar serviços concluídos do profissional:', error);
+            throw error;
+        }
+    }
+    async getServiceReviewByService(serviceRequestId) {
+        try {
+            const [review] = await db
+                .select()
+                .from(serviceReviews)
+                .where(eq(serviceReviews.serviceRequestId, serviceRequestId));
+            return review || null;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar avaliação do serviço:', error);
+            return null;
+        }
+    }
+    async updateProfessionalRating(professionalId) {
+        try {
+            // Buscar todas as avaliações do profissional
+            const reviews = await this.getServiceReviewsByProfessional(professionalId);
+            if (reviews.length === 0) {
+                // Se não há avaliações, definir como 5.0 (padrão)
+                await db
+                    .update(professionals)
+                    .set({
+                    rating: '5.0',
+                    totalReviews: 0,
+                    updatedAt: new Date()
+                })
+                    .where(eq(professionals.id, professionalId));
+                return;
+            }
+            // Calcular nova média
+            const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+            const averageRating = totalRating / reviews.length;
+            // Atualizar profissional com nova avaliação média
+            await db
+                .update(professionals)
+                .set({
+                rating: averageRating.toFixed(1),
+                totalReviews: reviews.length,
+                updatedAt: new Date()
+            })
+                .where(eq(professionals.id, professionalId));
+            console.log(`✅ Avaliação do profissional ${professionalId} atualizada: ${averageRating.toFixed(1)} (${reviews.length} avaliações)`);
+        }
+        catch (error) {
+            console.error('❌ Erro ao atualizar avaliação do profissional:', error);
+            throw error;
         }
     }
 }

@@ -21,7 +21,7 @@
     "@types/passport-google-oauth20": "^2.0.14",
     "@types/ws": "^8.18.1",
     "cpy": "^11.1.0",
-    "drizzle-kit": "^0.31.4",
+    "drizzle-kit": "^0.18.1",
     "tsx": "^4.20.3",
     "typescript": "^5.3.3"
   },

@@ -37,6 +37,7 @@ import {
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/useAuth";
 import { ProviderLayout } from "@/components/ProviderLayout";
+import ProfessionalDashboard from "@/components/professional-dashboard";
 import { MapContainer, TileLayer, Marker, Popup, useMap, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -92,6 +93,8 @@ export default function ProviderDashboard() {
   const [providerAppointments, setProviderAppointments] = useState<any[]>([]);
   const [monthlyCompletedServices, setMonthlyCompletedServices] = useState<number>(0);
   const [monthlyCompletedEarnings, setMonthlyCompletedEarnings] = useState<number>(0);
+  const [totalCompletedServices, setTotalCompletedServices] = useState<number>(0);
+  const [totalEarnings, setTotalEarnings] = useState<number>(0);
   const [monthlyGoalMode, setMonthlyGoalMode] = useState<'services' | 'revenue'>(() => {
     const saved = localStorage.getItem('lb_monthly_goal_mode');
     return (saved === 'revenue' || saved === 'services') ? saved : 'services';
@@ -966,6 +969,62 @@ export default function ProviderDashboard() {
     ];
   };
 
+  // Buscar estatísticas de performance do profissional
+  const fetchPerformanceStats = async () => {
+    if (!user) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      // Buscar serviços concluídos do profissional
+      const response = await fetch(`${getApiUrl()}/api/professional/${user.id}/completed-services`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const completedServices = data.data || [];
+        
+        // Calcular estatísticas do mês atual
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+        
+        const monthlyServices = completedServices.filter((service: any) => {
+          const serviceDate = new Date(service.completedAt || service.createdAt);
+          return serviceDate.getMonth() === currentMonth && serviceDate.getFullYear() === currentYear;
+        });
+        
+        const monthlyEarnings = monthlyServices.reduce((total: number, service: any) => {
+          return total + (Number(service.amount) || 0);
+        }, 0);
+        
+        // Calcular totais gerais
+        const totalEarnings = completedServices.reduce((total: number, service: any) => {
+          return total + (Number(service.amount) || 0);
+        }, 0);
+        
+        setMonthlyCompletedServices(monthlyServices.length);
+        setMonthlyCompletedEarnings(monthlyEarnings);
+        setTotalCompletedServices(completedServices.length);
+        setTotalEarnings(totalEarnings);
+        
+        console.log('📊 Estatísticas carregadas:', {
+          totalServices: completedServices.length,
+          monthlyServices: monthlyServices.length,
+          monthlyEarnings,
+          totalEarnings
+        });
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar estatísticas:', error);
+    }
+  };
+
   // Buscar solicitações de serviço disponíveis com melhor performance
   const fetchServiceRequests = async () => {
     console.log('🚀 Iniciando busca de solicitações...');
@@ -1269,6 +1328,7 @@ export default function ProviderDashboard() {
     if (user) {
       console.log('User authenticated, calling fetchServiceRequests');
       fetchServiceRequests();
+      fetchPerformanceStats(); // Carregar estatísticas de performance
     } else {
       console.log('User not authenticated yet');
     }
@@ -1657,66 +1717,115 @@ export default function ProviderDashboard() {
         </div>
 
         <div className="p-4 sm:p-6 lg:p-8 pb-8 sm:pb-12 lg:pb-16 space-y-6 sm:space-y-8">
-          {/* Dashboard Overview */}
+          {/* Dashboard Overview - Performance */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card>
-              <CardContent className="p-4">
+            {/* Total de Serviços Concluídos */}
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-700">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Ganhos do Mês</p>
-                    <p className="text-2xl font-bold text-green-600">R$ {analytics.monthlyEarnings.toLocaleString('pt-BR')}</p>
+                    <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total de Serviços</p>
+                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{monthlyCompletedServices}</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400">Este mês</p>
                   </div>
-                  <div className="bg-green-100 dark:bg-green-900 p-2 rounded-full">
-                    <DollarSign className="h-6 w-6 text-green-600" />
+                  <div className="p-3 bg-blue-500 rounded-full">
+                    <CheckCircle className="h-6 w-6 text-white" />
                   </div>
-                </div>
-                <div className="flex items-center gap-1 mt-2">
-                  <TrendingUp className="h-3 w-3 text-green-600" />
-                  <span className="text-xs text-green-600">+{analytics.monthlyGrowth}% vs mês anterior</span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-4">
+            {/* Receita Total */}
+            <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-700">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Serviços Realizados</p>
-                    <p className="text-2xl font-bold">{analytics.totalServices}</p>
+                    <p className="text-sm font-medium text-green-600 dark:text-green-400">Receita Total</p>
+                    <p className="text-2xl font-bold text-green-900 dark:text-green-100">R$ {monthlyCompletedEarnings.toLocaleString('pt-BR')}</p>
+                    <p className="text-xs text-green-600 dark:text-green-400">Este mês</p>
                   </div>
-                  <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-full">
-                    <Users className="h-6 w-6 text-blue-600" />
+                  <div className="p-3 bg-green-500 rounded-full">
+                    <DollarSign className="h-6 w-6 text-white" />
                   </div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">{analytics.servicesThisWeek} esta semana</p>
               </CardContent>
             </Card>
 
-            {Number(analytics?.averageRating || 0) > 0 && (
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Avaliação Média</p>
-                      <p className="text-2xl font-bold flex items-center gap-1">
-                        {analytics.averageRating}
-                        <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
-                      </p>
-                    </div>
-                    <div className="bg-yellow-100 dark:bg-yellow-900 p-2 rounded-full">
-                      <Award className="h-6 w-6 text-yellow-600" />
-                    </div>
+            {/* Média por Serviço */}
+            <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-700">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Média por Serviço</p>
+                    <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                      R$ {monthlyCompletedServices > 0 ? (monthlyCompletedEarnings / monthlyCompletedServices).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
+                    </p>
+                    <p className="text-xs text-purple-600 dark:text-purple-400">Valor médio</p>
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                  <div className="p-3 bg-purple-500 rounded-full">
+                    <BarChart3 className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-            {/* Card de Tempo de Resposta removido conforme solicitação */}
+            {/* Taxa de Conclusão */}
+            <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-700">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Taxa de Conclusão</p>
+                    <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+                      {providerAppointments.length > 0 ? Math.round((monthlyCompletedServices / providerAppointments.length) * 100) : 0}%
+                    </p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400">Serviços finalizados</p>
+                  </div>
+                  <div className="p-3 bg-orange-500 rounded-full">
+                    <TrendingUp className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Totais Gerais */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Total Geral de Serviços */}
+            <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 border-indigo-200 dark:border-indigo-700">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Total Geral de Serviços</p>
+                    <p className="text-3xl font-bold text-indigo-900 dark:text-indigo-100">{totalCompletedServices}</p>
+                    <p className="text-xs text-indigo-600 dark:text-indigo-400">Todos os tempos</p>
+                  </div>
+                  <div className="p-3 bg-indigo-500 rounded-full">
+                    <Award className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Receita Total Geral */}
+            <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 border-emerald-200 dark:border-emerald-700">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Receita Total Geral</p>
+                    <p className="text-3xl font-bold text-emerald-900 dark:text-emerald-100">R$ {totalEarnings.toLocaleString('pt-BR')}</p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">Todos os tempos</p>
+                  </div>
+                  <div className="p-3 bg-emerald-500 rounded-full">
+                    <TrendingUp className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Main Content Tabs */}
           <Tabs defaultValue="opportunities" className="space-y-6 sm:space-y-8">
-            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-2 h-auto min-h-12 p-1.5 gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-3 h-auto min-h-12 p-1.5 gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
               <TabsTrigger value="opportunities" className="text-xs sm:text-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 whitespace-nowrap min-h-10 sm:min-h-11 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-md data-[state=active]:font-semibold">
                 <span className="hidden xs:inline">Oportunidades</span>
                 <span className="xs:hidden">Oport.</span>
@@ -1724,6 +1833,10 @@ export default function ProviderDashboard() {
               <TabsTrigger value="performance" className="text-xs sm:text-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 whitespace-nowrap min-h-10 sm:min-h-11 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-md data-[state=active]:font-semibold">
                 <span className="hidden xs:inline">Performance</span>
                 <span className="xs:hidden">Perf.</span>
+              </TabsTrigger>
+              <TabsTrigger value="history" className="text-xs sm:text-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 whitespace-nowrap min-h-10 sm:min-h-11 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-md data-[state=active]:font-semibold">
+                <span className="hidden xs:inline">Histórico</span>
+                <span className="xs:hidden">Hist.</span>
               </TabsTrigger>
             </TabsList>
 
@@ -2070,6 +2183,126 @@ export default function ProviderDashboard() {
 
             {/* Performance Tab */}
             <TabsContent value="performance" className="space-y-8">
+              {/* Header com botão de atualização */}
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Performance e Estatísticas</h2>
+                <Button 
+                  onClick={fetchPerformanceStats}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Atualizar Dados
+                </Button>
+              </div>
+              
+              {/* Cards de Estatísticas Principais */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Total de Serviços Concluídos */}
+                <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-700">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total de Serviços</p>
+                        <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{monthlyCompletedServices}</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400">Este mês</p>
+                      </div>
+                      <div className="p-3 bg-blue-500 rounded-full">
+                        <CheckCircle className="h-6 w-6 text-white" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Receita Total */}
+                <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-700">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-green-600 dark:text-green-400">Receita Total</p>
+                        <p className="text-2xl font-bold text-green-900 dark:text-green-100">R$ {monthlyCompletedEarnings.toLocaleString('pt-BR')}</p>
+                        <p className="text-xs text-green-600 dark:text-green-400">Este mês</p>
+                      </div>
+                      <div className="p-3 bg-green-500 rounded-full">
+                        <DollarSign className="h-6 w-6 text-white" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Média por Serviço */}
+                <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-700">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Média por Serviço</p>
+                        <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                          R$ {monthlyCompletedServices > 0 ? (monthlyCompletedEarnings / monthlyCompletedServices).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
+                        </p>
+                        <p className="text-xs text-purple-600 dark:text-purple-400">Valor médio</p>
+                      </div>
+                      <div className="p-3 bg-purple-500 rounded-full">
+                        <BarChart3 className="h-6 w-6 text-white" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Taxa de Conclusão */}
+                <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-700">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Taxa de Conclusão</p>
+                        <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+                          {providerAppointments.length > 0 ? Math.round((monthlyCompletedServices / providerAppointments.length) * 100) : 0}%
+                        </p>
+                        <p className="text-xs text-orange-600 dark:text-orange-400">Serviços finalizados</p>
+                      </div>
+                      <div className="p-3 bg-orange-500 rounded-full">
+                        <TrendingUp className="h-6 w-6 text-white" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Totais Gerais */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Total Geral de Serviços */}
+                <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 border-indigo-200 dark:border-indigo-700">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Total Geral de Serviços</p>
+                        <p className="text-3xl font-bold text-indigo-900 dark:text-indigo-100">{totalCompletedServices}</p>
+                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Todos os tempos</p>
+                      </div>
+                      <div className="p-3 bg-indigo-500 rounded-full">
+                        <Award className="h-6 w-6 text-white" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Receita Total Geral */}
+                <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 border-emerald-200 dark:border-emerald-700">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Receita Total Geral</p>
+                        <p className="text-3xl font-bold text-emerald-900 dark:text-emerald-100">R$ {totalEarnings.toLocaleString('pt-BR')}</p>
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400">Todos os tempos</p>
+                      </div>
+                      <div className="p-3 bg-emerald-500 rounded-full">
+                        <TrendingUp className="h-6 w-6 text-white" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Metas e progresso do mês */}
                 <Card>
@@ -2154,176 +2387,116 @@ export default function ProviderDashboard() {
                   </CardContent>
                 </Card>
 
-                {/* Coluna direita: Serviços do mês + Histórico de Ganhos abaixo */}
-                <div className="space-y-8">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <BarChart3 className="h-5 w-5" />
-                        Serviços Concluídos (mês)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3 max-h-80 overflow-auto pr-1">
-                        {providerAppointments.filter((a: any) => (a.status || '') === 'completed').length === 0 && (
-                          <div className="text-sm text-gray-500">Nenhum serviço concluído neste mês ainda.</div>
-                        )}
-                        {providerAppointments
-                          .filter((a: any) => {
-                            const now = new Date();
-                            const start = new Date(now.getFullYear(), now.getMonth(), 1);
-                            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-                            const d = a.scheduledFor ? new Date(a.scheduledFor) : (a.createdAt ? new Date(a.createdAt) : null);
-                            return d && d >= start && d <= end && (a.status || '') === 'completed';
-                          })
-                          .sort((a: any, b: any) => new Date(b.scheduledFor || b.createdAt).getTime() - new Date(a.scheduledFor || a.createdAt).getTime())
-                          .map((a: any, idx: number) => {
-                            const price = typeof a.totalCost === 'string' ? parseFloat(a.totalCost) : Number(a.totalCost || 0);
-                            return (
-                              <div key={idx} className="flex items-center justify-between p-3 border rounded-lg bg-white dark:bg-gray-900">
-                                <div className="min-w-0">
-                                  <p className="font-medium truncate">{a.serviceType || 'Serviço'}</p>
-                                  <p className="text-xs text-gray-500 truncate">{a.professionalName || 'Cliente'} • {new Date(a.scheduledFor || a.createdAt).toLocaleDateString('pt-BR')}</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-sm font-semibold text-green-600">+ R$ {Number(price).toLocaleString('pt-BR')}</p>
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700">Concluído</span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5" />
-                        Histórico de Ganhos (mês)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3 max-h-96 overflow-auto pr-1">
-                        {providerAppointments.filter((a: any) => (a.status || '') === 'completed').length === 0 && (
-                          <div className="text-sm text-gray-500">Sem ganhos registrados neste mês ainda.</div>
-                        )}
-                        {providerAppointments
-                          .filter((a: any) => {
-                            const now = new Date();
-                            const start = new Date(now.getFullYear(), now.getMonth(), 1);
-                            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-                            const d = a.scheduledFor ? new Date(a.scheduledFor) : (a.createdAt ? new Date(a.createdAt) : null);
-                            return d && d >= start && d <= end && (a.status || '') === 'completed';
-                          })
-                          .sort((a: any, b: any) => new Date(b.scheduledFor || b.createdAt).getTime() - new Date(a.scheduledFor || a.createdAt).getTime())
-                          .map((a: any, idx: number) => {
-                            const price = typeof a.totalCost === 'string' ? parseFloat(a.totalCost) : Number(a.totalCost || 0);
-                            return (
-                              <div key={idx} className="flex justify-between items-center p-3 border rounded-lg bg-white dark:bg-gray-900">
-                                <div>
-                                  <p className="font-medium">{a.serviceType || 'Serviço'}</p>
-                                  <p className="text-xs text-gray-600">{new Date(a.scheduledFor || a.createdAt).toLocaleDateString('pt-BR')}</p>
-                                </div>
-                                <p className="font-semibold text-green-600">+ R$ {Number(price).toLocaleString('pt-BR')}</p>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* Schedule Tab */}
-            <TabsContent value="schedule" className="space-y-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Próximos Agendamentos
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4 p-4 border border-orange-200 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                      <div className="bg-orange-500 text-white rounded-full w-10 h-10 flex items-center justify-center">
-                        <Clock className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold">Maria Silva</h4>
-                        <p className="text-sm text-gray-600">Fisioterapia Respiratória</p>
-                        <p className="text-sm text-orange-600 font-medium">Hoje às 14:00 • Vila Madalena</p>
-                      </div>
-                      <Button size="sm">Ver Detalhes</Button>
-                    </div>
-
-                    <div className="flex items-center gap-4 p-4 border rounded-lg">
-                      <div className="bg-blue-100 dark:bg-blue-900 text-blue-600 rounded-full w-10 h-10 flex items-center justify-center">
-                        <Calendar className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold">João Santos</h4>
-                        <p className="text-sm text-gray-600">Acompanhamento Hospitalar</p>
-                        <p className="text-sm text-gray-500">Amanhã às 08:00 • Hospital das Clínicas</p>
-                      </div>
-                      <Button variant="outline" size="sm">Ver Detalhes</Button>
-                    </div>
-
-                    <div className="flex items-center gap-4 p-4 border rounded-lg">
-                      <div className="bg-green-100 dark:bg-green-900 text-green-600 rounded-full w-10 h-10 flex items-center justify-center">
-                        <Users className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold">Ana Costa</h4>
-                        <p className="text-sm text-gray-600">Curativo Domiciliar</p>
-                        <p className="text-sm text-gray-500">Quinta-feira às 16:00 • Jardins</p>
-                      </div>
-                      <Button variant="outline" size="sm">Ver Detalhes</Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Earnings Tab */}
-            <TabsContent value="earnings" className="space-y-8">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Meta de ganhos e progresso */}
-                <Card className="lg:col-span-1">
+                {/* Gráfico de Performance Semanal */}
+                <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Target className="h-5 w-5" />
-                      Meta de Ganhos
+                      <TrendingUp className="h-5 w-5" />
+                      Performance Semanal
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="space-y-2">
-                        <label className="text-sm text-gray-600 dark:text-gray-400">Defina sua meta de receita no mês</label>
-                        <div className="flex gap-2">
-                          <span className="self-center text-sm text-gray-500">R$</span>
-                          <input type="number" min={100} step={50} value={monthlyGoalRevenue} onChange={(e) => setMonthlyGoalRevenue(Math.max(100, parseFloat(e.target.value || '0')))} className="w-32 px-3 py-2 rounded-md border bg-white dark:bg-gray-900" />
-                        </div>
+                      {/* Gráfico de barras simples para serviços da semana */}
+                      <div className="space-y-3">
+                        {(() => {
+                          const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                          const now = new Date();
+                          const weekStart = new Date(now.getTime() - (now.getDay() * 24 * 60 * 60 * 1000));
+                          
+                          const weeklyData = weekDays.map((day, index) => {
+                            const dayStart = new Date(weekStart.getTime() + (index * 24 * 60 * 60 * 1000));
+                            const dayEnd = new Date(dayStart.getTime() + (24 * 60 * 60 * 1000));
+                            
+                            const servicesCount = providerAppointments.filter((a: any) => {
+                              const d = a.scheduledFor ? new Date(a.scheduledFor) : (a.createdAt ? new Date(a.createdAt) : null);
+                              return d && d >= dayStart && d < dayEnd && (a.status || '') === 'completed';
+                            }).length;
+                            
+                            const maxServices = Math.max(...weekDays.map((_, i) => {
+                              const dStart = new Date(weekStart.getTime() + (i * 24 * 60 * 60 * 1000));
+                              const dEnd = new Date(dStart.getTime() + (24 * 60 * 60 * 1000));
+                              return providerAppointments.filter((a: any) => {
+                                const d = a.scheduledFor ? new Date(a.scheduledFor) : (a.createdAt ? new Date(a.createdAt) : null);
+                                return d && d >= dStart && d < dEnd && (a.status || '') === 'completed';
+                              }).length;
+                            }));
+                            
+                            const height = maxServices > 0 ? (servicesCount / maxServices) * 100 : 0;
+                            
+                            return { day, count: servicesCount, height };
+                          });
+                          
+                          return (
+                            <div className="flex items-end justify-between h-32">
+                              {weeklyData.map((data, index) => (
+                                <div key={index} className="flex flex-col items-center">
+                                  <div className="text-xs text-gray-500 mb-1">{data.count}</div>
+                                  <div 
+                                    className="w-8 bg-gradient-to-t from-yellow-500 to-orange-500 rounded-t-sm transition-all duration-300"
+                                    style={{ height: `${data.height}%` }}
+                                  ></div>
+                                  <div className="text-xs text-gray-500 mt-1">{data.day}</div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
-
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm font-medium">Receita do mês</span>
-                          <span className="text-sm text-gray-600">R$ {monthlyCompletedEarnings.toLocaleString('pt-BR')} / R$ {monthlyGoalRevenue.toLocaleString('pt-BR')}</span>
-                        </div>
-                        <div className="w-full h-3 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                          <div className="h-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all" style={{ width: `${Math.min(100, (monthlyCompletedEarnings / (monthlyGoalRevenue || 1)) * 100)}%` }}></div>
-                        </div>
-                        <div className="text-xs text-gray-500">{Math.min(100, Math.round((monthlyCompletedEarnings / (monthlyGoalRevenue || 1)) * 100))}% da meta atingida</div>
+                      
+                      <div className="text-center text-sm text-gray-600">
+                        Serviços concluídos por dia da semana
                       </div>
                     </div>
                   </CardContent>
                 </Card>
+              </div>
 
-                {/* Histórico de ganhos do mês */}
-                <Card className="lg:col-span-2">
+              {/* Serviços Concluídos e Histórico de Ganhos */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Coluna esquerda: Serviços do mês */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5" />
+                      Serviços Concluídos (mês)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3 max-h-80 overflow-auto pr-1">
+                      {providerAppointments.filter((a: any) => (a.status || '') === 'completed').length === 0 && (
+                        <div className="text-sm text-gray-500">Nenhum serviço concluído neste mês ainda.</div>
+                      )}
+                      {providerAppointments
+                        .filter((a: any) => {
+                          const now = new Date();
+                          const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                          const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+                          const d = a.scheduledFor ? new Date(a.scheduledFor) : (a.createdAt ? new Date(a.createdAt) : null);
+                          return d && d >= start && d <= end && (a.status || '') === 'completed';
+                        })
+                        .sort((a: any, b: any) => new Date(b.scheduledFor || b.createdAt).getTime() - new Date(a.scheduledFor || a.createdAt).getTime())
+                        .map((a: any, idx: number) => {
+                          const price = typeof a.totalCost === 'string' ? parseFloat(a.totalCost) : Number(a.totalCost || 0);
+                          return (
+                            <div key={idx} className="flex items-center justify-between p-3 border rounded-lg bg-white dark:bg-gray-900">
+                              <div className="min-w-0">
+                                <p className="font-medium truncate">{a.serviceType || 'Serviço'}</p>
+                                <p className="text-xs text-gray-500 truncate">{a.professionalName || 'Cliente'} • {new Date(a.scheduledFor || a.createdAt).toLocaleDateString('pt-BR')}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-semibold text-green-600">+ R$ {Number(price).toLocaleString('pt-BR')}</p>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700">Concluído</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Coluna direita: Histórico de Ganhos */}
+                <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <DollarSign className="h-5 w-5" />
@@ -2360,6 +2533,49 @@ export default function ProviderDashboard() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Resumo de Performance */}
+              <Card className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Award className="h-5 w-5 text-yellow-600" />
+                    Resumo de Performance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{monthlyCompletedServices}</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Serviços Concluídos</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-green-600 dark:text-green-400">R$ {monthlyCompletedEarnings.toLocaleString('pt-BR')}</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Receita Total</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                        {monthlyCompletedServices > 0 ? (monthlyCompletedEarnings / monthlyCompletedServices).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">Ticket Médio</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* History Tab */}
+            <TabsContent value="history" className="space-y-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5" />
+                    Histórico de Serviços Concluídos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ProfessionalDashboard professionalId={user?.id || 0} />
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>

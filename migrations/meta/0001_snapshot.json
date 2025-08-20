@@ -1,0 +1,177 @@
+{
+  "id": "0001_add_transactions_table",
+  "prevId": "0000_clever_daredevil",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "transactions": {
+      "name": "transactions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": false,
+          "hasDefault": true
+        },
+        "service_request_id": {
+          "name": "service_request_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "hasDefault": false
+        },
+        "service_offer_id": {
+          "name": "service_offer_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "hasDefault": false
+        },
+        "client_id": {
+          "name": "client_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "hasDefault": false
+        },
+        "professional_id": {
+          "name": "professional_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "hasDefault": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "decimal(10,2)",
+          "primaryKey": false,
+          "notNull": true,
+          "hasDefault": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "hasDefault": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "hasDefault": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "hasDefault": false
+        },
+        "payment_method": {
+          "name": "payment_method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "hasDefault": false
+        },
+        "transaction_id": {
+          "name": "transaction_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "hasDefault": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "hasDefault": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "hasDefault": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "hasDefault": true
+        }
+      },
+      "indexes": {
+        "transactions_professional_id_idx": {
+          "name": "transactions_professional_id_idx",
+          "tableName": "transactions",
+          "columns": ["professional_id"]
+        },
+        "transactions_client_id_idx": {
+          "name": "transactions_client_id_idx",
+          "tableName": "transactions",
+          "columns": ["client_id"]
+        },
+        "transactions_service_request_id_idx": {
+          "name": "transactions_service_request_id_idx",
+          "tableName": "transactions",
+          "columns": ["service_request_id"]
+        },
+        "transactions_status_idx": {
+          "name": "transactions_status_idx",
+          "tableName": "transactions",
+          "columns": ["status"]
+        },
+        "transactions_created_at_idx": {
+          "name": "transactions_created_at_idx",
+          "tableName": "transactions",
+          "columns": ["created_at"]
+        }
+      },
+      "foreignKeys": {
+        "transactions_service_request_id_fkey": {
+          "name": "transactions_service_request_id_fkey",
+          "tableName": "transactions",
+          "columns": ["service_request_id"],
+          "foreignTableName": "service_requests",
+          "foreignColumns": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "transactions_service_offer_id_fkey": {
+          "name": "transactions_service_offer_id_fkey",
+          "tableName": "transactions",
+          "columns": ["service_offer_id"],
+          "foreignTableName": "service_offers",
+          "foreignColumns": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "transactions_client_id_fkey": {
+          "name": "transactions_client_id_fkey",
+          "tableName": "transactions",
+          "columns": ["client_id"],
+          "foreignTableName": "users",
+          "foreignColumns": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "transactions_professional_id_fkey": {
+          "name": "transactions_professional_id_fkey",
+          "tableName": "transactions",
+          "columns": ["professional_id"],
+          "foreignTableName": "professionals",
+          "foreignColumns": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -34,6 +34,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "../components/ui/alert-dialog";
+import RatingPopup from '../components/rating-popup';
 
 interface ServiceRequest {
   id: number;
@@ -46,7 +47,7 @@ interface ServiceRequest {
   status: string;
   createdAt: string;
   responseCount: number;
-  offers?: ServiceOffer[]; // Propostas relacionadas a este pedido
+  offers?: ServiceOffer[];
 }
 
 interface ServiceOffer {
@@ -63,7 +64,8 @@ interface ServiceOffer {
   status: 'pending' | 'accepted' | 'rejected';
   createdAt: string;
   serviceTitle: string;
-  serviceRequest?: ServiceRequest; // Pedido relacionado a esta proposta
+  serviceStatus: string;
+  serviceRequest?: ServiceRequest;
 }
 
 export default function Services() {
@@ -80,6 +82,8 @@ export default function Services() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [brokenOfferImage, setBrokenOfferImage] = useState<Record<number, boolean>>({});
+  const [showRatingPopup, setShowRatingPopup] = useState(false);
+  const [serviceToRate, setServiceToRate] = useState<number | null>(null);
 
   // Utilitário: garante número a partir de string/indefinido
   const toNumber = (value: unknown, fallback = 0): number => {
@@ -87,6 +91,45 @@ export default function Services() {
     const n = parseFloat(String(value ?? ''));
     return Number.isNaN(n) ? fallback : n;
   };
+
+  // Validação de CPF melhorada
+  const isValidCPF = useCallback((cpfRaw: string): boolean => {
+    const cpf = cpfRaw.replace(/\D/g, '');
+    if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+    
+    const calc = (b: number) => {
+      let s = 0;
+      for (let i = 0; i < b; i++) {
+        s += parseInt(cpf[i], 10) * (b + 1 - i);
+      }
+      const r = (s * 10) % 11;
+      return r === 10 ? 0 : r;
+    };
+    
+    return calc(9) === parseInt(cpf[9], 10) && calc(10) === parseInt(cpf[10], 10);
+  }, []);
+
+  // Validação de telefone melhorada
+  const isValidPhone = useCallback((phone: string): boolean => {
+    const digits = phone.replace(/\D/g, "");
+    return digits.length === 11 && digits[0] !== '0' && digits[1] !== '0' && digits[2] === '9';
+  }, []);
+
+  // Validação de email melhorada
+  const isValidEmail = useCallback((email: string): boolean => {
+    return !!(email && /.+@.+\..+/.test(email.trim()));
+  }, []);
+
+  // Verificar se o perfil está completo
+  const isProfileComplete = useCallback((): { complete: boolean; steps: number; total: number } => {
+    const emailOk = isValidEmail(user?.email || '');
+    const phoneOk = isValidPhone(user?.phone || '');
+    const cpfStored = (typeof window !== 'undefined' ? localStorage.getItem('client_cpf') : '') || '';
+    const cpfOk = isValidCPF(cpfStored);
+    
+    const steps = [emailOk, phoneOk, cpfOk].filter(Boolean).length;
+    return { complete: steps === 3, steps, total: 3 };
+  }, [user?.email, user?.phone, isValidEmail, isValidPhone, isValidCPF]);
 
   // Log para debug
   console.log('🔍 Services Component - Estado atual:', {
@@ -96,43 +139,16 @@ export default function Services() {
     loading
   });
 
-  useEffect(() => {
-    const loadAll = async () => {
-      if (!user?.id) return;
-      await fetchServiceRequests();
-      await fetchServiceOffers();
-    };
-    loadAll();
-  }, [user]);
-
-  // Recarregar dados ao trocar de aba
-  useEffect(() => {
-    if (activeTab === 'offers') {
-      fetchServiceOffers();
-    } else if (activeTab === 'requests') {
-      fetchServiceRequests();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
-
-  // Recarregar ao voltar o foco para a aba do navegador
-  useEffect(() => {
-    const onVisibilityChange = () => {
-      if (!document.hidden) {
-        fetchServiceOffers();
-        fetchServiceRequests();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchServiceRequests = async (): Promise<ServiceRequest[]> => {
+  // Função para buscar pedidos de serviço
+  const fetchServiceRequests = useCallback(async (): Promise<ServiceRequest[]> => {
     try {
       const token = localStorage.getItem('token');
-      console.log('🔍 Buscando pedidos... Token:', token ? 'Presente' : 'Ausente');
-      console.log('🔍 URL da API:', `${getApiUrl()}/api/service-requests/client`);
+      if (!token) {
+        console.error('❌ Token não encontrado');
+        return [];
+      }
+
+      console.log('🔍 Buscando pedidos...');
       
       const response = await fetch(`${getApiUrl()}/api/service-requests/client`, {
         headers: {
@@ -140,30 +156,41 @@ export default function Services() {
         }
       });
       
-      console.log('🔍 Response status para pedidos:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Pedidos carregados:', data);
         setServiceRequests(data);
-        console.log('✅ Estado atualizado com', data.length, 'pedidos');
         return data;
       } else {
         const errorText = await response.text();
-        console.error('❌ Erro ao buscar pedidos - Status:', response.status);
-        console.error('❌ Erro detalhado:', errorText);
+        console.error('❌ Erro ao buscar pedidos:', response.status, errorText);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar seus pedidos de serviço",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('❌ Erro ao buscar pedidos:', error);
+      toast({
+        title: "Erro de conexão",
+        description: "Verifique sua conexão com a internet",
+        variant: "destructive"
+      });
     }
     return [];
-  };
+  }, [toast]);
 
-  const fetchServiceOffers = async (): Promise<ServiceOffer[]> => {
+  // Função para buscar propostas de serviço
+  const fetchServiceOffers = useCallback(async (): Promise<ServiceOffer[]> => {
     try {
       const token = localStorage.getItem('token');
-      console.log('🔍 Buscando propostas... Token:', token ? 'Presente' : 'Ausente');
-      console.log('🔍 URL da API:', `${getApiUrl()}/api/service-offers/client`);
+      if (!token) {
+        console.error('❌ Token não encontrado');
+        return [];
+      }
+
+      console.log('🔍 Buscando propostas...');
       
       const response = await fetch(`${getApiUrl()}/api/service-offers/client`, {
         headers: {
@@ -171,80 +198,83 @@ export default function Services() {
         }
       });
       
-      console.log('🔍 Response status:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Propostas carregadas:', data);
+        
         let offers = Array.isArray(data) ? data : [];
-
-        // Normalizar campos vindos do endpoint agregador principal
-        if (offers.length > 0) {
-          offers = (offers as any[]).map((o: any) => ({
-            ...o,
-            professionalRating: toNumber(o?.professionalRating, 5.0),
-            professionalTotalReviews: toNumber(o?.professionalTotalReviews, 0),
-            price: typeof o?.price === 'number' ? o.price : (parseFloat(o?.price ?? o?.proposedPrice ?? '0') || 0),
-            estimatedTime: toNumber(o?.estimatedTime, 0),
-          }));
-        }
-
-        // Fallback: se não vier nada, buscar por cada solicitação diretamente
-        if (offers.length === 0) {
-          // Garantir que pedidos estejam carregados antes do fallback
-          let requests = serviceRequests;
-          if (!requests || requests.length === 0) {
-            requests = await fetchServiceRequests();
-          }
-          if (requests && requests.length > 0) {
-          console.log('⚠️ Sem propostas no endpoint agregador. Buscando por pedido...');
-          const reqIds = requests.map(r => r.id);
-          const byRequest = await Promise.all(
-            reqIds.map(async (id) => {
-              const r = await fetch(`${getApiUrl()}/api/service-requests/${id}/offers`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
-              if (!r.ok) return [] as any[];
-              const arr = await r.json();
-              return Array.isArray(arr) ? arr : [];
-            })
-          );
-          const flat = byRequest.flat();
-          // Normalizar campos para o shape do frontend
-          offers = flat.map((o: any) => ({
-            id: o.id,
-            serviceRequestId: o.serviceRequestId,
-            professionalId: o.professionalId,
-            professionalName: o.professionalName,
-            professionalRating: toNumber(o.professionalRating, 5.0),
-            professionalTotalReviews: toNumber(o.professionalTotalReviews, 0),
-            professionalProfileImage: o.professionalProfileImage || null,
-            price: typeof o.price === 'number' ? o.price : (parseFloat(o.price ?? o.proposedPrice ?? '0') || 0),
-            estimatedTime: toNumber(o.estimatedTime, 0),
-            message: o.message,
-            status: o.status,
-            createdAt: o.createdAt,
-            serviceTitle: o.serviceTitle || ''
-          }));
-          console.log('✅ Propostas agregadas por pedido:', offers.length);
-          }
-        }
+        
+        // Normalizar campos
+        offers = offers.map((o: any) => ({
+          ...o,
+          professionalRating: toNumber(o?.professionalRating, 5.0),
+          professionalTotalReviews: toNumber(o?.professionalTotalReviews, 0),
+          price: toNumber(o?.price ?? o?.proposedPrice, 0),
+          estimatedTime: toNumber(o?.estimatedTime, 0),
+          serviceStatus: o?.serviceStatus || 'open'
+        }));
 
         setServiceOffers(offers);
-        console.log('✅ Estado atualizado com', offers.length, 'propostas');
         return offers;
       } else {
         const errorText = await response.text();
-        console.error('❌ Erro ao buscar propostas - Status:', response.status);
-        console.error('❌ Erro detalhado:', errorText);
+        console.error('❌ Erro ao buscar propostas:', response.status, errorText);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar as propostas",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('❌ Erro ao buscar propostas:', error);
+      toast({
+        title: "Erro de conexão",
+        description: "Verifique sua conexão com a internet",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
     return [];
-  };
+  }, [toast]);
+
+  // Carregar dados iniciais
+  useEffect(() => {
+    if (user?.id) {
+      const loadData = async () => {
+        setLoading(true);
+        await Promise.all([fetchServiceRequests(), fetchServiceOffers()]);
+      };
+      loadData();
+    }
+  }, [user?.id, fetchServiceRequests, fetchServiceOffers]);
+
+  // Recarregar dados ao trocar de aba
+  useEffect(() => {
+    if (user?.id) {
+      if (activeTab === 'offers') {
+        fetchServiceOffers();
+      } else if (activeTab === 'requests') {
+        fetchServiceRequests();
+      }
+    }
+  }, [activeTab, user?.id, fetchServiceRequests, fetchServiceOffers]);
+
+  // Recarregar ao voltar o foco para a aba do navegador
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (!document.hidden && user?.id) {
+        if (activeTab === 'offers') {
+          fetchServiceOffers();
+        } else {
+          fetchServiceRequests();
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [activeTab, user?.id, fetchServiceRequests, fetchServiceOffers]);
 
   const acceptOffer = async (offerId: number) => {
     try {
@@ -258,11 +288,26 @@ export default function Services() {
       });
 
       if (response.ok) {
-        // Refresh data
+        toast({
+          title: "Sucesso!",
+          description: "Proposta aceita com sucesso!",
+        });
         await Promise.all([fetchServiceOffers(), fetchServiceRequests()]);
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Erro",
+          description: errorData.message || "Não foi possível aceitar a proposta",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('Erro ao aceitar proposta:', error);
+      toast({
+        title: "Erro",
+        description: "Erro de conexão ao aceitar a proposta",
+        variant: "destructive"
+      });
     }
   };
 
@@ -278,14 +323,28 @@ export default function Services() {
       });
 
       if (response.ok) {
-        // Remoção otimista da proposta da lista
+        toast({
+          title: "Proposta rejeitada",
+          description: "A proposta foi rejeitada com sucesso.",
+        });
         setServiceOffers(prev => prev.filter(o => o.id !== offerId));
         setRejectingOfferId(null);
-        // Atualizar pedidos e sincronizar lista de propostas do backend
         await Promise.all([fetchServiceRequests(), fetchServiceOffers()]);
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Erro",
+          description: errorData.message || "Não foi possível rejeitar a proposta",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('Erro ao rejeitar proposta:', error);
+      toast({
+        title: "Erro",
+        description: "Erro de conexão ao rejeitar a proposta",
+        variant: "destructive"
+      });
     }
   };
 
@@ -309,12 +368,26 @@ export default function Services() {
       });
 
       if (response.ok) {
+        toast({
+          title: "Conversa iniciada!",
+          description: "Redirecionando para as mensagens...",
+        });
         setLocation('/messages');
       } else {
-        console.error('Erro ao iniciar conversa');
+        const errorData = await response.json();
+        toast({
+          title: "Erro",
+          description: errorData.message || "Não foi possível iniciar a conversa",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('Erro ao iniciar conversa:', error);
+      toast({
+        title: "Erro",
+        description: "Erro de conexão ao iniciar conversa",
+        variant: "destructive"
+      });
     } finally {
       setStartingConversationId(null);
     }
@@ -333,13 +406,20 @@ export default function Services() {
       });
 
       if (response.ok) {
+        const responseData = await response.json();
+        
         toast({
           title: "Sucesso!",
           description: "Serviço confirmado como concluído. O pagamento será liberado para o profissional.",
         });
         
-        // Recarregar dados para atualizar o status
         await Promise.all([fetchServiceOffers(), fetchServiceRequests()]);
+        
+        // Mostrar popup de avaliação se necessário
+        if (responseData.requiresReview) {
+          setServiceToRate(serviceRequestId);
+          setShowRatingPopup(true);
+        }
       } else {
         const errorData = await response.json();
         toast({
@@ -386,17 +466,77 @@ export default function Services() {
     return categoryMap[category] || category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  // Filtrar propostas: apenas das solicitações do cliente + busca + status
+  // Função para deletar pedido de serviço
+  const deleteServiceRequest = async (requestId: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${getApiUrl()}/api/service-requests/${requestId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "Pedido excluído",
+          description: "O pedido foi excluído com sucesso.",
+        });
+        setServiceRequests(prev => prev.filter(r => r.id !== requestId));
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Erro",
+          description: errorData.message || "Não foi possível excluir o pedido",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao excluir pedido:', error);
+      toast({
+        title: "Erro",
+        description: "Erro de conexão ao excluir o pedido",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Função para verificar perfil e redirecionar
+  const handleCreateService = () => {
+    const profileStatus = isProfileComplete();
+    
+    if (!profileStatus.complete) {
+      toast({
+        title: "Verificação em andamento",
+        description: `Conclua seu cadastro (${profileStatus.steps}/${profileStatus.total}): Email, Telefone e CPF para criar um serviço.`
+      });
+      setLocation('/profile');
+      return;
+    }
+    
+    setLocation('/servico');
+  };
+
+  const handleRatingSubmitted = () => {
+    // Recarregar dados após avaliação
+    fetchServiceOffers();
+    fetchServiceRequests();
+  };
+
+  const handleCloseRatingPopup = () => {
+    setShowRatingPopup(false);
+    setServiceToRate(null);
+  };
+
+  // Filtrar propostas
   const clientRequestIds = new Set(serviceRequests.map(r => r.id));
   const filteredOffers = serviceOffers.filter(offer => {
     const belongsToClient = serviceRequests.length === 0 || clientRequestIds.has(offer.serviceRequestId);
     if (!belongsToClient) return false;
+    
     const matchesSearch = searchTerm === '' || 
       offer.professionalName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       offer.serviceTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
       offer.message.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Por padrão (all), ocultar propostas rejeitadas da lista
     const matchesStatus = statusFilter === 'all' 
       ? offer.status !== 'rejected'
       : offer.status === statusFilter;
@@ -404,7 +544,7 @@ export default function Services() {
     return matchesSearch && matchesStatus;
   });
 
-  // Agrupar propostas por pedido para melhor visualização
+  // Agrupar propostas por pedido
   const offersByRequest = serviceOffers.reduce((acc, offer) => {
     if (!acc[offer.serviceRequestId]) {
       acc[offer.serviceRequestId] = [];
@@ -451,29 +591,7 @@ export default function Services() {
                 </button>
               </Link>
               <button
-                onClick={() => {
-                  const emailOk = !!(user?.email && /.+@.+\..+/.test(user.email.trim()));
-                  const digits = (user?.phone || "").replace(/\D/g, "");
-                  const phoneOk = digits.length === 11 && digits[0] !== '0' && digits[1] !== '0' && digits[2] === '9';
-                  const isValidCPF = (cpfRaw: string) => {
-                    const cpf = cpfRaw.replace(/\D/g, '');
-                    if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
-                    const calc = (b: number) => { let s = 0; for (let i = 0; i < b; i++) s += parseInt(cpf[i], 10) * (b + 1 - i); const r = (s * 10) % 11; return r === 10 ? 0 : r; };
-                    return calc(9) === parseInt(cpf[9], 10) && calc(10) === parseInt(cpf[10], 10);
-                  };
-                  const cpfStored = (typeof window !== 'undefined' ? localStorage.getItem('client_cpf') : '') || '';
-                  const cpfOk = isValidCPF(cpfStored);
-                  const steps = [emailOk, phoneOk, cpfOk].filter(Boolean).length;
-                  if (steps !== 3) {
-                    toast({
-                      title: "Verificação em andamento",
-                      description: `Conclua seu cadastro (${steps}/3): Email, Telefone e CPF para criar um serviço.`
-                    });
-                    setLocation('/profile');
-                    return;
-                  }
-                  setLocation('/servico');
-                }}
+                onClick={handleCreateService}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-lg text-sm font-medium hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 shadow-md hover:shadow-lg"
               >
                 <Plus className="h-4 w-4" />
@@ -870,33 +988,48 @@ export default function Services() {
                     {/* Botão para confirmar conclusão do serviço (apenas para propostas aceitas) */}
                     {offer.status === 'accepted' && (
                       <div className="pt-4 border-t border-gray-200">
-                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200 mb-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <CheckCircle2 className="h-5 w-5 text-green-600" />
-                            <p className="text-sm font-semibold text-green-800">Proposta Aceita</p>
+                        {offer.serviceStatus === 'awaiting_confirmation' ? (
+                          <div>
+                            <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-4 border border-orange-200 mb-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Clock className="h-5 w-5 text-orange-600" />
+                                <p className="text-sm font-semibold text-orange-800">Serviço Concluído - Aguardando Confirmação</p>
+                              </div>
+                              <p className="text-sm text-orange-700">
+                                O profissional marcou o serviço como concluído. 
+                                Confirme se tudo está correto para liberar o pagamento.
+                              </p>
+                            </div>
+                            
+                            <button
+                              onClick={() => confirmServiceCompletion(offer.serviceRequestId)}
+                              disabled={confirmingServiceId === offer.serviceRequestId}
+                              className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {confirmingServiceId === offer.serviceRequestId ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="h-4 w-4" />
+                              )}
+                              <span>Confirmar Conclusão do Serviço</span>
+                            </button>
+                            
+                            <p className="text-xs text-gray-500 text-center mt-2">
+                              Confirme para liberar o pagamento ao profissional
+                            </p>
                           </div>
-                          <p className="text-sm text-green-700">
-                            O profissional foi contratado e está realizando o serviço. 
-                            Quando o serviço for concluído, confirme para liberar o pagamento.
-                          </p>
-                        </div>
-                        
-                        <button
-                          onClick={() => confirmServiceCompletion(offer.serviceRequestId)}
-                          disabled={confirmingServiceId === offer.serviceRequestId}
-                          className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {confirmingServiceId === offer.serviceRequestId ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="h-4 w-4" />
-                          )}
-                          <span>Confirmar Conclusão do Serviço</span>
-                        </button>
-                        
-                        <p className="text-xs text-gray-500 text-center mt-2">
-                          Clique aqui quando o profissional concluir o serviço para liberar o pagamento
-                        </p>
+                        ) : (
+                          <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle2 className="h-5 w-5 text-green-600" />
+                              <p className="text-sm font-semibold text-green-800">Proposta Aceita</p>
+                            </div>
+                            <p className="text-sm text-green-700">
+                              O profissional foi contratado e está realizando o serviço. 
+                              O botão de confirmação aparecerá quando o profissional concluir o trabalho.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1112,23 +1245,7 @@ export default function Services() {
                             </button>
                           </Link>
                           <button
-                            onClick={async () => {
-                              try {
-                                const token = localStorage.getItem('token');
-                                const response = await fetch(`${getApiUrl()}/api/service-requests/${request.id}`, {
-                                  method: 'DELETE',
-                                  headers: { 'Authorization': `Bearer ${token}` }
-                                });
-                                if (response.ok) {
-                                  // Atualiza a lista de pedidos no estado
-                                  setServiceRequests(prev => prev.filter(r => r.id !== request.id));
-                                } else {
-                                  console.error('Falha ao excluir solicitação');
-                                }
-                              } catch (err) {
-                                console.error('Erro ao excluir solicitação:', err);
-                              }
-                            }}
+                            onClick={() => deleteServiceRequest(request.id)}
                             className="flex-1 sm:flex-none px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg text-sm font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg"
                           >
                             Excluir
@@ -1149,6 +1266,14 @@ export default function Services() {
           </div>
         )}
       </div>
+
+      {/* Rating Popup */}
+      <RatingPopup
+        isOpen={showRatingPopup}
+        onClose={handleCloseRatingPopup}
+        serviceRequestId={serviceToRate || 0}
+        onRatingSubmitted={handleRatingSubmitted}
+      />
     </div>
   );
 }

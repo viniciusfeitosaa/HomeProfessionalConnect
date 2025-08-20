@@ -1,20 +1,12 @@
 var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
-
-// server/index.ts
-import "dotenv/config";
-import express2 from "express";
-
-// server/routes.ts
-import express from "express";
-import { createServer } from "http";
-import session from "express-session";
-import passport2 from "passport";
-import rateLimit from "express-rate-limit";
-import helmet from "helmet";
 
 // server/schema.ts
 var schema_exports = {};
@@ -26,922 +18,1472 @@ __export(schema_exports, {
   notifications: () => notifications,
   professionals: () => professionals,
   serviceOffers: () => serviceOffers,
+  serviceProgress: () => serviceProgress,
   serviceRequests: () => serviceRequests,
+  serviceReviews: () => serviceReviews,
+  transactions: () => transactions,
   users: () => users,
   verificationCodes: () => verificationCodes
 });
 import { pgTable, text, serial, integer, boolean, decimal, timestamp } from "drizzle-orm/pg-core";
-var users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password"),
-  googleId: text("google_id").unique(),
-  appleId: text("apple_id").unique(),
-  name: text("name").notNull(),
-  email: text("email").notNull(),
-  phone: text("phone"),
-  phoneVerified: boolean("phone_verified").default(false),
-  address: text("address"),
-  profileImage: text("profile_image"),
-  userType: text("user_type", { enum: ["client", "provider"] }).notNull().default("client"),
-  isVerified: boolean("is_verified").default(false),
-  isBlocked: boolean("is_blocked").default(false),
-  lastLoginAt: timestamp("last_login_at"),
-  loginAttempts: integer("login_attempts").default(0),
-  resetToken: text("reset_token"),
-  resetTokenExpiry: timestamp("reset_token_expiry"),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
-});
-var professionals = pgTable("professionals", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  // Link to user table for providers
-  name: text("name").notNull(),
-  specialization: text("specialization").notNull(),
-  category: text("category", {
-    enum: ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"]
-  }).notNull(),
-  subCategory: text("sub_category", {
-    enum: [
-      "companhia_apoio_emocional",
-      "preparacao_refeicoes",
-      "compras_transporte",
-      "lavanderia_limpeza",
-      "curativos_medicacao",
-      "terapias_especializadas",
-      "acompanhamento_hospitalar"
-    ]
-  }).notNull(),
-  description: text("description").notNull(),
-  experience: text("experience"),
-  certifications: text("certifications"),
-  availableHours: text("available_hours"),
-  // JSON string for schedule
-  hourlyRate: decimal("hourly_rate", { precision: 8, scale: 2 }),
-  rating: decimal("rating", { precision: 2, scale: 1 }).default("5.0"),
-  totalReviews: integer("total_reviews").default(0),
-  location: text("location"),
-  distance: decimal("distance", { precision: 3, scale: 1 }),
-  available: boolean("available").notNull().default(true),
-  imageUrl: text("image_url"),
-  createdAt: timestamp("created_at").defaultNow()
-});
-var appointments = pgTable("appointments", {
-  id: serial("id").primaryKey(),
-  clientId: integer("client_id").notNull(),
-  // Client who booked
-  professionalId: integer("professional_id").notNull(),
-  professionalName: text("professional_name").notNull(),
-  serviceType: text("service_type").notNull(),
-  scheduledFor: timestamp("scheduled_for").notNull(),
-  duration: integer("duration").notNull(),
-  // Duration in hours
-  totalCost: decimal("total_cost", { precision: 8, scale: 2 }),
-  status: text("status", { enum: ["pending", "confirmed", "in_progress", "completed", "cancelled"] }).default("pending"),
-  notes: text("notes"),
-  address: text("address"),
-  createdAt: timestamp("created_at").defaultNow()
-});
-var notifications = pgTable("notifications", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull(),
-  message: text("message").notNull(),
-  read: boolean("read").notNull().default(false),
-  createdAt: timestamp("created_at").defaultNow().notNull()
-});
-var loginAttempts = pgTable("login_attempts", {
-  id: serial("id").primaryKey(),
-  email: text("email"),
-  ipAddress: text("ip_address").notNull(),
-  userAgent: text("user_agent"),
-  successful: boolean("successful").notNull().default(false),
-  blocked: boolean("blocked").notNull().default(false),
-  attemptedAt: timestamp("attempted_at").defaultNow().notNull()
-});
-var verificationCodes = pgTable("verification_codes", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id"),
-  email: text("email"),
-  phone: text("phone"),
-  code: text("code").notNull(),
-  type: text("type", { enum: ["email", "phone", "password_reset"] }).notNull(),
-  expiresAt: timestamp("expires_at").notNull(),
-  used: boolean("used").default(false),
-  createdAt: timestamp("created_at").defaultNow()
-});
-var conversations = pgTable("conversations", {
-  id: serial("id").primaryKey(),
-  clientId: integer("client_id").notNull(),
-  professionalId: integer("professional_id").notNull(),
-  deletedByClient: boolean("deleted_by_client").default(false),
-  deletedByProfessional: boolean("deleted_by_professional").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
-});
-var messages = pgTable("messages", {
-  id: serial("id").primaryKey(),
-  conversationId: integer("conversation_id").notNull(),
-  senderId: integer("sender_id").notNull(),
-  recipientId: integer("recipient_id").notNull(),
-  content: text("content").notNull(),
-  type: text("type", { enum: ["text", "image", "file"] }).default("text"),
-  timestamp: timestamp("timestamp").defaultNow(),
-  isRead: boolean("is_read").default(false)
-});
-var serviceRequests = pgTable("service_requests", {
-  id: serial("id").primaryKey(),
-  clientId: integer("client_id").notNull(),
-  // Cliente que solicitou
-  serviceType: text("service_type").notNull(),
-  // Tipo de serviço (ex: fisioterapia, enfermagem)
-  category: text("category", {
-    enum: ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"]
-  }).notNull(),
-  description: text("description").notNull(),
-  address: text("address").notNull(),
-  scheduledDate: timestamp("scheduled_date").notNull(),
-  scheduledTime: text("scheduled_time").notNull(),
-  // Hora no formato HH:MM
-  urgency: text("urgency", { enum: ["low", "medium", "high"] }).default("medium"),
-  budget: decimal("budget", { precision: 8, scale: 2 }),
-  // Orçamento opcional
-  status: text("status", { enum: ["open", "in_progress", "assigned", "completed", "cancelled"] }).default("open"),
-  assignedProfessionalId: integer("assigned_professional_id"),
-  // Profissional designado
-  responses: integer("responses").default(0),
-  // Número de profissionais que responderam
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
-});
-var serviceOffers = pgTable("service_offers", {
-  id: serial("id").primaryKey(),
-  serviceRequestId: integer("service_request_id").notNull(),
-  // ID da solicitação de serviço
-  professionalId: integer("professional_id").notNull(),
-  // ID do profissional que fez a proposta
-  proposedPrice: decimal("proposed_price", { precision: 8, scale: 2 }).notNull(),
-  // Preço proposto
-  estimatedTime: text("estimated_time").notNull(),
-  // Tempo estimado (ex: "1 hora", "2 horas")
-  message: text("message").notNull(),
-  // Mensagem da proposta
-  status: text("status", { enum: ["pending", "accepted", "rejected", "withdrawn"] }).default("pending"),
-  // Status da proposta
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow()
+var users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, serviceOffers, transactions, serviceReviews, serviceProgress;
+var init_schema = __esm({
+  "server/schema.ts"() {
+    "use strict";
+    users = pgTable("users", {
+      id: serial("id").primaryKey(),
+      username: text("username").notNull().unique(),
+      password: text("password"),
+      googleId: text("google_id").unique(),
+      appleId: text("apple_id").unique(),
+      name: text("name").notNull(),
+      email: text("email").notNull(),
+      phone: text("phone"),
+      phoneVerified: boolean("phone_verified").default(false),
+      address: text("address"),
+      profileImage: text("profile_image"),
+      userType: text("user_type", { enum: ["client", "provider"] }).notNull().default("client"),
+      isVerified: boolean("is_verified").default(false),
+      isBlocked: boolean("is_blocked").default(false),
+      lastLoginAt: timestamp("last_login_at"),
+      loginAttempts: integer("login_attempts").default(0),
+      resetToken: text("reset_token"),
+      resetTokenExpiry: timestamp("reset_token_expiry"),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    professionals = pgTable("professionals", {
+      id: serial("id").primaryKey(),
+      userId: integer("user_id").notNull(),
+      // Link to user table for providers
+      name: text("name").notNull(),
+      specialization: text("specialization").notNull(),
+      category: text("category", {
+        enum: ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"]
+      }).notNull(),
+      subCategory: text("sub_category", {
+        enum: [
+          "companhia_apoio_emocional",
+          "preparacao_refeicoes",
+          "compras_transporte",
+          "lavanderia_limpeza",
+          "curativos_medicacao",
+          "terapias_especializadas",
+          "acompanhamento_hospitalar"
+        ]
+      }).notNull(),
+      description: text("description").notNull(),
+      experience: text("experience"),
+      certifications: text("certifications"),
+      availableHours: text("available_hours"),
+      // JSON string for schedule
+      hourlyRate: decimal("hourly_rate", { precision: 8, scale: 2 }),
+      rating: decimal("rating", { precision: 2, scale: 1 }).default("5.0"),
+      totalReviews: integer("total_reviews").default(0),
+      location: text("location"),
+      distance: decimal("distance", { precision: 3, scale: 1 }),
+      available: boolean("available").notNull().default(true),
+      imageUrl: text("image_url"),
+      createdAt: timestamp("created_at").defaultNow()
+    });
+    appointments = pgTable("appointments", {
+      id: serial("id").primaryKey(),
+      clientId: integer("client_id").notNull(),
+      // Client who booked
+      professionalId: integer("professional_id").notNull(),
+      professionalName: text("professional_name").notNull(),
+      serviceType: text("service_type").notNull(),
+      scheduledFor: timestamp("scheduled_for").notNull(),
+      duration: integer("duration").notNull(),
+      // Duration in hours
+      totalCost: decimal("total_cost", { precision: 8, scale: 2 }),
+      status: text("status", { enum: ["pending", "confirmed", "in_progress", "completed", "cancelled"] }).default("pending"),
+      notes: text("notes"),
+      address: text("address"),
+      createdAt: timestamp("created_at").defaultNow()
+    });
+    notifications = pgTable("notifications", {
+      id: serial("id").primaryKey(),
+      userId: integer("user_id").notNull(),
+      message: text("message").notNull(),
+      read: boolean("read").notNull().default(false),
+      createdAt: timestamp("created_at").defaultNow().notNull()
+    });
+    loginAttempts = pgTable("login_attempts", {
+      id: serial("id").primaryKey(),
+      email: text("email"),
+      ipAddress: text("ip_address").notNull(),
+      userAgent: text("user_agent"),
+      successful: boolean("successful").notNull().default(false),
+      blocked: boolean("blocked").notNull().default(false),
+      attemptedAt: timestamp("attempted_at").defaultNow().notNull()
+    });
+    verificationCodes = pgTable("verification_codes", {
+      id: serial("id").primaryKey(),
+      userId: integer("user_id"),
+      email: text("email"),
+      phone: text("phone"),
+      code: text("code").notNull(),
+      type: text("type", { enum: ["email", "phone", "password_reset"] }).notNull(),
+      expiresAt: timestamp("expires_at").notNull(),
+      used: boolean("used").default(false),
+      createdAt: timestamp("created_at").defaultNow()
+    });
+    conversations = pgTable("conversations", {
+      id: serial("id").primaryKey(),
+      clientId: integer("client_id").notNull(),
+      professionalId: integer("professional_id").notNull(),
+      deletedByClient: boolean("deleted_by_client").default(false),
+      deletedByProfessional: boolean("deleted_by_professional").default(false),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    messages = pgTable("messages", {
+      id: serial("id").primaryKey(),
+      conversationId: integer("conversation_id").notNull(),
+      senderId: integer("sender_id").notNull(),
+      recipientId: integer("recipient_id").notNull(),
+      content: text("content").notNull(),
+      type: text("type", { enum: ["text", "image", "file"] }).default("text"),
+      timestamp: timestamp("timestamp").defaultNow(),
+      isRead: boolean("is_read").default(false)
+    });
+    serviceRequests = pgTable("service_requests", {
+      id: serial("id").primaryKey(),
+      clientId: integer("client_id").notNull(),
+      // Cliente que solicitou
+      serviceType: text("service_type").notNull(),
+      // Tipo de serviço (ex: fisioterapia, enfermagem)
+      category: text("category", {
+        enum: ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"]
+      }).notNull(),
+      description: text("description").notNull(),
+      address: text("address").notNull(),
+      scheduledDate: timestamp("scheduled_date").notNull(),
+      scheduledTime: text("scheduled_time").notNull(),
+      // Hora no formato HH:MM
+      urgency: text("urgency", { enum: ["low", "medium", "high"] }).default("medium"),
+      budget: decimal("budget", { precision: 8, scale: 2 }),
+      // Orçamento opcional
+      status: text("status", { enum: ["open", "in_progress", "assigned", "completed", "cancelled", "awaiting_confirmation"] }).default("open"),
+      assignedProfessionalId: integer("assigned_professional_id"),
+      // Profissional designado
+      responses: integer("responses").default(0),
+      // Número de profissionais que responderam
+      serviceStartedAt: timestamp("service_started_at"),
+      // Quando o profissional iniciou o serviço
+      serviceCompletedAt: timestamp("service_completed_at"),
+      // Quando o profissional marcou como concluído
+      clientConfirmedAt: timestamp("client_confirmed_at"),
+      // Quando o cliente confirmou a conclusão
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    serviceOffers = pgTable("service_offers", {
+      id: serial("id").primaryKey(),
+      serviceRequestId: integer("service_request_id").notNull(),
+      // ID da solicitação de serviço
+      professionalId: integer("professional_id").notNull(),
+      // ID do profissional que fez a proposta
+      proposedPrice: decimal("proposed_price", { precision: 8, scale: 2 }).notNull(),
+      // Preço proposto
+      finalPrice: decimal("final_price", { precision: 8, scale: 2 }),
+      // Preço final acordado
+      estimatedTime: text("estimated_time").notNull(),
+      // Tempo estimado (ex: "1 hora", "2 horas")
+      message: text("message").notNull(),
+      // Mensagem da proposta
+      status: text("status", { enum: ["pending", "accepted", "rejected", "withdrawn"] }).default("pending"),
+      // Status da proposta
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    transactions = pgTable("transactions", {
+      id: serial("id").primaryKey(),
+      serviceRequestId: integer("service_request_id").notNull(),
+      serviceOfferId: integer("service_offer_id").notNull(),
+      clientId: integer("client_id").notNull(),
+      professionalId: integer("professional_id").notNull(),
+      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+      // Valor da transação
+      status: text("status", {
+        enum: ["pending", "completed", "failed", "refunded"]
+      }).notNull().default("pending"),
+      type: text("type", {
+        enum: ["service_payment", "refund", "bonus"]
+      }).notNull().default("service_payment"),
+      description: text("description"),
+      // Descrição da transação
+      paymentMethod: text("payment_method", {
+        enum: ["pix", "credit_card", "debit_card", "bank_transfer"]
+      }).default("pix"),
+      transactionId: text("transaction_id"),
+      // ID externo da transação (gateway de pagamento)
+      completedAt: timestamp("completed_at"),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    serviceReviews = pgTable("service_reviews", {
+      id: serial("id").primaryKey(),
+      serviceRequestId: integer("service_request_id").notNull(),
+      serviceOfferId: integer("service_offer_id").notNull(),
+      clientId: integer("client_id").notNull(),
+      professionalId: integer("professional_id").notNull(),
+      rating: integer("rating").notNull(),
+      // 1-5 estrelas
+      comment: text("comment"),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    serviceProgress = pgTable("service_progress", {
+      id: serial("id").primaryKey(),
+      serviceRequestId: integer("service_request_id").notNull(),
+      professionalId: integer("professional_id").notNull(),
+      status: text("status", {
+        enum: ["accepted", "started", "in_progress", "completed", "awaiting_confirmation", "confirmed", "payment_released"]
+      }).notNull().default("accepted"),
+      startedAt: timestamp("started_at"),
+      completedAt: timestamp("completed_at"),
+      confirmedAt: timestamp("confirmed_at"),
+      paymentReleasedAt: timestamp("payment_released_at"),
+      notes: text("notes"),
+      // Observações do profissional
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+  }
 });
 
 // server/db.ts
+var db_exports = {};
+__export(db_exports, {
+  db: () => db,
+  pool: () => pool
+});
 import "dotenv/config";
 import path from "path";
 import { config } from "dotenv";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import ws from "ws";
-config({ path: path.resolve(process.cwd(), "../.env") });
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "postgresql://neondb_owner:npg_L9mgJX6UuftC@ep-lingering-pine-a54hc3dj-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require";
-}
-if (!process.env.SESSION_SECRET) {
-  process.env.SESSION_SECRET = "462850e97a4147e11d70bd6bb8675b39855643173f0d0aa8904be81060f506a7";
-}
-if (!process.env.JWT_SECRET) {
-  process.env.JWT_SECRET = "lifebee_jwt_secret_2025_vinicius_alves_secure_token_key_64_chars_long";
-}
-console.log("Current directory:", process.cwd());
-console.log("Env file path:", path.resolve(process.cwd(), "../.env"));
-console.log("All env vars:", Object.keys(process.env).filter((key) => key.includes("DATABASE")));
-console.log("DATABASE_URL value:", process.env.DATABASE_URL);
-neonConfig.webSocketConstructor = ws;
-var connectionString = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
-console.log("=== DATABASE CONNECTION DEBUG ===");
-console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
-console.log("NETLIFY_DATABASE_URL exists:", !!process.env.NETLIFY_DATABASE_URL);
-console.log("Using connection string:", connectionString ? "YES" : "NO");
-if (!connectionString) {
-  console.error("\u274C DATABASE CONNECTION ERROR: No connection string found!");
-  throw new Error(
-    "DATABASE_URL or NETLIFY_DATABASE_URL must be set. Did you forget to provision a database?"
-  );
-}
-var pool;
-var db;
-try {
-  pool = new Pool({ connectionString });
-  db = drizzle(pool, { schema: schema_exports });
-  console.log("\u2705 Database connection established successfully");
-} catch (error) {
-  console.error("\u274C Database connection failed:", error);
-  throw error;
-}
+var connectionString, pool, db;
+var init_db = __esm({
+  "server/db.ts"() {
+    "use strict";
+    init_schema();
+    config({ path: path.resolve(process.cwd(), "../.env") });
+    if (!process.env.DATABASE_URL) {
+      process.env.DATABASE_URL = "postgresql://neondb_owner:npg_L9mgJX6UuftC@ep-lingering-pine-a54hc3dj-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require";
+    }
+    if (!process.env.SESSION_SECRET) {
+      process.env.SESSION_SECRET = "462850e97a4147e11d70bd6bb8675b39855643173f0d0aa8904be81060f506a7";
+    }
+    if (!process.env.JWT_SECRET) {
+      process.env.JWT_SECRET = "lifebee_jwt_secret_2025_vinicius_alves_secure_token_key_64_chars_long";
+    }
+    console.log("Current directory:", process.cwd());
+    console.log("Env file path:", path.resolve(process.cwd(), "../.env"));
+    console.log("All env vars:", Object.keys(process.env).filter((key) => key.includes("DATABASE")));
+    console.log("DATABASE_URL value:", process.env.DATABASE_URL);
+    neonConfig.webSocketConstructor = ws;
+    connectionString = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
+    console.log("=== DATABASE CONNECTION DEBUG ===");
+    console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
+    console.log("NETLIFY_DATABASE_URL exists:", !!process.env.NETLIFY_DATABASE_URL);
+    console.log("Using connection string:", connectionString ? "YES" : "NO");
+    if (!connectionString) {
+      console.error("\u274C DATABASE CONNECTION ERROR: No connection string found!");
+      throw new Error(
+        "DATABASE_URL or NETLIFY_DATABASE_URL must be set. Did you forget to provision a database?"
+      );
+    }
+    try {
+      pool = new Pool({ connectionString });
+      db = drizzle(pool, { schema: schema_exports });
+      console.log("\u2705 Database connection established successfully");
+    } catch (error) {
+      console.error("\u274C Database connection failed:", error);
+      throw error;
+    }
+  }
+});
 
 // server/storage.ts
+var storage_exports = {};
+__export(storage_exports, {
+  DatabaseStorage: () => DatabaseStorage,
+  storage: () => storage
+});
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
-var DatabaseStorage = class {
-  // Método para converter URLs relativas em absolutas
-  getFullImageUrl(relativeUrl) {
-    if (relativeUrl.startsWith("http")) {
-      return relativeUrl;
-    }
-    const baseUrl = process.env.NODE_ENV === "production" ? "https://lifebee-backend.onrender.com" : "http://localhost:5000";
-    return `${baseUrl}${relativeUrl}`;
-  }
-  // Users
-  async getUser(id) {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || void 0;
-  }
-  async getUserByUsername(username) {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user || void 0;
-  }
-  async getUserByEmail(email) {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user || void 0;
-  }
-  async getUserByGoogleId(googleId) {
-    const [user] = await db.select().from(users).where(eq(users.googleId, googleId));
-    return user || void 0;
-  }
-  async getUserByAppleId(appleId) {
-    const [user] = await db.select().from(users).where(eq(users.appleId, appleId));
-    return user || void 0;
-  }
-  async createUser(insertUser) {
-    const [user] = await db.insert(users).values(insertUser).returning();
-    return user;
-  }
-  async updateUser(id, updates) {
-    const allowed = [
-      "username",
-      "password",
-      "googleId",
-      "appleId",
-      "name",
-      "email",
-      "phone",
-      "phoneVerified",
-      "address",
-      "profileImage",
-      "userType",
-      "isVerified",
-      "isBlocked",
-      "lastLoginAt",
-      "loginAttempts",
-      "resetToken",
-      "resetTokenExpiry",
-      "updatedAt"
-    ];
-    const safeUpdates = {};
-    for (const key of allowed) {
-      if (key in updates) safeUpdates[key] = updates[key];
-    }
-    safeUpdates.updatedAt = /* @__PURE__ */ new Date();
-    const [user] = await db.update(users).set(safeUpdates).where(eq(users.id, id)).returning();
-    return user;
-  }
-  async updateUserLoginAttempts(id, attempts) {
-    await db.update(users).set({ [users.loginAttempts.name]: attempts, [users.updatedAt.name]: /* @__PURE__ */ new Date() }).where(eq(users.id, id));
-  }
-  async blockUser(id) {
-    await db.update(users).set({ [users.isBlocked.name]: true, [users.updatedAt.name]: /* @__PURE__ */ new Date() }).where(eq(users.id, id));
-  }
-  async verifyUser(id) {
-    await db.update(users).set({ [users.isVerified.name]: true, [users.updatedAt.name]: /* @__PURE__ */ new Date() }).where(eq(users.id, id));
-  }
-  // Professionals
-  async getAllProfessionals() {
-    const professionalsData = await db.select({
-      id: professionals.id,
-      userId: professionals.userId,
-      name: professionals.name,
-      specialization: professionals.specialization,
-      category: professionals.category,
-      subCategory: professionals.subCategory,
-      description: professionals.description,
-      experience: professionals.experience,
-      certifications: professionals.certifications,
-      availableHours: professionals.availableHours,
-      hourlyRate: professionals.hourlyRate,
-      rating: professionals.rating,
-      totalReviews: professionals.totalReviews,
-      location: professionals.location,
-      distance: professionals.distance,
-      available: professionals.available,
-      imageUrl: professionals.imageUrl,
-      createdAt: professionals.createdAt
-    }).from(professionals).where(eq(professionals.available, true));
-    return professionalsData.map((professional) => ({
-      ...professional,
-      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
-    }));
-  }
-  async getProfessionalsByCategory(category) {
-    const professionalsData = await db.select({
-      id: professionals.id,
-      userId: professionals.userId,
-      name: professionals.name,
-      specialization: professionals.specialization,
-      category: professionals.category,
-      subCategory: professionals.subCategory,
-      description: professionals.description,
-      experience: professionals.experience,
-      certifications: professionals.certifications,
-      availableHours: professionals.availableHours,
-      hourlyRate: professionals.hourlyRate,
-      rating: professionals.rating,
-      totalReviews: professionals.totalReviews,
-      location: professionals.location,
-      distance: professionals.distance,
-      available: professionals.available,
-      imageUrl: professionals.imageUrl,
-      createdAt: professionals.createdAt
-    }).from(professionals).where(and(eq(professionals.category, category), eq(professionals.available, true)));
-    return professionalsData.map((professional) => ({
-      ...professional,
-      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
-    }));
-  }
-  async searchProfessionals(query) {
-    const professionalsData = await db.select({
-      id: professionals.id,
-      userId: professionals.userId,
-      name: professionals.name,
-      specialization: professionals.specialization,
-      category: professionals.category,
-      subCategory: professionals.subCategory,
-      description: professionals.description,
-      experience: professionals.experience,
-      certifications: professionals.certifications,
-      availableHours: professionals.availableHours,
-      hourlyRate: professionals.hourlyRate,
-      rating: professionals.rating,
-      totalReviews: professionals.totalReviews,
-      location: professionals.location,
-      distance: professionals.distance,
-      available: professionals.available,
-      imageUrl: professionals.imageUrl,
-      createdAt: professionals.createdAt
-    }).from(professionals).where(
-      and(
-        eq(professionals.available, true),
-        or(
-          ilike(professionals.name, `%${query}%`),
-          ilike(professionals.specialization, `%${query}%`),
-          ilike(professionals.description, `%${query}%`)
-        )
-      )
-    );
-    return professionalsData.map((professional) => ({
-      ...professional,
-      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
-    }));
-  }
-  async getProfessional(id) {
-    const [professional] = await db.select().from(professionals).where(eq(professionals.id, id));
-    if (!professional) return void 0;
-    return {
-      ...professional,
-      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+var DatabaseStorage, storage;
+var init_storage = __esm({
+  "server/storage.ts"() {
+    "use strict";
+    init_schema();
+    init_db();
+    DatabaseStorage = class {
+      // Método para converter URLs relativas em absolutas
+      getFullImageUrl(relativeUrl) {
+        if (!relativeUrl) {
+          return null;
+        }
+        if (relativeUrl.startsWith("http")) {
+          return relativeUrl;
+        }
+        const baseUrl = process.env.NODE_ENV === "production" ? "https://lifebee-backend.onrender.com" : "http://localhost:8080";
+        return `${baseUrl}${relativeUrl}`;
+      }
+      // Users
+      async getUser(id) {
+        try {
+          console.log("\u{1F50D} Storage.getUser - Buscando usu\xE1rio com ID:", id);
+          console.log("\u{1F50D} Storage.getUser - Tipo do ID:", typeof id);
+          if (!id || isNaN(id)) {
+            console.log("\u274C Storage.getUser - ID inv\xE1lido:", id);
+            return void 0;
+          }
+          const [user] = await db.select().from(users).where(eq(users.id, id));
+          console.log("\u2705 Storage.getUser - Usu\xE1rio encontrado:", user ? "Sim" : "N\xE3o");
+          if (user) {
+            console.log("\u2705 Storage.getUser - Dados do usu\xE1rio:", { id: user.id, name: user.name, email: user.email });
+          }
+          return user || void 0;
+        } catch (error) {
+          console.error("\u274C Storage.getUser - Erro:", error);
+          throw error;
+        }
+      }
+      async getAllUsers() {
+        try {
+          const allUsers = await db.select().from(users);
+          return allUsers;
+        } catch (error) {
+          console.error("\u274C Storage.getAllUsers - Erro:", error);
+          throw error;
+        }
+      }
+      async getUserByUsername(username) {
+        const [user] = await db.select().from(users).where(eq(users.username, username));
+        return user || void 0;
+      }
+      async getUserByEmail(email) {
+        const [user] = await db.select().from(users).where(eq(users.email, email));
+        return user || void 0;
+      }
+      async getUserByGoogleId(googleId) {
+        const [user] = await db.select().from(users).where(eq(users.googleId, googleId));
+        return user || void 0;
+      }
+      async getUserByAppleId(appleId) {
+        const [user] = await db.select().from(users).where(eq(users.appleId, appleId));
+        return user || void 0;
+      }
+      async createUser(insertUser) {
+        const [user] = await db.insert(users).values(insertUser).returning();
+        return user;
+      }
+      async updateUser(id, updates) {
+        const allowed = [
+          "username",
+          "password",
+          "googleId",
+          "appleId",
+          "name",
+          "email",
+          "phone",
+          "phoneVerified",
+          "address",
+          "profileImage",
+          "userType",
+          "isVerified",
+          "isBlocked",
+          "lastLoginAt",
+          "loginAttempts",
+          "resetToken",
+          "resetTokenExpiry",
+          "updatedAt"
+        ];
+        const safeUpdates = {};
+        for (const key of allowed) {
+          if (key in updates) safeUpdates[key] = updates[key];
+        }
+        safeUpdates.updatedAt = /* @__PURE__ */ new Date();
+        const [user] = await db.update(users).set(safeUpdates).where(eq(users.id, id)).returning();
+        return user;
+      }
+      async updateUserLoginAttempts(id, attempts) {
+        await db.update(users).set({ [users.loginAttempts.name]: attempts, [users.updatedAt.name]: /* @__PURE__ */ new Date() }).where(eq(users.id, id));
+      }
+      async blockUser(id) {
+        await db.update(users).set({ [users.isBlocked.name]: true, [users.updatedAt.name]: /* @__PURE__ */ new Date() }).where(eq(users.id, id));
+      }
+      async verifyUser(id) {
+        await db.update(users).set({ [users.isVerified.name]: true, [users.updatedAt.name]: /* @__PURE__ */ new Date() }).where(eq(users.id, id));
+      }
+      // Professionals
+      async getAllProfessionals() {
+        const professionalsData = await db.select({
+          id: professionals.id,
+          userId: professionals.userId,
+          name: professionals.name,
+          specialization: professionals.specialization,
+          category: professionals.category,
+          subCategory: professionals.subCategory,
+          description: professionals.description,
+          experience: professionals.experience,
+          certifications: professionals.certifications,
+          availableHours: professionals.availableHours,
+          hourlyRate: professionals.hourlyRate,
+          rating: professionals.rating,
+          totalReviews: professionals.totalReviews,
+          location: professionals.location,
+          distance: professionals.distance,
+          available: professionals.available,
+          imageUrl: professionals.imageUrl,
+          createdAt: professionals.createdAt
+        }).from(professionals).where(eq(professionals.available, true));
+        return professionalsData.map((professional) => ({
+          ...professional,
+          imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+        }));
+      }
+      async getProfessionalsByCategory(category) {
+        const professionalsData = await db.select({
+          id: professionals.id,
+          userId: professionals.userId,
+          name: professionals.name,
+          specialization: professionals.specialization,
+          category: professionals.category,
+          subCategory: professionals.subCategory,
+          description: professionals.description,
+          experience: professionals.experience,
+          certifications: professionals.certifications,
+          availableHours: professionals.availableHours,
+          hourlyRate: professionals.hourlyRate,
+          rating: professionals.rating,
+          totalReviews: professionals.totalReviews,
+          location: professionals.location,
+          distance: professionals.distance,
+          available: professionals.available,
+          imageUrl: professionals.imageUrl,
+          createdAt: professionals.createdAt
+        }).from(professionals).where(and(eq(professionals.category, category), eq(professionals.available, true)));
+        return professionalsData.map((professional) => ({
+          ...professional,
+          imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+        }));
+      }
+      async searchProfessionals(query) {
+        const professionalsData = await db.select({
+          id: professionals.id,
+          userId: professionals.userId,
+          name: professionals.name,
+          specialization: professionals.specialization,
+          category: professionals.category,
+          subCategory: professionals.subCategory,
+          description: professionals.description,
+          experience: professionals.experience,
+          certifications: professionals.certifications,
+          availableHours: professionals.availableHours,
+          hourlyRate: professionals.hourlyRate,
+          rating: professionals.rating,
+          totalReviews: professionals.totalReviews,
+          location: professionals.location,
+          distance: professionals.distance,
+          available: professionals.available,
+          imageUrl: professionals.imageUrl,
+          createdAt: professionals.createdAt
+        }).from(professionals).where(
+          and(
+            eq(professionals.available, true),
+            or(
+              ilike(professionals.name, `%${query}%`),
+              ilike(professionals.specialization, `%${query}%`),
+              ilike(professionals.description, `%${query}%`)
+            )
+          )
+        );
+        return professionalsData.map((professional) => ({
+          ...professional,
+          imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+        }));
+      }
+      async getProfessional(id) {
+        const [professional] = await db.select().from(professionals).where(eq(professionals.id, id));
+        if (!professional) return void 0;
+        return {
+          ...professional,
+          imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+        };
+      }
+      async getProfessionalByUserId(userId) {
+        const [professional] = await db.select().from(professionals).where(eq(professionals.userId, userId));
+        return professional || void 0;
+      }
+      async createProfessional(insertProfessional) {
+        const [professional] = await db.insert(professionals).values(insertProfessional).returning();
+        return professional;
+      }
+      async updateProfessional(id, updates) {
+        const [professional] = await db.update(professionals).set(updates).where(eq(professionals.id, id)).returning();
+        return professional;
+      }
+      async updateProfessionalAvailability(userId, available) {
+        await db.update(professionals).set({ available }).where(eq(professionals.userId, userId));
+      }
+      // Appointments
+      async getAppointmentsByUser(userId) {
+        return await db.select().from(appointments).where(eq(appointments.clientId, userId));
+      }
+      async getAppointmentsByProfessional(professionalId) {
+        return await db.select().from(appointments).where(eq(appointments.professionalId, professionalId));
+      }
+      async createAppointment(insertAppointment) {
+        const [appointment] = await db.insert(appointments).values(insertAppointment).returning();
+        return appointment;
+      }
+      async updateAppointment(id, updates) {
+        const [appointment] = await db.update(appointments).set(updates).where(eq(appointments.id, id)).returning();
+        return appointment;
+      }
+      // Notifications
+      async getNotificationsByUser(userId) {
+        return await db.select().from(notifications).where(eq(notifications.userId, userId));
+      }
+      async getUnreadNotificationCount(userId) {
+        const [result] = await db.select({ count: sql`cast(count(*) as int)` }).from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
+        return result?.count || 0;
+      }
+      async createNotification(insertNotification) {
+        const [notification] = await db.insert(notifications).values(insertNotification).returning();
+        return notification;
+      }
+      async markNotificationRead(id) {
+        await db.update(notifications).set({ [notifications.read.name]: true }).where(eq(notifications.id, id));
+      }
+      // Security & Anti-fraud
+      async createLoginAttempt(insertLoginAttempt) {
+        const [loginAttempt] = await db.insert(loginAttempts).values(insertLoginAttempt).returning();
+        return loginAttempt;
+      }
+      async getRecentLoginAttempts(ipAddress, minutes) {
+        const timeAgo = new Date(Date.now() - minutes * 60 * 1e3);
+        return await db.select().from(loginAttempts).where(
+          and(
+            eq(loginAttempts.ipAddress, ipAddress),
+            gte(loginAttempts.attemptedAt, timeAgo)
+          )
+        );
+      }
+      async createVerificationCode(insertVerificationCode) {
+        const [verificationCode] = await db.insert(verificationCodes).values(insertVerificationCode).returning();
+        return verificationCode;
+      }
+      async getVerificationCode(code, type) {
+        const [verificationCode] = await db.select().from(verificationCodes).where(
+          and(
+            eq(verificationCodes.code, code),
+            eq(verificationCodes.type, type),
+            eq(verificationCodes.used, false),
+            gte(verificationCodes.expiresAt, /* @__PURE__ */ new Date())
+          )
+        );
+        return verificationCode || void 0;
+      }
+      async markCodeAsUsed(id) {
+        await db.update(verificationCodes).set({ [verificationCodes.used.name]: true }).where(eq(verificationCodes.id, id));
+      }
+      // Conversations & Messages
+      async getProfessionalById(userId) {
+        const result = await db.select().from(professionals).where(eq(professionals.userId, userId)).limit(1);
+        return result[0];
+      }
+      async getConversation(clientId, professionalId) {
+        const result = await db.select().from(conversations).where(
+          and(
+            eq(conversations.clientId, clientId),
+            eq(conversations.professionalId, professionalId)
+          )
+        ).limit(1);
+        return result[0];
+      }
+      // Verificar se uma conversa foi deletada pelo usuário
+      async isConversationDeletedByUser(conversationId, userId) {
+        const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
+        if (!conversation[0]) {
+          return false;
+        }
+        const conv = conversation[0];
+        if (conv.clientId === userId) {
+          return conv.deletedByClient === true;
+        } else if (conv.professionalId === userId) {
+          return conv.deletedByProfessional === true;
+        }
+        return false;
+      }
+      // Restaurar conversa (marcar como não deletada pelo usuário)
+      async restoreConversation(conversationId, userId) {
+        const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
+        if (!conversation[0]) {
+          throw new Error("Conversa n\xE3o encontrada");
+        }
+        const conv = conversation[0];
+        const updates = {};
+        if (conv.clientId === userId) {
+          updates.deletedByClient = false;
+        } else if (conv.professionalId === userId) {
+          updates.deletedByProfessional = false;
+        } else {
+          throw new Error("Usu\xE1rio n\xE3o \xE9 participante da conversa");
+        }
+        await db.update(conversations).set(updates).where(eq(conversations.id, conversationId));
+      }
+      async getConversationsByUser(userId) {
+        console.log(`\u{1F50D} getConversationsByUser(${userId}) - Iniciando busca...`);
+        const allUserConversations = await db.select().from(conversations).where(
+          or(
+            eq(conversations.clientId, userId),
+            eq(conversations.professionalId, userId)
+          )
+        );
+        console.log(`\u{1F4CB} Todas as conversas do usu\xE1rio ${userId}:`, allUserConversations.map((c) => ({
+          id: c.id,
+          clientId: c.clientId,
+          professionalId: c.professionalId,
+          deletedByClient: c.deletedByClient,
+          deletedByProfessional: c.deletedByProfessional
+        })));
+        const asClient = allUserConversations.filter((c) => c.clientId === userId);
+        const asProfessional = allUserConversations.filter((c) => c.professionalId === userId);
+        console.log(`\u{1F4CA} Usu\xE1rio ${userId} - Como cliente: ${asClient.length}, Como profissional: ${asProfessional.length}`);
+        const result = await db.select().from(conversations).where(
+          and(
+            or(
+              eq(conversations.clientId, userId),
+              eq(conversations.professionalId, userId)
+            ),
+            // Não mostrar conversas deletadas pelo usuário
+            or(
+              and(eq(conversations.clientId, userId), eq(conversations.deletedByClient, false)),
+              and(eq(conversations.professionalId, userId), eq(conversations.deletedByProfessional, false))
+            )
+          )
+        );
+        console.log(`\u2705 Conversas filtradas para usu\xE1rio ${userId}:`, result.map((c) => ({
+          id: c.id,
+          clientId: c.clientId,
+          professionalId: c.professionalId,
+          deletedByClient: c.deletedByClient,
+          deletedByProfessional: c.deletedByProfessional
+        })));
+        return result;
+      }
+      async createConversation(conversation) {
+        const result = await db.insert(conversations).values(conversation).returning();
+        return result[0];
+      }
+      async createMessage(message) {
+        const result = await db.insert(messages).values(message).returning();
+        return result[0];
+      }
+      async getMessagesByConversation(conversationId) {
+        return await db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(messages.timestamp);
+      }
+      async getLastMessageByConversation(conversationId) {
+        const result = await db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(desc(messages.timestamp)).limit(1);
+        return result[0];
+      }
+      async getUnreadMessageCount(conversationId, userId) {
+        const [result] = await db.select({ count: sql`cast(count(*) as int)` }).from(messages).where(
+          and(
+            eq(messages.conversationId, conversationId),
+            ne(messages.senderId, userId),
+            eq(messages.isRead, false)
+          )
+        );
+        return result?.count || 0;
+      }
+      async markMessagesAsRead(conversationId, userId) {
+        await db.update(messages).set({ isRead: true }).where(
+          and(
+            eq(messages.conversationId, conversationId),
+            ne(messages.senderId, userId),
+            eq(messages.isRead, false)
+          )
+        );
+      }
+      // Excluir todas as mensagens de uma conversa
+      async deleteMessagesByConversation(conversationId) {
+        await db.delete(messages).where(eq(messages.conversationId, conversationId));
+      }
+      // Marcar conversa como deletada pelo usuário (exclusão individual)
+      async deleteConversation(conversationId, userId) {
+        const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
+        if (!conversation[0]) {
+          throw new Error("Conversa n\xE3o encontrada");
+        }
+        const conv = conversation[0];
+        const updates = {};
+        if (conv.clientId === userId) {
+          updates.deletedByClient = true;
+        } else if (conv.professionalId === userId) {
+          updates.deletedByProfessional = true;
+        } else {
+          throw new Error("Usu\xE1rio n\xE3o \xE9 participante da conversa");
+        }
+        await db.update(conversations).set(updates).where(eq(conversations.id, conversationId));
+      }
+      // Service Requests
+      async getServiceRequestsByClient(clientId) {
+        return await db.select().from(serviceRequests).where(eq(serviceRequests.clientId, clientId)).orderBy(desc(serviceRequests.createdAt));
+      }
+      async getServiceRequestsByCategory(category) {
+        return await db.select({
+          // Service Request fields
+          id: serviceRequests.id,
+          clientId: serviceRequests.clientId,
+          category: serviceRequests.category,
+          serviceType: serviceRequests.serviceType,
+          description: serviceRequests.description,
+          address: serviceRequests.address,
+          budget: serviceRequests.budget,
+          scheduledDate: serviceRequests.scheduledDate,
+          scheduledTime: serviceRequests.scheduledTime,
+          urgency: serviceRequests.urgency,
+          status: serviceRequests.status,
+          responses: serviceRequests.responses,
+          assignedProfessionalId: serviceRequests.assignedProfessionalId,
+          createdAt: serviceRequests.createdAt,
+          updatedAt: serviceRequests.updatedAt,
+          // Client information
+          clientName: users.name,
+          clientEmail: users.email,
+          clientPhone: users.phone,
+          clientProfileImage: users.profileImage,
+          clientCreatedAt: users.createdAt
+        }).from(serviceRequests).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceRequests.category, category)).orderBy(desc(serviceRequests.createdAt));
+      }
+      async getServiceRequest(id) {
+        const [serviceRequest] = await db.select().from(serviceRequests).where(eq(serviceRequests.id, id));
+        return serviceRequest || void 0;
+      }
+      async getServiceRequestWithClient(id) {
+        const [result] = await db.select({
+          // Service Request fields
+          id: serviceRequests.id,
+          clientId: serviceRequests.clientId,
+          serviceType: serviceRequests.serviceType,
+          category: serviceRequests.category,
+          description: serviceRequests.description,
+          address: serviceRequests.address,
+          scheduledDate: serviceRequests.scheduledDate,
+          scheduledTime: serviceRequests.scheduledTime,
+          urgency: serviceRequests.urgency,
+          budget: serviceRequests.budget,
+          status: serviceRequests.status,
+          assignedProfessionalId: serviceRequests.assignedProfessionalId,
+          responses: serviceRequests.responses,
+          createdAt: serviceRequests.createdAt,
+          updatedAt: serviceRequests.updatedAt,
+          // Client information
+          clientName: users.name,
+          clientEmail: users.email,
+          clientPhone: users.phone,
+          clientProfileImage: users.profileImage,
+          clientCreatedAt: users.createdAt
+        }).from(serviceRequests).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceRequests.id, id));
+        return result || void 0;
+      }
+      async createServiceRequest(insertServiceRequest) {
+        const [serviceRequest] = await db.insert(serviceRequests).values(insertServiceRequest).returning();
+        return serviceRequest;
+      }
+      async updateServiceRequest(id, updates) {
+        const [serviceRequest] = await db.update(serviceRequests).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceRequests.id, id)).returning();
+        return serviceRequest;
+      }
+      async deleteServiceRequest(id) {
+        await db.delete(serviceRequests).where(eq(serviceRequests.id, id));
+      }
+      async assignProfessionalToRequest(requestId, professionalId) {
+        await db.update(serviceRequests).set({
+          assignedProfessionalId: professionalId,
+          status: "assigned",
+          updatedAt: /* @__PURE__ */ new Date()
+        }).where(eq(serviceRequests.id, requestId));
+      }
+      // Service Offers
+      async getServiceOffersByRequest(requestId) {
+        return await db.select({
+          // Service Offer fields
+          id: serviceOffers.id,
+          serviceRequestId: serviceOffers.serviceRequestId,
+          professionalId: serviceOffers.professionalId,
+          proposedPrice: serviceOffers.proposedPrice,
+          estimatedTime: serviceOffers.estimatedTime,
+          message: serviceOffers.message,
+          status: serviceOffers.status,
+          createdAt: serviceOffers.createdAt,
+          updatedAt: serviceOffers.updatedAt,
+          // Professional information
+          professionalName: professionals.name,
+          professionalRating: professionals.rating,
+          professionalTotalReviews: professionals.totalReviews,
+          professionalProfileImage: professionals.imageUrl
+        }).from(serviceOffers).innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id)).where(eq(serviceOffers.serviceRequestId, requestId)).orderBy(desc(serviceOffers.createdAt));
+      }
+      async getProposalsByProfessional(professionalId) {
+        const results = await db.select({
+          // Service Offer fields
+          id: serviceOffers.id,
+          serviceRequestId: serviceOffers.serviceRequestId,
+          professionalId: serviceOffers.professionalId,
+          proposedPrice: serviceOffers.proposedPrice,
+          estimatedTime: serviceOffers.estimatedTime,
+          message: serviceOffers.message,
+          status: serviceOffers.status,
+          createdAt: serviceOffers.createdAt,
+          updatedAt: serviceOffers.updatedAt,
+          // Service Request fields
+          requestId: serviceRequests.id,
+          clientId: serviceRequests.clientId,
+          serviceType: serviceRequests.serviceType,
+          description: serviceRequests.description,
+          address: serviceRequests.address,
+          budget: serviceRequests.budget,
+          scheduledDate: serviceRequests.scheduledDate,
+          scheduledTime: serviceRequests.scheduledTime,
+          urgency: serviceRequests.urgency,
+          requestStatus: serviceRequests.status,
+          assignedProfessionalId: serviceRequests.assignedProfessionalId,
+          responses: serviceRequests.responses,
+          requestCreatedAt: serviceRequests.createdAt,
+          requestUpdatedAt: serviceRequests.updatedAt,
+          // Client information
+          clientName: users.name,
+          clientEmail: users.email,
+          clientPhone: users.phone,
+          clientProfileImage: users.profileImage,
+          clientCreatedAt: users.createdAt
+        }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceOffers.professionalId, professionalId)).orderBy(desc(serviceOffers.createdAt));
+        return results.map((result) => ({
+          id: result.id,
+          serviceRequestId: result.serviceRequestId,
+          professionalId: result.professionalId,
+          proposedPrice: result.proposedPrice,
+          estimatedTime: result.estimatedTime,
+          message: result.message,
+          status: result.status,
+          createdAt: result.createdAt,
+          updatedAt: result.updatedAt,
+          serviceRequest: {
+            id: result.serviceRequestId,
+            clientId: result.clientId,
+            serviceType: result.serviceType,
+            description: result.description,
+            address: result.address,
+            budget: result.budget,
+            scheduledDate: result.scheduledDate,
+            scheduledTime: result.scheduledTime,
+            urgency: result.urgency,
+            status: result.requestStatus,
+            assignedProfessionalId: result.assignedProfessionalId,
+            responses: result.responses,
+            createdAt: result.requestCreatedAt,
+            updatedAt: result.requestUpdatedAt,
+            clientName: result.clientName,
+            clientEmail: result.clientEmail,
+            clientPhone: result.clientPhone,
+            clientProfileImage: result.clientProfileImage,
+            clientCreatedAt: result.clientCreatedAt
+          }
+        }));
+      }
+      async getServiceOffers(serviceRequestId) {
+        return await db.select().from(serviceOffers).where(eq(serviceOffers.serviceRequestId, serviceRequestId)).orderBy(desc(serviceOffers.createdAt));
+      }
+      async createServiceOffer(serviceOffer) {
+        const [offer] = await db.insert(serviceOffers).values(serviceOffer).returning();
+        return offer;
+      }
+      async updateServiceOffer(id, updates) {
+        const [offer] = await db.update(serviceOffers).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceOffers.id, id)).returning();
+        return offer;
+      }
+      async deleteServiceOffer(id) {
+        await db.delete(serviceOffers).where(eq(serviceOffers.id, id));
+      }
+      // ==================== SERVICE REQUESTS FOR CLIENT ====================
+      async getServiceRequestsForClient(userId) {
+        try {
+          console.log("\u{1F50D} Buscando pedidos para cliente ID:", userId);
+          if (!userId || isNaN(userId)) {
+            throw new Error("ID do usu\xE1rio inv\xE1lido");
+          }
+          const results = await db.select({
+            id: serviceRequests.id,
+            title: serviceRequests.serviceType,
+            description: serviceRequests.description,
+            category: serviceRequests.serviceType,
+            budget: serviceRequests.budget,
+            location: serviceRequests.address,
+            urgency: serviceRequests.urgency,
+            status: serviceRequests.status,
+            createdAt: serviceRequests.createdAt,
+            responses: serviceRequests.responses
+          }).from(serviceRequests).where(eq(serviceRequests.clientId, userId)).orderBy(desc(serviceRequests.createdAt));
+          console.log("\u2705 Pedidos encontrados:", results.length);
+          return results.map((result) => ({
+            id: result.id,
+            title: result.title,
+            description: result.description,
+            category: result.category,
+            budget: result.budget,
+            location: result.location,
+            urgency: result.urgency,
+            status: result.status,
+            createdAt: result.createdAt,
+            responseCount: result.responses || 0
+          }));
+        } catch (error) {
+          console.error("\u274C Erro em getServiceRequestsForClient:", error);
+          throw error;
+        }
+      }
+      // ==================== SERVICE OFFERS FOR CLIENT ====================
+      async getServiceOffersForClient(userId) {
+        try {
+          console.log("\u{1F50D} Buscando propostas para cliente ID:", userId);
+          if (!userId || isNaN(userId)) {
+            throw new Error("ID do usu\xE1rio inv\xE1lido");
+          }
+          const results = await db.select({
+            id: serviceOffers.id,
+            serviceRequestId: serviceOffers.serviceRequestId,
+            professionalId: serviceOffers.professionalId,
+            proposedPrice: serviceOffers.proposedPrice,
+            finalPrice: serviceOffers.finalPrice,
+            estimatedTime: serviceOffers.estimatedTime,
+            message: serviceOffers.message,
+            status: serviceOffers.status,
+            createdAt: serviceOffers.createdAt,
+            serviceTitle: serviceRequests.serviceType,
+            serviceStatus: serviceRequests.status,
+            professionalName: professionals.name,
+            professionalRating: professionals.rating,
+            professionalTotalReviews: professionals.totalReviews,
+            professionalProfileImage: professionals.imageUrl,
+            // Adicionar informações sobre avaliação se o serviço estiver concluído
+            hasReview: serviceReviews.id,
+            reviewRating: serviceReviews.rating,
+            reviewComment: serviceReviews.comment,
+            reviewCreatedAt: serviceReviews.createdAt
+          }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id)).leftJoin(serviceReviews, and(
+            eq(serviceReviews.serviceRequestId, serviceRequests.id),
+            eq(serviceReviews.clientId, userId)
+          )).where(eq(serviceRequests.clientId, userId)).orderBy(desc(serviceOffers.createdAt));
+          console.log("\u2705 Propostas encontradas:", results.length);
+          return results.map((result) => ({
+            id: result.id,
+            serviceRequestId: result.serviceRequestId,
+            professionalId: result.professionalId,
+            professionalName: result.professionalName,
+            professionalRating: result.professionalRating || 5,
+            professionalTotalReviews: result.professionalTotalReviews || 0,
+            professionalProfileImage: result.professionalProfileImage ? this.getFullImageUrl(result.professionalProfileImage) : null,
+            proposedPrice: result.proposedPrice,
+            finalPrice: result.finalPrice,
+            estimatedTime: result.estimatedTime,
+            message: result.message,
+            status: result.status,
+            createdAt: result.createdAt,
+            serviceTitle: result.serviceTitle,
+            serviceStatus: result.serviceStatus,
+            // Incluir informações sobre avaliação
+            hasReview: !!result.hasReview,
+            reviewRating: result.reviewRating,
+            reviewComment: result.reviewComment,
+            reviewCreatedAt: result.reviewCreatedAt
+          }));
+        } catch (error) {
+          console.error("\u274C Erro em getServiceOffersForClient:", error);
+          throw error;
+        }
+      }
+      async acceptServiceOffer(offerId, userId) {
+        try {
+          console.log("\u2705 Aceitando proposta:", offerId, "pelo cliente:", userId);
+          const [offer] = await db.select({
+            id: serviceOffers.id,
+            serviceRequestId: serviceOffers.serviceRequestId,
+            professionalId: serviceOffers.professionalId,
+            status: serviceOffers.status,
+            clientId: serviceRequests.clientId
+          }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).where(eq(serviceOffers.id, offerId));
+          if (!offer) {
+            return { success: false, error: "Proposta n\xE3o encontrada" };
+          }
+          if (offer.clientId !== userId) {
+            return { success: false, error: "Proposta n\xE3o pertence a este cliente" };
+          }
+          if (offer.status !== "pending") {
+            return { success: false, error: "Proposta j\xE1 foi processada" };
+          }
+          await db.update(serviceOffers).set({ status: "accepted", updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceOffers.id, offerId));
+          await db.update(serviceRequests).set({
+            assignedProfessionalId: offer.professionalId,
+            status: "assigned",
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq(serviceRequests.id, offer.serviceRequestId));
+          await db.update(serviceOffers).set({
+            finalPrice: offer.proposedPrice,
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq(serviceOffers.id, offerId));
+          await db.insert(serviceProgress).values({
+            serviceRequestId: offer.serviceRequestId,
+            professionalId: offer.professionalId,
+            status: "accepted"
+          });
+          await db.update(serviceOffers).set({ status: "rejected", updatedAt: /* @__PURE__ */ new Date() }).where(and(
+            eq(serviceOffers.serviceRequestId, offer.serviceRequestId),
+            ne(serviceOffers.id, offerId)
+          ));
+          return { success: true };
+        } catch (error) {
+          console.error("\u274C Erro ao aceitar proposta:", error);
+          return { success: false, error: "Erro interno do servidor" };
+        }
+      }
+      // Métodos para gerenciar o progresso do serviço
+      async startService(serviceRequestId, professionalId) {
+        try {
+          console.log("\u{1F680} Iniciando servi\xE7o:", serviceRequestId, "pelo profissional:", professionalId);
+          const [request] = await db.select({
+            id: serviceRequests.id,
+            status: serviceRequests.status,
+            assignedProfessionalId: serviceRequests.assignedProfessionalId
+          }).from(serviceRequests).where(eq(serviceRequests.id, serviceRequestId));
+          if (!request) {
+            return { success: false, error: "Solicita\xE7\xE3o n\xE3o encontrada" };
+          }
+          if (request.assignedProfessionalId !== professionalId) {
+            return { success: false, error: "Servi\xE7o n\xE3o foi atribu\xEDdo a este profissional" };
+          }
+          if (request.status !== "assigned") {
+            return { success: false, error: "Servi\xE7o n\xE3o est\xE1 em estado de iniciar" };
+          }
+          await db.update(serviceRequests).set({
+            status: "in_progress",
+            serviceStartedAt: /* @__PURE__ */ new Date(),
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq(serviceRequests.id, serviceRequestId));
+          await db.update(serviceProgress).set({
+            status: "started",
+            startedAt: /* @__PURE__ */ new Date(),
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(and(
+            eq(serviceProgress.serviceRequestId, serviceRequestId),
+            eq(serviceProgress.professionalId, professionalId)
+          ));
+          return { success: true };
+        } catch (error) {
+          console.error("\u274C Erro ao iniciar servi\xE7o:", error);
+          return { success: false, error: "Erro interno do servidor" };
+        }
+      }
+      async completeService(serviceRequestId, professionalId, notes) {
+        try {
+          console.log("\u2705 Concluindo servi\xE7o:", serviceRequestId, "pelo profissional:", professionalId);
+          const [professional] = await db.select({ id: professionals.id }).from(professionals).where(eq(professionals.userId, professionalId));
+          console.log("\u{1F50D} Profissional encontrado:", professional);
+          if (!professional) {
+            console.log("\u274C Profissional n\xE3o encontrado para userId:", professionalId);
+            return { success: false, error: "Profissional n\xE3o encontrado" };
+          }
+          const actualProfessionalId = professional.id;
+          console.log("\u{1F50D} ID real do profissional:", actualProfessionalId);
+          const [request] = await db.select({
+            id: serviceRequests.id,
+            status: serviceRequests.status,
+            assignedProfessionalId: serviceRequests.assignedProfessionalId
+          }).from(serviceRequests).where(eq(serviceRequests.id, serviceRequestId));
+          if (!request) {
+            console.log("\u274C Solicita\xE7\xE3o n\xE3o encontrada:", serviceRequestId);
+            return { success: false, error: "Solicita\xE7\xE3o n\xE3o encontrada" };
+          }
+          console.log("\u{1F50D} Dados da solicita\xE7\xE3o:", request);
+          if (request.assignedProfessionalId !== actualProfessionalId) {
+            console.log("\u274C Servi\xE7o n\xE3o atribu\xEDdo a este profissional. Atribu\xEDdo a:", request.assignedProfessionalId, "Profissional atual:", actualProfessionalId);
+            return { success: false, error: "Servi\xE7o n\xE3o foi atribu\xEDdo a este profissional" };
+          }
+          if (request.status !== "in_progress" && request.status !== "open") {
+            console.log("\u274C Status incorreto do servi\xE7o:", request.status, "Esperado: in_progress ou open");
+            return { success: false, error: "Servi\xE7o deve estar em andamento ou aberto com proposta aceita para ser conclu\xEDdo" };
+          }
+          if (request.status === "open") {
+            console.log("\u{1F50D} Servi\xE7o em status open, verificando proposta aceita...");
+            const [acceptedOffer] = await db.select({ id: serviceOffers.id }).from(serviceOffers).where(and(
+              eq(serviceOffers.serviceRequestId, serviceRequestId),
+              eq(serviceOffers.professionalId, actualProfessionalId),
+              eq(serviceOffers.status, "accepted")
+            ));
+            if (!acceptedOffer) {
+              console.log("\u274C Proposta aceita n\xE3o encontrada para servi\xE7o em status open:", serviceRequestId);
+              return { success: false, error: "Servi\xE7o deve ter uma proposta aceita para ser conclu\xEDdo" };
+            }
+            console.log("\u2705 Proposta aceita encontrada para servi\xE7o em status open:", acceptedOffer.id);
+          }
+          await db.update(serviceRequests).set({
+            status: "awaiting_confirmation",
+            serviceCompletedAt: /* @__PURE__ */ new Date(),
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq(serviceRequests.id, serviceRequestId));
+          console.log("\u2705 Status da solicita\xE7\xE3o atualizado para awaiting_confirmation");
+          console.log("\u2705 Servi\xE7o marcado como conclu\xEDdo pelo profissional");
+          await db.update(serviceProgress).set({
+            status: "awaiting_confirmation",
+            completedAt: /* @__PURE__ */ new Date(),
+            notes: notes || null,
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(and(
+            eq(serviceProgress.serviceRequestId, serviceRequestId),
+            eq(serviceProgress.professionalId, actualProfessionalId)
+          ));
+          console.log("\u2705 Progresso atualizado para awaiting_confirmation");
+          return { success: true };
+        } catch (error) {
+          console.error("\u274C Erro ao concluir servi\xE7o:", error);
+          return { success: false, error: "Erro interno do servidor" };
+        }
+      }
+      async confirmServiceCompletion(serviceRequestId, clientId) {
+        try {
+          console.log("\u2705 Cliente confirmando conclus\xE3o do servi\xE7o:", serviceRequestId);
+          const [request] = await db.select({
+            id: serviceRequests.id,
+            status: serviceRequests.status,
+            clientId: serviceRequests.clientId,
+            assignedProfessionalId: serviceRequests.assignedProfessionalId
+          }).from(serviceRequests).where(eq(serviceRequests.id, serviceRequestId));
+          console.log("\u{1F50D} Dados da solicita\xE7\xE3o encontrada:", request);
+          if (!request) {
+            console.log("\u274C Solicita\xE7\xE3o n\xE3o encontrada:", serviceRequestId);
+            return { success: false, error: "Solicita\xE7\xE3o n\xE3o encontrada" };
+          }
+          if (request.clientId !== clientId) {
+            console.log("\u274C Cliente incorreto:", request.clientId, "Esperado:", clientId);
+            return { success: false, error: "Servi\xE7o n\xE3o pertence a este cliente" };
+          }
+          if (request.status !== "awaiting_confirmation") {
+            console.log("\u274C Status incorreto do servi\xE7o:", request.status, "Esperado: awaiting_confirmation");
+            return { success: false, error: "Servi\xE7o n\xE3o est\xE1 aguardando confirma\xE7\xE3o" };
+          }
+          if (!request.assignedProfessionalId) {
+            console.log("\u274C Nenhum profissional designado para servi\xE7o:", serviceRequestId);
+            return { success: false, error: "Nenhum profissional foi designado para este servi\xE7o" };
+          }
+          const [acceptedOffer] = await db.select({
+            id: serviceOffers.id,
+            proposedPrice: serviceOffers.proposedPrice,
+            finalPrice: serviceOffers.finalPrice
+          }).from(serviceOffers).where(and(
+            eq(serviceOffers.serviceRequestId, serviceRequestId),
+            eq(serviceOffers.professionalId, request.assignedProfessionalId),
+            eq(serviceOffers.status, "accepted")
+          ));
+          console.log("\u{1F50D} Proposta aceita encontrada:", acceptedOffer);
+          if (!acceptedOffer) {
+            console.log("\u274C Proposta aceita n\xE3o encontrada para servi\xE7o:", serviceRequestId);
+            return { success: false, error: "Proposta aceita n\xE3o encontrada" };
+          }
+          const finalAmount = acceptedOffer.finalPrice || acceptedOffer.proposedPrice;
+          console.log("\u{1F4B0} Valor final para transa\xE7\xE3o:", finalAmount, "Tipo:", typeof finalAmount);
+          const transaction = await this.createTransaction({
+            serviceRequestId,
+            serviceOfferId: acceptedOffer.id,
+            clientId,
+            professionalId: request.assignedProfessionalId,
+            amount: Number(finalAmount),
+            status: "completed",
+            type: "service_payment",
+            description: `Pagamento pelo servi\xE7o #${serviceRequestId}`,
+            paymentMethod: "pix",
+            completedAt: /* @__PURE__ */ new Date()
+          });
+          console.log("\u2705 Transa\xE7\xE3o criada com sucesso:", transaction.id, "Valor:", transaction.amount);
+          await db.update(serviceRequests).set({
+            status: "completed",
+            clientConfirmedAt: /* @__PURE__ */ new Date(),
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq(serviceRequests.id, serviceRequestId));
+          console.log("\u2705 Status da solicita\xE7\xE3o atualizado para completed");
+          await db.update(serviceProgress).set({
+            status: "payment_released",
+            confirmedAt: /* @__PURE__ */ new Date(),
+            paymentReleasedAt: /* @__PURE__ */ new Date(),
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq(serviceProgress.serviceRequestId, serviceRequestId));
+          console.log("\u2705 Progresso atualizado para payment_released");
+          const professional = await this.getProfessional(request.assignedProfessionalId);
+          if (professional) {
+            await this.createNotification({
+              userId: professional.userId,
+              message: `Pagamento de R$ ${finalAmount} foi liberado pelo servi\xE7o #${serviceRequestId}.`,
+              read: false
+            });
+          }
+          console.log("\u{1F5D1}\uFE0F Excluindo propostas n\xE3o aceitas...");
+          await db.delete(serviceOffers).where(and(
+            eq(serviceOffers.serviceRequestId, serviceRequestId),
+            ne(serviceOffers.status, "accepted")
+          ));
+          console.log("\u2705 Propostas n\xE3o aceitas exclu\xEDdas com sucesso");
+          console.log("\u2705 Servi\xE7o conclu\xEDdo com sucesso! ID:", serviceRequestId);
+          return { success: true };
+        } catch (error) {
+          console.error("\u274C Erro ao confirmar conclus\xE3o do servi\xE7o:", error);
+          return { success: false, error: "Erro interno do servidor" };
+        }
+      }
+      async getServiceProgress(serviceRequestId) {
+        try {
+          const [progress] = await db.select().from(serviceProgress).where(eq(serviceProgress.serviceRequestId, serviceRequestId));
+          return progress || null;
+        } catch (error) {
+          console.error("\u274C Erro ao buscar progresso do servi\xE7o:", error);
+          return null;
+        }
+      }
+      async rejectServiceOffer(offerId, userId) {
+        try {
+          console.log("\u274C Rejeitando proposta:", offerId, "pelo cliente:", userId);
+          const [offer] = await db.select({
+            id: serviceOffers.id,
+            status: serviceOffers.status,
+            serviceRequestId: serviceOffers.serviceRequestId,
+            professionalId: serviceOffers.professionalId,
+            clientId: serviceRequests.clientId
+          }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).where(eq(serviceOffers.id, offerId));
+          if (!offer) {
+            return { success: false, error: "Proposta n\xE3o encontrada" };
+          }
+          if (offer.clientId !== userId) {
+            return { success: false, error: "Proposta n\xE3o pertence a este cliente" };
+          }
+          await this.deleteServiceOffer(offerId);
+          const request = await this.getServiceRequest(offer.serviceRequestId);
+          if (request) {
+            const current = Number(request.responses) || 0;
+            const next = current > 0 ? current - 1 : 0;
+            await this.updateServiceRequest(offer.serviceRequestId, { responses: next });
+          }
+          const professional = await this.getProfessional(offer.professionalId);
+          if (professional) {
+            const reqDetailed = await this.getServiceRequest(offer.serviceRequestId);
+            const serviceLabel = reqDetailed?.serviceType || "um servi\xE7o";
+            await this.createNotification({
+              userId: professional.userId,
+              message: `Sua proposta para ${serviceLabel} foi rejeitada e removida pelo cliente.`,
+              read: false
+            });
+          }
+          return { success: true };
+        } catch (error) {
+          console.error("\u274C Erro ao rejeitar e excluir proposta:", error);
+          return { success: false, error: "Erro interno do servidor" };
+        }
+      }
+      // Transactions
+      async createTransaction(transaction) {
+        try {
+          console.log("\u2705 Criando transa\xE7\xE3o:", transaction);
+          const [newTransaction] = await db.insert(transactions).values(transaction).returning();
+          return newTransaction;
+        } catch (error) {
+          console.error("\u274C Erro ao criar transa\xE7\xE3o:", error);
+          throw error;
+        }
+      }
+      async getTransactionsByProfessional(professionalId) {
+        try {
+          const professionalTransactions = await db.select().from(transactions).where(eq(transactions.professionalId, professionalId)).orderBy(desc(transactions.createdAt));
+          return professionalTransactions;
+        } catch (error) {
+          console.error("\u274C Erro ao buscar transa\xE7\xF5es do profissional:", error);
+          return [];
+        }
+      }
+      async getTransactionsByClient(clientId) {
+        try {
+          const clientTransactions = await db.select().from(transactions).where(eq(transactions.clientId, clientId)).orderBy(desc(transactions.createdAt));
+          return clientTransactions;
+        } catch (error) {
+          console.error("\u274C Erro ao buscar transa\xE7\xF5es do cliente:", error);
+          return [];
+        }
+      }
+      async updateTransactionStatus(id, status) {
+        try {
+          const [updatedTransaction] = await db.update(transactions).set({
+            status,
+            updatedAt: /* @__PURE__ */ new Date(),
+            ...status === "completed" && { completedAt: /* @__PURE__ */ new Date() }
+          }).where(eq(transactions.id, id)).returning();
+          return updatedTransaction;
+        } catch (error) {
+          console.error("\u274C Erro ao atualizar status da transa\xE7\xE3o:", error);
+          throw error;
+        }
+      }
+      async getTransactionById(id) {
+        try {
+          const [transaction] = await db.select().from(transactions).where(eq(transactions.id, id));
+          return transaction || null;
+        } catch (error) {
+          console.error("\u274C Erro ao buscar transa\xE7\xE3o por ID:", error);
+          return null;
+        }
+      }
+      // Service Reviews
+      async createServiceReview(review) {
+        try {
+          console.log("\u2705 Criando avalia\xE7\xE3o de servi\xE7o:", review);
+          const [newReview] = await db.insert(serviceReviews).values(review).returning();
+          await this.updateProfessionalRating(review.professionalId);
+          return newReview;
+        } catch (error) {
+          console.error("\u274C Erro ao criar avalia\xE7\xE3o de servi\xE7o:", error);
+          throw error;
+        }
+      }
+      async getServiceReviewsByProfessional(professionalId) {
+        try {
+          const reviews = await db.select().from(serviceReviews).where(eq(serviceReviews.professionalId, professionalId)).orderBy(desc(serviceReviews.createdAt));
+          return reviews;
+        } catch (error) {
+          console.error("\u274C Erro ao buscar avalia\xE7\xF5es do profissional:", error);
+          throw error;
+        }
+      }
+      async getServiceReviewsByClient(clientId) {
+        try {
+          const reviews = await db.select().from(serviceReviews).where(eq(serviceReviews.clientId, clientId)).orderBy(desc(serviceReviews.createdAt));
+          return reviews;
+        } catch (error) {
+          console.error("\u274C Erro ao buscar avalia\xE7\xF5es do cliente:", error);
+          throw error;
+        }
+      }
+      async getProfessionalCompletedServices(professionalId) {
+        try {
+          console.log("\u{1F50D} Buscando servi\xE7os conclu\xEDdos do profissional:", professionalId);
+          const results = await db.select({
+            serviceRequestId: serviceRequests.id,
+            serviceTitle: serviceRequests.serviceType,
+            clientName: users.name,
+            clientEmail: users.email,
+            amount: sql`COALESCE(${serviceOffers.finalPrice}, ${serviceOffers.proposedPrice})`,
+            status: serviceRequests.status,
+            completedAt: serviceRequests.clientConfirmedAt,
+            // Informações da avaliação
+            reviewRating: serviceReviews.rating,
+            reviewComment: serviceReviews.comment,
+            reviewCreatedAt: serviceReviews.createdAt,
+            // Informações da transação
+            transactionId: transactions.id,
+            transactionStatus: transactions.status,
+            transactionCompletedAt: transactions.completedAt
+          }).from(serviceRequests).innerJoin(serviceOffers, and(
+            eq(serviceOffers.serviceRequestId, serviceRequests.id),
+            eq(serviceOffers.professionalId, professionalId),
+            eq(serviceOffers.status, "accepted")
+          )).innerJoin(users, eq(serviceRequests.clientId, users.id)).leftJoin(serviceReviews, eq(serviceReviews.serviceRequestId, serviceRequests.id)).leftJoin(transactions, and(
+            eq(transactions.serviceRequestId, serviceRequests.id),
+            eq(transactions.professionalId, professionalId),
+            eq(transactions.type, "service_payment")
+          )).where(and(
+            eq(serviceRequests.assignedProfessionalId, professionalId),
+            eq(serviceRequests.status, "completed")
+          )).orderBy(desc(serviceRequests.clientConfirmedAt));
+          console.log("\u2705 Servi\xE7os conclu\xEDdos encontrados:", results.length);
+          console.log("\u{1F50D} Dados dos servi\xE7os:", results.map((r) => ({ id: r.serviceRequestId, status: r.status, amount: r.amount })));
+          const mappedResults = results.map((result) => ({
+            serviceRequestId: result.serviceRequestId,
+            serviceTitle: result.serviceTitle,
+            clientName: result.clientName,
+            clientEmail: result.clientEmail,
+            amount: Number(result.amount),
+            status: result.status,
+            completedAt: result.completedAt,
+            hasReview: !!result.reviewRating,
+            reviewRating: result.reviewRating,
+            reviewComment: result.reviewComment,
+            reviewCreatedAt: result.reviewCreatedAt,
+            transactionId: result.transactionId,
+            transactionStatus: result.transactionStatus,
+            transactionCompletedAt: result.transactionCompletedAt
+          }));
+          console.log("\u2705 Resultados mapeados:", mappedResults.length);
+          return mappedResults;
+        } catch (error) {
+          console.error("\u274C Erro ao buscar servi\xE7os conclu\xEDdos do profissional:", error);
+          throw error;
+        }
+      }
+      async getServiceReviewByService(serviceRequestId) {
+        try {
+          const [review] = await db.select().from(serviceReviews).where(eq(serviceReviews.serviceRequestId, serviceRequestId));
+          return review || null;
+        } catch (error) {
+          console.error("\u274C Erro ao buscar avalia\xE7\xE3o do servi\xE7o:", error);
+          return null;
+        }
+      }
+      async updateProfessionalRating(professionalId) {
+        try {
+          const reviews = await this.getServiceReviewsByProfessional(professionalId);
+          if (reviews.length === 0) {
+            await db.update(professionals).set({
+              rating: "5.0",
+              totalReviews: 0,
+              updatedAt: /* @__PURE__ */ new Date()
+            }).where(eq(professionals.id, professionalId));
+            return;
+          }
+          const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+          const averageRating = totalRating / reviews.length;
+          await db.update(professionals).set({
+            rating: averageRating.toFixed(1),
+            totalReviews: reviews.length,
+            updatedAt: /* @__PURE__ */ new Date()
+          }).where(eq(professionals.id, professionalId));
+          console.log(`\u2705 Avalia\xE7\xE3o do profissional ${professionalId} atualizada: ${averageRating.toFixed(1)} (${reviews.length} avalia\xE7\xF5es)`);
+        } catch (error) {
+          console.error("\u274C Erro ao atualizar avalia\xE7\xE3o do profissional:", error);
+          throw error;
+        }
+      }
     };
+    storage = new DatabaseStorage();
   }
-  async getProfessionalByUserId(userId) {
-    const [professional] = await db.select().from(professionals).where(eq(professionals.userId, userId));
-    return professional || void 0;
-  }
-  async createProfessional(insertProfessional) {
-    const [professional] = await db.insert(professionals).values(insertProfessional).returning();
-    return professional;
-  }
-  async updateProfessional(id, updates) {
-    const [professional] = await db.update(professionals).set(updates).where(eq(professionals.id, id)).returning();
-    return professional;
-  }
-  async updateProfessionalAvailability(userId, available) {
-    await db.update(professionals).set({ available }).where(eq(professionals.userId, userId));
-  }
-  // Appointments
-  async getAppointmentsByUser(userId) {
-    return await db.select().from(appointments).where(eq(appointments.clientId, userId));
-  }
-  async getAppointmentsByProfessional(professionalId) {
-    return await db.select().from(appointments).where(eq(appointments.professionalId, professionalId));
-  }
-  async createAppointment(insertAppointment) {
-    const [appointment] = await db.insert(appointments).values(insertAppointment).returning();
-    return appointment;
-  }
-  async updateAppointment(id, updates) {
-    const [appointment] = await db.update(appointments).set(updates).where(eq(appointments.id, id)).returning();
-    return appointment;
-  }
-  // Notifications
-  async getNotificationsByUser(userId) {
-    return await db.select().from(notifications).where(eq(notifications.userId, userId));
-  }
-  async getUnreadNotificationCount(userId) {
-    const [result] = await db.select({ count: sql`cast(count(*) as int)` }).from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
-    return result?.count || 0;
-  }
-  async createNotification(insertNotification) {
-    const [notification] = await db.insert(notifications).values(insertNotification).returning();
-    return notification;
-  }
-  async markNotificationRead(id) {
-    await db.update(notifications).set({ [notifications.read.name]: true }).where(eq(notifications.id, id));
-  }
-  // Security & Anti-fraud
-  async createLoginAttempt(insertLoginAttempt) {
-    const [loginAttempt] = await db.insert(loginAttempts).values(insertLoginAttempt).returning();
-    return loginAttempt;
-  }
-  async getRecentLoginAttempts(ipAddress, minutes) {
-    const timeAgo = new Date(Date.now() - minutes * 60 * 1e3);
-    return await db.select().from(loginAttempts).where(
-      and(
-        eq(loginAttempts.ipAddress, ipAddress),
-        gte(loginAttempts.attemptedAt, timeAgo)
-      )
-    );
-  }
-  async createVerificationCode(insertVerificationCode) {
-    const [verificationCode] = await db.insert(verificationCodes).values(insertVerificationCode).returning();
-    return verificationCode;
-  }
-  async getVerificationCode(code, type) {
-    const [verificationCode] = await db.select().from(verificationCodes).where(
-      and(
-        eq(verificationCodes.code, code),
-        eq(verificationCodes.type, type),
-        eq(verificationCodes.used, false),
-        gte(verificationCodes.expiresAt, /* @__PURE__ */ new Date())
-      )
-    );
-    return verificationCode || void 0;
-  }
-  async markCodeAsUsed(id) {
-    await db.update(verificationCodes).set({ [verificationCodes.used.name]: true }).where(eq(verificationCodes.id, id));
-  }
-  // Conversations & Messages
-  async getProfessionalById(userId) {
-    const result = await db.select().from(professionals).where(eq(professionals.userId, userId)).limit(1);
-    return result[0];
-  }
-  async getConversation(clientId, professionalId) {
-    const result = await db.select().from(conversations).where(
-      and(
-        eq(conversations.clientId, clientId),
-        eq(conversations.professionalId, professionalId)
-      )
-    ).limit(1);
-    return result[0];
-  }
-  // Verificar se uma conversa foi deletada pelo usuário
-  async isConversationDeletedByUser(conversationId, userId) {
-    const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
-    if (!conversation[0]) {
-      return false;
-    }
-    const conv = conversation[0];
-    if (conv.clientId === userId) {
-      return conv.deletedByClient === true;
-    } else if (conv.professionalId === userId) {
-      return conv.deletedByProfessional === true;
-    }
-    return false;
-  }
-  // Restaurar conversa (marcar como não deletada pelo usuário)
-  async restoreConversation(conversationId, userId) {
-    const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
-    if (!conversation[0]) {
-      throw new Error("Conversa n\xE3o encontrada");
-    }
-    const conv = conversation[0];
-    const updates = {};
-    if (conv.clientId === userId) {
-      updates.deletedByClient = false;
-    } else if (conv.professionalId === userId) {
-      updates.deletedByProfessional = false;
-    } else {
-      throw new Error("Usu\xE1rio n\xE3o \xE9 participante da conversa");
-    }
-    await db.update(conversations).set(updates).where(eq(conversations.id, conversationId));
-  }
-  async getConversationsByUser(userId) {
-    console.log(`\u{1F50D} getConversationsByUser(${userId}) - Iniciando busca...`);
-    const allUserConversations = await db.select().from(conversations).where(
-      or(
-        eq(conversations.clientId, userId),
-        eq(conversations.professionalId, userId)
-      )
-    );
-    console.log(`\u{1F4CB} Todas as conversas do usu\xE1rio ${userId}:`, allUserConversations.map((c) => ({
-      id: c.id,
-      clientId: c.clientId,
-      professionalId: c.professionalId,
-      deletedByClient: c.deletedByClient,
-      deletedByProfessional: c.deletedByProfessional
-    })));
-    const asClient = allUserConversations.filter((c) => c.clientId === userId);
-    const asProfessional = allUserConversations.filter((c) => c.professionalId === userId);
-    console.log(`\u{1F4CA} Usu\xE1rio ${userId} - Como cliente: ${asClient.length}, Como profissional: ${asProfessional.length}`);
-    const result = await db.select().from(conversations).where(
-      and(
-        or(
-          eq(conversations.clientId, userId),
-          eq(conversations.professionalId, userId)
-        ),
-        // Não mostrar conversas deletadas pelo usuário
-        or(
-          and(eq(conversations.clientId, userId), eq(conversations.deletedByClient, false)),
-          and(eq(conversations.professionalId, userId), eq(conversations.deletedByProfessional, false))
-        )
-      )
-    );
-    console.log(`\u2705 Conversas filtradas para usu\xE1rio ${userId}:`, result.map((c) => ({
-      id: c.id,
-      clientId: c.clientId,
-      professionalId: c.professionalId,
-      deletedByClient: c.deletedByClient,
-      deletedByProfessional: c.deletedByProfessional
-    })));
-    return result;
-  }
-  async createConversation(conversation) {
-    const result = await db.insert(conversations).values(conversation).returning();
-    return result[0];
-  }
-  async createMessage(message) {
-    const result = await db.insert(messages).values(message).returning();
-    return result[0];
-  }
-  async getMessagesByConversation(conversationId) {
-    return await db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(messages.timestamp);
-  }
-  async getLastMessageByConversation(conversationId) {
-    const result = await db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(desc(messages.timestamp)).limit(1);
-    return result[0];
-  }
-  async getUnreadMessageCount(conversationId, userId) {
-    const [result] = await db.select({ count: sql`cast(count(*) as int)` }).from(messages).where(
-      and(
-        eq(messages.conversationId, conversationId),
-        ne(messages.senderId, userId),
-        eq(messages.isRead, false)
-      )
-    );
-    return result?.count || 0;
-  }
-  async markMessagesAsRead(conversationId, userId) {
-    await db.update(messages).set({ isRead: true }).where(
-      and(
-        eq(messages.conversationId, conversationId),
-        ne(messages.senderId, userId),
-        eq(messages.isRead, false)
-      )
-    );
-  }
-  // Excluir todas as mensagens de uma conversa
-  async deleteMessagesByConversation(conversationId) {
-    await db.delete(messages).where(eq(messages.conversationId, conversationId));
-  }
-  // Marcar conversa como deletada pelo usuário (exclusão individual)
-  async deleteConversation(conversationId, userId) {
-    const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
-    if (!conversation[0]) {
-      throw new Error("Conversa n\xE3o encontrada");
-    }
-    const conv = conversation[0];
-    const updates = {};
-    if (conv.clientId === userId) {
-      updates.deletedByClient = true;
-    } else if (conv.professionalId === userId) {
-      updates.deletedByProfessional = true;
-    } else {
-      throw new Error("Usu\xE1rio n\xE3o \xE9 participante da conversa");
-    }
-    await db.update(conversations).set(updates).where(eq(conversations.id, conversationId));
-  }
-  // Service Requests
-  async getServiceRequestsByClient(clientId) {
-    return await db.select().from(serviceRequests).where(eq(serviceRequests.clientId, clientId)).orderBy(desc(serviceRequests.createdAt));
-  }
-  async getServiceRequestsByCategory(category) {
-    return await db.select({
-      // Service Request fields
-      id: serviceRequests.id,
-      clientId: serviceRequests.clientId,
-      category: serviceRequests.category,
-      serviceType: serviceRequests.serviceType,
-      description: serviceRequests.description,
-      address: serviceRequests.address,
-      budget: serviceRequests.budget,
-      scheduledDate: serviceRequests.scheduledDate,
-      scheduledTime: serviceRequests.scheduledTime,
-      urgency: serviceRequests.urgency,
-      status: serviceRequests.status,
-      responses: serviceRequests.responses,
-      assignedProfessionalId: serviceRequests.assignedProfessionalId,
-      createdAt: serviceRequests.createdAt,
-      updatedAt: serviceRequests.updatedAt,
-      // Client information
-      clientName: users.name,
-      clientEmail: users.email,
-      clientPhone: users.phone,
-      clientProfileImage: users.profileImage,
-      clientCreatedAt: users.createdAt
-    }).from(serviceRequests).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceRequests.category, category)).orderBy(desc(serviceRequests.createdAt));
-  }
-  async getServiceRequest(id) {
-    const [serviceRequest] = await db.select().from(serviceRequests).where(eq(serviceRequests.id, id));
-    return serviceRequest || void 0;
-  }
-  async getServiceRequestWithClient(id) {
-    const [result] = await db.select({
-      // Service Request fields
-      id: serviceRequests.id,
-      clientId: serviceRequests.clientId,
-      serviceType: serviceRequests.serviceType,
-      category: serviceRequests.category,
-      description: serviceRequests.description,
-      address: serviceRequests.address,
-      scheduledDate: serviceRequests.scheduledDate,
-      scheduledTime: serviceRequests.scheduledTime,
-      urgency: serviceRequests.urgency,
-      budget: serviceRequests.budget,
-      status: serviceRequests.status,
-      assignedProfessionalId: serviceRequests.assignedProfessionalId,
-      responses: serviceRequests.responses,
-      createdAt: serviceRequests.createdAt,
-      updatedAt: serviceRequests.updatedAt,
-      // Client information
-      clientName: users.name,
-      clientEmail: users.email,
-      clientPhone: users.phone,
-      clientProfileImage: users.profileImage,
-      clientCreatedAt: users.createdAt
-    }).from(serviceRequests).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceRequests.id, id));
-    return result || void 0;
-  }
-  async createServiceRequest(insertServiceRequest) {
-    const [serviceRequest] = await db.insert(serviceRequests).values(insertServiceRequest).returning();
-    return serviceRequest;
-  }
-  async updateServiceRequest(id, updates) {
-    const [serviceRequest] = await db.update(serviceRequests).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceRequests.id, id)).returning();
-    return serviceRequest;
-  }
-  async deleteServiceRequest(id) {
-    await db.delete(serviceRequests).where(eq(serviceRequests.id, id));
-  }
-  async assignProfessionalToRequest(requestId, professionalId) {
-    await db.update(serviceRequests).set({
-      assignedProfessionalId: professionalId,
-      status: "assigned",
-      updatedAt: /* @__PURE__ */ new Date()
-    }).where(eq(serviceRequests.id, requestId));
-  }
-  // Service Offers
-  async getServiceOffersByRequest(requestId) {
-    return await db.select({
-      // Service Offer fields
-      id: serviceOffers.id,
-      serviceRequestId: serviceOffers.serviceRequestId,
-      professionalId: serviceOffers.professionalId,
-      proposedPrice: serviceOffers.proposedPrice,
-      estimatedTime: serviceOffers.estimatedTime,
-      message: serviceOffers.message,
-      status: serviceOffers.status,
-      createdAt: serviceOffers.createdAt,
-      updatedAt: serviceOffers.updatedAt,
-      // Professional information
-      professionalName: professionals.name,
-      professionalRating: professionals.rating,
-      professionalTotalReviews: professionals.totalReviews,
-      professionalProfileImage: professionals.imageUrl
-    }).from(serviceOffers).innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id)).where(eq(serviceOffers.serviceRequestId, requestId)).orderBy(desc(serviceOffers.createdAt));
-  }
-  async getProposalsByProfessional(professionalId) {
-    const results = await db.select({
-      // Service Offer fields
-      id: serviceOffers.id,
-      serviceRequestId: serviceOffers.serviceRequestId,
-      professionalId: serviceOffers.professionalId,
-      proposedPrice: serviceOffers.proposedPrice,
-      estimatedTime: serviceOffers.estimatedTime,
-      message: serviceOffers.message,
-      status: serviceOffers.status,
-      createdAt: serviceOffers.createdAt,
-      updatedAt: serviceOffers.updatedAt,
-      // Service Request fields
-      requestId: serviceRequests.id,
-      clientId: serviceRequests.clientId,
-      serviceType: serviceRequests.serviceType,
-      description: serviceRequests.description,
-      address: serviceRequests.address,
-      budget: serviceRequests.budget,
-      scheduledDate: serviceRequests.scheduledDate,
-      scheduledTime: serviceRequests.scheduledTime,
-      urgency: serviceRequests.urgency,
-      requestStatus: serviceRequests.status,
-      assignedProfessionalId: serviceRequests.assignedProfessionalId,
-      responses: serviceRequests.responses,
-      requestCreatedAt: serviceRequests.createdAt,
-      requestUpdatedAt: serviceRequests.updatedAt,
-      // Client information
-      clientName: users.name,
-      clientEmail: users.email,
-      clientPhone: users.phone,
-      clientProfileImage: users.profileImage,
-      clientCreatedAt: users.createdAt
-    }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceOffers.professionalId, professionalId)).orderBy(desc(serviceOffers.createdAt));
-    return results.map((result) => ({
-      id: result.id,
-      serviceRequestId: result.serviceRequestId,
-      professionalId: result.professionalId,
-      proposedPrice: result.proposedPrice,
-      estimatedTime: result.estimatedTime,
-      message: result.message,
-      status: result.status,
-      createdAt: result.createdAt,
-      updatedAt: result.updatedAt,
-      serviceRequest: {
-        id: result.serviceRequestId,
-        clientId: result.clientId,
-        serviceType: result.serviceType,
-        description: result.description,
-        address: result.address,
-        budget: result.budget,
-        scheduledDate: result.scheduledDate,
-        scheduledTime: result.scheduledTime,
-        urgency: result.urgency,
-        status: result.requestStatus,
-        assignedProfessionalId: result.assignedProfessionalId,
-        responses: result.responses,
-        createdAt: result.requestCreatedAt,
-        updatedAt: result.requestUpdatedAt,
-        clientName: result.clientName,
-        clientEmail: result.clientEmail,
-        clientPhone: result.clientPhone,
-        clientProfileImage: result.clientProfileImage,
-        clientCreatedAt: result.clientCreatedAt
-      }
-    }));
-  }
-  async createServiceOffer(serviceOffer) {
-    const [offer] = await db.insert(serviceOffers).values(serviceOffer).returning();
-    return offer;
-  }
-  async updateServiceOffer(id, updates) {
-    const [offer] = await db.update(serviceOffers).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceOffers.id, id)).returning();
-    return offer;
-  }
-  async deleteServiceOffer(id) {
-    await db.delete(serviceOffers).where(eq(serviceOffers.id, id));
-  }
-  // ==================== SERVICE REQUESTS FOR CLIENT ====================
-  async getServiceRequestsForClient(userId) {
-    console.log("\u{1F50D} Buscando pedidos para cliente ID:", userId);
-    const results = await db.select({
-      id: serviceRequests.id,
-      title: serviceRequests.serviceType,
-      description: serviceRequests.description,
-      category: serviceRequests.serviceType,
-      budget: serviceRequests.budget,
-      location: serviceRequests.address,
-      urgency: serviceRequests.urgency,
-      status: serviceRequests.status,
-      createdAt: serviceRequests.createdAt,
-      responses: serviceRequests.responses
-    }).from(serviceRequests).where(eq(serviceRequests.clientId, userId)).orderBy(desc(serviceRequests.createdAt));
-    console.log("\u2705 Pedidos encontrados:", results.length);
-    return results.map((result) => ({
-      id: result.id,
-      title: result.title,
-      description: result.description,
-      category: result.category,
-      budget: result.budget,
-      location: result.location,
-      urgency: result.urgency,
-      status: result.status,
-      createdAt: result.createdAt,
-      responseCount: result.responses || 0
-    }));
-  }
-  // ==================== SERVICE OFFERS FOR CLIENT ====================
-  async getServiceOffersForClient(userId) {
-    console.log("\u{1F50D} Buscando propostas para cliente ID:", userId);
-    const results = await db.select({
-      id: serviceOffers.id,
-      serviceRequestId: serviceOffers.serviceRequestId,
-      professionalId: serviceOffers.professionalId,
-      price: serviceOffers.proposedPrice,
-      estimatedTime: serviceOffers.estimatedTime,
-      message: serviceOffers.message,
-      status: serviceOffers.status,
-      createdAt: serviceOffers.createdAt,
-      serviceTitle: serviceRequests.serviceType,
-      professionalName: professionals.name,
-      professionalRating: professionals.rating,
-      professionalTotalReviews: professionals.totalReviews,
-      professionalProfileImage: professionals.imageUrl
-    }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id)).where(eq(serviceRequests.clientId, userId)).orderBy(desc(serviceOffers.createdAt));
-    console.log("\u2705 Propostas encontradas:", results.length);
-    return results.map((result) => ({
-      id: result.id,
-      serviceRequestId: result.serviceRequestId,
-      professionalId: result.professionalId,
-      professionalName: result.professionalName,
-      professionalRating: result.professionalRating || 5,
-      professionalTotalReviews: result.professionalTotalReviews || 0,
-      professionalProfileImage: result.professionalProfileImage ? this.getFullImageUrl(result.professionalProfileImage) : null,
-      price: result.price,
-      estimatedTime: result.estimatedTime,
-      message: result.message,
-      status: result.status,
-      createdAt: result.createdAt,
-      serviceTitle: result.serviceTitle
-    }));
-  }
-  async acceptServiceOffer(offerId, userId) {
-    try {
-      console.log("\u2705 Aceitando proposta:", offerId, "pelo cliente:", userId);
-      const [offer] = await db.select({
-        id: serviceOffers.id,
-        serviceRequestId: serviceOffers.serviceRequestId,
-        professionalId: serviceOffers.professionalId,
-        status: serviceOffers.status,
-        clientId: serviceRequests.clientId
-      }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).where(eq(serviceOffers.id, offerId));
-      if (!offer) {
-        return { success: false, error: "Proposta n\xE3o encontrada" };
-      }
-      if (offer.clientId !== userId) {
-        return { success: false, error: "Proposta n\xE3o pertence a este cliente" };
-      }
-      if (offer.status !== "pending") {
-        return { success: false, error: "Proposta j\xE1 foi processada" };
-      }
-      await db.update(serviceOffers).set({ status: "accepted", updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceOffers.id, offerId));
-      await db.update(serviceRequests).set({
-        assignedProfessionalId: offer.professionalId,
-        status: "in_progress",
-        updatedAt: /* @__PURE__ */ new Date()
-      }).where(eq(serviceRequests.id, offer.serviceRequestId));
-      await db.update(serviceOffers).set({ status: "rejected", updatedAt: /* @__PURE__ */ new Date() }).where(and(
-        eq(serviceOffers.serviceRequestId, offer.serviceRequestId),
-        ne(serviceOffers.id, offerId)
-      ));
-      return { success: true };
-    } catch (error) {
-      console.error("\u274C Erro ao aceitar proposta:", error);
-      return { success: false, error: "Erro interno do servidor" };
-    }
-  }
-  async rejectServiceOffer(offerId, userId) {
-    try {
-      console.log("\u274C Rejeitando proposta:", offerId, "pelo cliente:", userId);
-      const [offer] = await db.select({
-        id: serviceOffers.id,
-        status: serviceOffers.status,
-        serviceRequestId: serviceOffers.serviceRequestId,
-        professionalId: serviceOffers.professionalId,
-        clientId: serviceRequests.clientId
-      }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).where(eq(serviceOffers.id, offerId));
-      if (!offer) {
-        return { success: false, error: "Proposta n\xE3o encontrada" };
-      }
-      if (offer.clientId !== userId) {
-        return { success: false, error: "Proposta n\xE3o pertence a este cliente" };
-      }
-      await this.deleteServiceOffer(offerId);
-      const request = await this.getServiceRequest(offer.serviceRequestId);
-      if (request) {
-        const current = Number(request.responses) || 0;
-        const next = current > 0 ? current - 1 : 0;
-        await this.updateServiceRequest(offer.serviceRequestId, { responses: next });
-      }
-      const professional = await this.getProfessional(offer.professionalId);
-      if (professional) {
-        const reqDetailed = await this.getServiceRequest(offer.serviceRequestId);
-        const serviceLabel = reqDetailed?.serviceType || "um servi\xE7o";
-        await this.createNotification({
-          userId: professional.userId,
-          message: `Sua proposta para ${serviceLabel} foi rejeitada e removida pelo cliente.`,
-          read: false
-        });
-      }
-      return { success: true };
-    } catch (error) {
-      console.error("\u274C Erro ao rejeitar e excluir proposta:", error);
-      return { success: false, error: "Erro interno do servidor" };
-    }
-  }
-};
-var storage = new DatabaseStorage();
+});
+
+// server/index.ts
+import "dotenv/config";
+import express2 from "express";
+import { sql as sql3 } from "drizzle-orm";
+
+// server/routes.ts
+init_storage();
+import express from "express";
+import { createServer } from "http";
+import session from "express-session";
+import passport2 from "passport";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 
 // server/auth.ts
+init_storage();
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import jwt from "jsonwebtoken";
@@ -1103,8 +1645,12 @@ var generateToken = (user) => {
 };
 var verifyToken = (token) => {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET);
+    console.log("\u{1F510} VerifyToken - Verificando token...");
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("\u2705 VerifyToken - Token v\xE1lido:", decoded);
+    return decoded;
   } catch (error) {
+    console.error("\u274C VerifyToken - Erro ao verificar token:", error);
     return null;
   }
 };
@@ -1117,31 +1663,69 @@ var verifyPassword = async (password, hash) => {
 var authenticateToken = async (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
+  console.log("\u{1F510} ===== IN\xCDCIO DO MIDDLEWARE DE AUTENTICA\xC7\xC3O =====");
+  console.log("\u{1F510} AuthenticateToken - Auth header:", authHeader ? "Presente" : "Ausente");
+  console.log("\u{1F510} AuthenticateToken - Token:", token ? "Presente" : "Ausente");
+  console.log("\u{1F510} AuthenticateToken - Token length:", token ? token.length : 0);
+  console.log("\u{1F510} AuthenticateToken - URL da requisi\xE7\xE3o:", req.url);
+  console.log("\u{1F510} AuthenticateToken - M\xE9todo:", req.method);
   if (!token) {
+    console.log("\u274C AuthenticateToken - Token ausente");
+    console.log("\u{1F510} ===== FIM DO MIDDLEWARE - TOKEN AUSENTE =====");
     return res.status(401).json({ message: "Token de acesso necess\xE1rio" });
   }
   try {
+    console.log("\u{1F510} AuthenticateToken - Verificando token...");
     const decoded = verifyToken(token);
+    console.log("\u{1F510} AuthenticateToken - Token decodificado:", decoded);
+    console.log("\u{1F510} AuthenticateToken - Tipo do decoded:", typeof decoded);
+    console.log("\u{1F510} AuthenticateToken - Keys do decoded:", decoded ? Object.keys(decoded) : "null");
+    if (!decoded) {
+      console.log("\u274C AuthenticateToken - Token inv\xE1lido (n\xE3o decodificado)");
+      console.log("\u{1F510} ===== FIM DO MIDDLEWARE - TOKEN INV\xC1LIDO =====");
+      return res.status(403).json({ message: "Token inv\xE1lido" });
+    }
     const userId = decoded.userId || decoded.id;
+    console.log("\u{1F510} AuthenticateToken - UserId extra\xEDdo:", userId);
+    console.log("\u{1F510} AuthenticateToken - Tipo do userId:", typeof userId);
+    console.log("\u{1F510} AuthenticateToken - userId \xE9 NaN?", isNaN(userId));
+    if (!userId) {
+      console.log("\u274C AuthenticateToken - UserId n\xE3o encontrado no token");
+      console.log("\u{1F510} AuthenticateToken - decoded.userId:", decoded.userId);
+      console.log("\u{1F510} AuthenticateToken - decoded.id:", decoded.id);
+      console.log("\u{1F510} ===== FIM DO MIDDLEWARE - USERID N\xC3O ENCONTRADO =====");
+      return res.status(400).json({ message: "ID da solicita\xE7\xE3o inv\xE1lido" });
+    }
+    console.log("\u{1F510} AuthenticateToken - Buscando usu\xE1rio no banco...");
     const user = await storage.getUser(userId);
+    console.log("\u{1F510} AuthenticateToken - Usu\xE1rio encontrado:", user ? "Sim" : "N\xE3o");
+    console.log("\u{1F510} AuthenticateToken - Dados do usu\xE1rio:", user ? { id: user.id, name: user.name, email: user.email, userType: user.userType } : "null");
     if (!user || user.isBlocked) {
+      console.log("\u274C AuthenticateToken - Usu\xE1rio n\xE3o encontrado ou bloqueado");
+      console.log("\u{1F510} ===== FIM DO MIDDLEWARE - USU\xC1RIO N\xC3O ENCONTRADO =====");
       return res.status(403).json({ message: "Usu\xE1rio n\xE3o encontrado ou bloqueado" });
     }
+    console.log("\u2705 AuthenticateToken - Usu\xE1rio autenticado com sucesso:", user.id, user.name);
     req.user = user;
+    console.log("\u{1F510} ===== FIM DO MIDDLEWARE - AUTENTICA\xC7\xC3O BEM-SUCEDIDA =====");
     next();
   } catch (error) {
-    console.error("Authentication error:", error);
+    console.error("\u274C AuthenticateToken - Erro:", error);
+    console.log("\u{1F510} ===== FIM DO MIDDLEWARE - ERRO =====");
     return res.status(403).json({ message: "Token inv\xE1lido" });
   }
 };
 var rateLimitByIP = async (req, res, next) => {
+  if (process.env.NODE_ENV === "development" || process.env.NODE_ENV !== "production") {
+    return next();
+  }
   const ip = req.ip || req.connection?.remoteAddress || "unknown";
   const userAgent = req.get("User-Agent") || "unknown";
   try {
     const recentAttempts = await storage.getRecentLoginAttempts(ip, 15);
-    if (recentAttempts.length >= 5) {
+    if (recentAttempts.length >= 10) {
       const failedAttempts = recentAttempts.filter((attempt) => !attempt.successful);
-      if (failedAttempts.length >= 3) {
+      if (failedAttempts.length >= 5) {
         await storage.createLoginAttempt({
           email: req.body.email || null,
           ipAddress: ip,
@@ -1167,6 +1751,7 @@ import pgSession from "connect-pg-simple";
 import multer from "multer";
 import path2 from "path";
 import fs from "fs";
+import { sql as sql2 } from "drizzle-orm";
 var multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path2.join(process.cwd(), "uploads");
@@ -1206,10 +1791,33 @@ var authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    return process.env.NODE_ENV === "development" || true;
+    return process.env.NODE_ENV === "development" || process.env.NODE_ENV !== "production";
   }
 });
 async function registerRoutes(app2) {
+  app2.use((req, res, next) => {
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+      "https://lifebee.netlify.app",
+      "https://lifebee.com.br",
+      "http://localhost:5173",
+      "http://localhost:5174"
+    ];
+    res.setHeader("Vary", "Origin");
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    } else {
+      const defaultOrigin = process.env.NODE_ENV === "production" ? "https://lifebee.netlify.app" : "http://localhost:5173";
+      res.setHeader("Access-Control-Allow-Origin", defaultOrigin);
+    }
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+    if (req.method === "OPTIONS") {
+      return res.status(204).end();
+    }
+    next();
+  });
   app2.get("/api/test", (req, res) => {
     res.json({
       message: "Server is running!",
@@ -1261,6 +1869,25 @@ async function registerRoutes(app2) {
       timestamp: (/* @__PURE__ */ new Date()).toISOString(),
       environment: process.env.NODE_ENV || "development"
     });
+  });
+  app2.get("/api/health/db", async (req, res) => {
+    try {
+      const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      await db2.execute(sql2`SELECT 1`);
+      res.json({
+        status: "OK",
+        database: "Connected",
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    } catch (error) {
+      console.error("\u274C Erro no teste de banco:", error);
+      res.status(500).json({
+        status: "ERROR",
+        database: "Disconnected",
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    }
   });
   app2.get("/api/test-auth", authenticateToken, (req, res) => {
     const user = req.user;
@@ -1317,6 +1944,26 @@ async function registerRoutes(app2) {
   }));
   app2.use(passport2.initialize());
   app2.use(passport2.session());
+  app2.post("/api/auth/clear-block", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ message: "Email \xE9 obrigat\xF3rio" });
+      }
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(404).json({ message: "Usu\xE1rio n\xE3o encontrado" });
+      }
+      await storage.updateUser(user.id, {
+        isBlocked: false,
+        loginAttempts: 0
+      });
+      res.json({ message: "Bloqueio removido com sucesso" });
+    } catch (error) {
+      console.error("Clear block error:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
   app2.post("/api/auth/login", authLimiter, rateLimitByIP, async (req, res) => {
     try {
       const { email, password, userType } = req.body;
@@ -1774,6 +2421,7 @@ async function registerRoutes(app2) {
   app2.get("/api/user", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
+      const createdAt = user.createdAt || user.lastLoginAt || (/* @__PURE__ */ new Date()).toISOString();
       res.json({
         id: user.id,
         name: user.name,
@@ -1782,7 +2430,8 @@ async function registerRoutes(app2) {
         isVerified: user.isVerified,
         phoneVerified: user.phoneVerified,
         phone: user.phone,
-        profileImage: user.profileImage
+        profileImage: user.profileImage,
+        createdAt
       });
     } catch (error) {
       res.status(500).json({ message: "Internal server error" });
@@ -2035,26 +2684,43 @@ async function registerRoutes(app2) {
         location,
         available
       } = req.body;
+      console.log("\u27A1\uFE0F PUT /api/provider/profile body:", req.body);
       if (user.userType !== "provider") {
         return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
       }
-      const professional = await storage.getProfessionalByUserId(user.id);
+      let professional = await storage.getProfessionalByUserId(user.id);
       if (!professional) {
-        return res.status(404).json({ message: "Dados do profissional n\xE3o encontrados." });
+        const minimalCategory = typeof category === "string" && category.trim() || "acompanhante_hospitalar";
+        const minimalSub = typeof subCategory === "string" && subCategory.trim() || "companhia_apoio_emocional";
+        const createValues = {
+          userId: user.id,
+          name: typeof name === "string" && name.trim() || user.name || "",
+          specialization: (typeof specialization === "string" ? specialization : "") || "",
+          category: minimalCategory,
+          subCategory: minimalSub,
+          description: (typeof description === "string" ? description : "") || "",
+          available: typeof available === "boolean" ? available : true
+        };
+        if (typeof experience === "string") createValues.experience = experience;
+        if (typeof certifications === "string") createValues.certifications = certifications;
+        if (hourlyRate !== void 0 && hourlyRate !== null && String(hourlyRate).toString().trim() !== "") createValues.hourlyRate = String(hourlyRate);
+        if (typeof location === "string") createValues.location = location;
+        professional = await storage.createProfessional(createValues);
       }
-      const updatedProfessional = await storage.updateProfessional(professional.id, {
-        name,
-        specialization,
-        category,
-        subCategory,
-        description,
-        experience,
-        certifications,
-        hourlyRate,
-        location,
-        available
-      });
-      if (name && name !== user.name) {
+      const updates = {};
+      if (typeof name === "string" && name.trim() !== "") updates.name = name.trim();
+      if (typeof specialization === "string") updates.specialization = specialization;
+      if (typeof category === "string" && category.trim() !== "") updates.category = category;
+      if (typeof subCategory === "string" && subCategory.trim() !== "") updates.subCategory = subCategory;
+      if (typeof description === "string") updates.description = description;
+      if (typeof experience === "string") updates.experience = experience;
+      if (typeof certifications === "string") updates.certifications = certifications;
+      if (hourlyRate !== void 0 && hourlyRate !== null && String(hourlyRate).toString().trim() !== "") updates.hourlyRate = String(hourlyRate);
+      if (typeof location === "string") updates.location = location;
+      if (typeof available === "boolean") updates.available = available;
+      console.log("\u{1F527} Provider profile updates:", { userId: user.id, updates });
+      const updatedProfessional = Object.keys(updates).length === 0 ? professional : await storage.updateProfessional(professional.id, updates);
+      if (typeof name === "string" && name.trim() !== "" && name !== user.name) {
         await storage.updateUser(user.id, { name });
       }
       res.json({
@@ -2063,7 +2729,7 @@ async function registerRoutes(app2) {
       });
     } catch (error) {
       console.error("Update provider profile error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
+      res.status(500).json({ message: "Erro interno do servidor", error: error?.message || "unknown" });
     }
   });
   app2.post("/api/provider/upload-image", authenticateToken, upload.single("profileImage"), async (req, res) => {
@@ -2250,6 +2916,32 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
+  app2.get("/api/service-requests/client", authenticateToken, async (req, res) => {
+    try {
+      const userId = req.user?.id;
+      console.log("\u{1F50D} Buscando pedidos para cliente:", userId);
+      if (!userId) {
+        return res.status(401).json({ error: "Usu\xE1rio n\xE3o autenticado" });
+      }
+      if (req.user?.userType !== "client") {
+        return res.status(403).json({ error: "Apenas clientes podem acessar suas solicita\xE7\xF5es" });
+      }
+      const requests = await storage.getServiceRequestsForClient(userId);
+      console.log("\u2705 Pedidos encontrados:", requests.length);
+      res.json(requests);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar pedidos do cliente:", error);
+      if (error instanceof Error) {
+        console.error("\u274C Stack trace:", error.stack);
+        console.error("\u274C Error name:", error.name);
+        console.error("\u274C Error message:", error.message);
+      }
+      res.status(500).json({
+        error: "Erro interno do servidor",
+        details: process.env.NODE_ENV === "development" && error instanceof Error ? error.message : void 0
+      });
+    }
+  });
   app2.post("/api/service-request", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
@@ -2276,7 +2968,10 @@ async function registerRoutes(app2) {
         budget: budget ? parseFloat(budget).toString() : null,
         status: "open",
         assignedProfessionalId: null,
-        responses: 0
+        responses: 0,
+        serviceStartedAt: null,
+        serviceCompletedAt: null,
+        clientConfirmedAt: null
       });
       const professionals2 = await storage.getProfessionalsByCategory(category);
       for (const professional of professionals2) {
@@ -2292,19 +2987,6 @@ async function registerRoutes(app2) {
       });
     } catch (error) {
       console.error("Create service request error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/service-requests/client", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      if (user.userType !== "client") {
-        return res.status(403).json({ message: "Apenas clientes podem acessar suas solicita\xE7\xF5es" });
-      }
-      const serviceRequests2 = await storage.getServiceRequestsByClient(user.id);
-      res.json(serviceRequests2);
-    } catch (error) {
-      console.error("Get client service requests error:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
@@ -2536,6 +3218,7 @@ async function registerRoutes(app2) {
         serviceRequestId: requestId,
         professionalId: professional.id,
         proposedPrice: proposedPrice.toString(),
+        finalPrice: null,
         estimatedTime,
         message,
         status: "pending"
@@ -2653,21 +3336,6 @@ async function registerRoutes(app2) {
       res.redirect(errorRedirectUrl);
     }
   });
-  app2.get("/api/service-requests/client", authenticateToken, async (req, res) => {
-    try {
-      const userId = req.user?.id;
-      console.log("\u{1F50D} Buscando pedidos para cliente:", userId);
-      if (!userId) {
-        return res.status(401).json({ error: "Usu\xE1rio n\xE3o autenticado" });
-      }
-      const requests = await storage.getServiceRequestsForClient(userId);
-      console.log("\u2705 Pedidos encontrados:", requests.length);
-      res.json(requests);
-    } catch (error) {
-      console.error("\u274C Erro ao buscar pedidos do cliente:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
   app2.get("/api/service-offers/client", authenticateToken, async (req, res) => {
     try {
       const userId = req.user?.id;
@@ -2675,12 +3343,23 @@ async function registerRoutes(app2) {
       if (!userId) {
         return res.status(401).json({ error: "Usu\xE1rio n\xE3o autenticado" });
       }
+      if (req.user?.userType !== "client") {
+        return res.status(403).json({ error: "Apenas clientes podem acessar suas propostas" });
+      }
       const offers = await storage.getServiceOffersForClient(userId);
       console.log("\u2705 Propostas encontradas:", offers.length);
       res.json(offers);
     } catch (error) {
       console.error("\u274C Erro ao buscar propostas do cliente:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
+      if (error instanceof Error) {
+        console.error("\u274C Stack trace:", error.stack);
+        console.error("\u274C Error name:", error.name);
+        console.error("\u274C Error message:", error.message);
+      }
+      res.status(500).json({
+        error: "Erro interno do servidor",
+        details: process.env.NODE_ENV === "development" && error instanceof Error ? error.message : void 0
+      });
     }
   });
   app2.put("/api/service-offers/:id/accept", authenticateToken, async (req, res) => {
@@ -2699,6 +3378,160 @@ async function registerRoutes(app2) {
       }
     } catch (error) {
       console.error("\u274C Erro ao aceitar proposta:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/service/:id/start", authenticateToken, async (req, res) => {
+    try {
+      const serviceRequestId = parseInt(req.params.id);
+      const user = req.user;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ error: "Apenas profissionais podem iniciar servi\xE7os" });
+      }
+      const result = await storage.startService(serviceRequestId, user.id);
+      if (result.success) {
+        res.json({ message: "Servi\xE7o iniciado com sucesso" });
+      } else {
+        res.status(400).json({ error: result.error || "Erro ao iniciar servi\xE7o" });
+      }
+    } catch (error) {
+      console.error("\u274C Erro ao iniciar servi\xE7o:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/service/:id/complete", authenticateToken, async (req, res) => {
+    try {
+      const serviceRequestId = parseInt(req.params.id);
+      const user = req.user;
+      const { notes } = req.body;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ error: "Apenas profissionais podem concluir servi\xE7os" });
+      }
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(400).json({ error: "Profissional n\xE3o encontrado" });
+      }
+      const result = await storage.completeService(serviceRequestId, professional.id, notes);
+      if (result.success) {
+        res.json({ message: "Servi\xE7o conclu\xEDdo com sucesso. Aguardando confirma\xE7\xE3o do cliente." });
+      } else {
+        res.status(400).json({ error: result.error || "Erro ao concluir servi\xE7o" });
+      }
+    } catch (error) {
+      console.error("\u274C Erro ao concluir servi\xE7o:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/service/:id/confirm", authenticateToken, async (req, res) => {
+    try {
+      const serviceRequestId = parseInt(req.params.id);
+      const user = req.user;
+      if (user.userType !== "client") {
+        return res.status(403).json({ error: "Apenas clientes podem confirmar conclus\xE3o de servi\xE7os" });
+      }
+      const result = await storage.confirmServiceCompletion(serviceRequestId, user.id);
+      if (result.success) {
+        res.json({
+          message: "Servi\xE7o confirmado com sucesso. Pagamento ser\xE1 liberado para o profissional.",
+          requiresReview: true,
+          serviceRequestId
+        });
+      } else {
+        res.status(400).json({ error: result.error || "Erro ao confirmar servi\xE7o" });
+      }
+    } catch (error) {
+      console.error("\u274C Erro ao confirmar servi\xE7o:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/service/:id/review", authenticateToken, async (req, res) => {
+    try {
+      const serviceRequestId = parseInt(req.params.id);
+      const user = req.user;
+      const { rating, comment } = req.body;
+      if (user.userType !== "client") {
+        return res.status(403).json({ error: "Apenas clientes podem avaliar servi\xE7os" });
+      }
+      if (!rating || rating < 1 || rating > 5) {
+        return res.status(400).json({ error: "Avalia\xE7\xE3o deve ser entre 1 e 5 estrelas" });
+      }
+      const request = await storage.getServiceRequest(serviceRequestId);
+      if (!request) {
+        return res.status(404).json({ error: "Servi\xE7o n\xE3o encontrado" });
+      }
+      if (request.clientId !== user.id) {
+        return res.status(403).json({ error: "Apenas o cliente pode avaliar este servi\xE7o" });
+      }
+      if (request.status !== "completed") {
+        return res.status(400).json({ error: "Servi\xE7o deve estar conclu\xEDdo para ser avaliado" });
+      }
+      const offers = await storage.getServiceOffers(serviceRequestId);
+      const acceptedOffer = offers.find((offer) => offer.status === "accepted");
+      if (!acceptedOffer) {
+        return res.status(400).json({ error: "Proposta aceita n\xE3o encontrada" });
+      }
+      const existingReview = await storage.getServiceReviewByService(serviceRequestId);
+      if (existingReview) {
+        return res.status(400).json({ error: "Este servi\xE7o j\xE1 foi avaliado" });
+      }
+      const review = await storage.createServiceReview({
+        serviceRequestId,
+        serviceOfferId: acceptedOffer.id,
+        clientId: user.id,
+        professionalId: acceptedOffer.professionalId,
+        rating,
+        comment: comment || null
+      });
+      res.json({
+        message: "Avalia\xE7\xE3o enviada com sucesso!",
+        review: {
+          id: review.id,
+          rating: review.rating,
+          comment: review.comment,
+          createdAt: review.createdAt
+        }
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao criar avalia\xE7\xE3o:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/professional/:id/reviews", async (req, res) => {
+    try {
+      const professionalId = parseInt(req.params.id);
+      const reviews = await storage.getServiceReviewsByProfessional(professionalId);
+      res.json({
+        reviews: reviews.map((review) => ({
+          id: review.id,
+          rating: review.rating,
+          comment: review.comment,
+          createdAt: review.createdAt,
+          serviceRequestId: review.serviceRequestId
+        }))
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao buscar avalia\xE7\xF5es do profissional:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/service/:id/progress", authenticateToken, async (req, res) => {
+    try {
+      const serviceRequestId = parseInt(req.params.id);
+      const user = req.user;
+      const request = await storage.getServiceRequest(serviceRequestId);
+      if (!request) {
+        return res.status(404).json({ error: "Servi\xE7o n\xE3o encontrado" });
+      }
+      if (user.userType === "client" && request.clientId !== user.id) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+      if (user.userType === "provider" && request.assignedProfessionalId !== user.id) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+      const progress = await storage.getServiceProgress(serviceRequestId);
+      res.json(progress);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar progresso do servi\xE7o:", error);
       res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
@@ -2721,6 +3554,109 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
+  app2.get("/api/test/users", async (req, res) => {
+    try {
+      const { storage: storage2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
+      const users2 = await storage2.getAllUsers();
+      res.json({
+        count: users2.length,
+        users: users2.map((u) => ({ id: u.id, name: u.name, email: u.email, userType: u.userType }))
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao buscar usu\xE1rios:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/test/auth-debug", async (req, res) => {
+    try {
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+      res.json({
+        authHeader: authHeader ? "Presente" : "Ausente",
+        token: token ? "Presente" : "Ausente",
+        tokenLength: token ? token.length : 0,
+        message: "Endpoint de teste para debug da autentica\xE7\xE3o"
+      });
+    } catch (error) {
+      console.error("\u274C Erro no endpoint de teste:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/professional/transactions", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ error: "Apenas profissionais podem acessar transa\xE7\xF5es" });
+      }
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
+      }
+      const transactions2 = await storage.getTransactionsByProfessional(professional.id);
+      const totalEarnings = transactions2.filter((t) => t.status === "completed").reduce((sum, t) => sum + Number(t.amount), 0);
+      const pendingAmount = transactions2.filter((t) => t.status === "pending").reduce((sum, t) => sum + Number(t.amount), 0);
+      res.json({
+        transactions: transactions2,
+        statistics: {
+          totalEarnings: totalEarnings.toFixed(2),
+          pendingAmount: pendingAmount.toFixed(2),
+          totalTransactions: transactions2.length,
+          completedTransactions: transactions2.filter((t) => t.status === "completed").length
+        }
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao buscar transa\xE7\xF5es do profissional:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/client/transactions", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "client") {
+        return res.status(403).json({ error: "Apenas clientes podem acessar transa\xE7\xF5es" });
+      }
+      const transactions2 = await storage.getTransactionsByClient(user.id);
+      res.json(transactions2);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar transa\xE7\xF5es do cliente:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/professional/:id/completed-services", authenticateToken, async (req, res) => {
+    try {
+      const professionalId = parseInt(req.params.id);
+      const user = req.user;
+      if (user.id !== professionalId) {
+        return res.status(403).json({ error: "Acesso negado" });
+      }
+      const completedServices = await storage.getProfessionalCompletedServices(professionalId);
+      res.json({
+        success: true,
+        data: completedServices
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao buscar servi\xE7os conclu\xEDdos:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/professional/:id/reviews", async (req, res) => {
+    try {
+      const professionalId = parseInt(req.params.id);
+      const reviews = await storage.getServiceReviewsByProfessional(professionalId);
+      res.json({
+        reviews: reviews.map((review) => ({
+          id: review.id,
+          rating: review.rating,
+          comment: review.comment,
+          createdAt: review.createdAt,
+          serviceRequestId: review.serviceRequestId
+        }))
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao buscar avalia\xE7\xF5es do profissional:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
   const httpServer = createServer(app2);
   return httpServer;
 }
@@ -2730,9 +3666,7 @@ import { Server as SocketIOServer } from "socket.io";
 var app = express2();
 console.log("=== Backend inicializado ===");
 app.use((req, res, next) => {
-  if (req.path.startsWith("/uploads")) {
-    return next();
-  }
+  if (req.path.startsWith("/uploads")) return next();
   const origin = req.headers.origin;
   const allowedOrigins = [
     "https://lifebee.netlify.app",
@@ -2740,25 +3674,17 @@ app.use((req, res, next) => {
     "http://localhost:5173",
     "http://localhost:5174"
   ];
-  console.log("\u{1F310} CORS - Origin:", origin);
-  console.log("\u{1F310} CORS - Method:", req.method);
-  console.log("\u{1F310} CORS - Path:", req.path);
+  res.setHeader("Vary", "Origin");
   if (origin && allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
-    console.log("\u{1F310} CORS - Origin permitido:", origin);
   } else {
     const defaultOrigin = process.env.NODE_ENV === "production" ? "https://lifebee.netlify.app" : "http://localhost:5173";
     res.setHeader("Access-Control-Allow-Origin", defaultOrigin);
-    console.log("\u{1F310} CORS - Usando origin padr\xE3o:", defaultOrigin);
   }
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.setHeader("Access-Control-Allow-Credentials", "true");
-  if (req.method === "OPTIONS") {
-    console.log("\u{1F310} CORS - Respondendo a OPTIONS");
-    res.status(200).end();
-    return;
-  }
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+  if (req.method === "OPTIONS") return res.status(204).end();
   next();
 });
 app.use(express2.json());
@@ -2766,6 +3692,23 @@ app.use(express2.urlencoded({ extended: false }));
 app.use((req, res, next) => {
   console.log("\u{1F310} Debug Global - Requisi\xE7\xE3o:", req.method, req.path);
   next();
+});
+app.use(async (req, res, next) => {
+  if (req.path.startsWith("/api") && req.path !== "/api/health") {
+    try {
+      const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      await db2.execute(sql3`SELECT 1`);
+      next();
+    } catch (error) {
+      console.error("\u274C Erro de conex\xE3o com banco:", error);
+      res.status(503).json({
+        error: "Servi\xE7o temporariamente indispon\xEDvel",
+        message: "Erro de conex\xE3o com banco de dados"
+      });
+    }
+  } else {
+    next();
+  }
 });
 app.use((req, res, next) => {
   const start = Date.now();
@@ -2816,8 +3759,22 @@ app.use((req, res, next) => {
   app.use((err, _req, res, _next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-    console.error(err);
+    console.error("\u274C Erro global capturado:");
+    console.error("Status:", status);
+    console.error("Message:", message);
+    console.error("Stack:", err.stack);
+    console.error("Error object:", err);
+    const errorResponse = {
+      message: process.env.NODE_ENV === "production" ? "Erro interno do servidor" : message
+    };
+    if (process.env.NODE_ENV === "development") {
+      errorResponse.details = {
+        stack: err.stack,
+        name: err.name,
+        code: err.code
+      };
+    }
+    res.status(status).json(errorResponse);
   });
   const port = process.env.PORT || 8080;
   server.listen({

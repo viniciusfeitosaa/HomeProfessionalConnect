@@ -151,89 +151,56 @@ export default function ProviderProposals() {
     }).format(parseFloat(value));
   };
 
-    const openChat = async (proposal: Proposal) => {
+  // Abrir chat com cliente
+  const openChat = (proposal: Proposal) => {
+    // Implementar lógica do chat
+    toast({
+      title: "Chat",
+      description: "Funcionalidade de chat será implementada em breve",
+    });
+  };
+
+  // Confirmar conclusão do serviço
+  const confirmServiceCompletion = async (proposal: Proposal) => {
+    if (!user) return;
+
     try {
-      console.log('🚀 Iniciando openChat para proposta:', proposal.id);
-      console.log('📋 Dados da proposta:', {
-        clientId: proposal.serviceRequest.clientId,
-        serviceRequestId: proposal.serviceRequestId,
-        serviceType: proposal.serviceRequest.serviceType,
-        clientName: proposal.serviceRequest.clientName
-      });
-
-      // Verificar se o token existe
-      const token = localStorage.getItem('token');
-      if (!token) {
-        console.error('❌ Token não encontrado');
-        toast({
-          title: "Erro",
-          description: "Token de autenticação não encontrado. Faça login novamente.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Mostrar loading
-      toast({
-        title: "Iniciando conversa...",
-        description: "Aguarde um momento...",
-      });
-
-      const requestBody = {
-        clientId: proposal.serviceRequest.clientId,
-        serviceRequestId: proposal.serviceRequestId,
-        initialMessage: `Olá! Gostaria de conversar sobre o serviço "${proposal.serviceRequest.serviceType}". Minha proposta: R$ ${proposal.proposedPrice} - Tempo estimado: ${proposal.estimatedTime}. ${proposal.message ? `Observações: ${proposal.message}` : ''}`
-      };
-
-      console.log('📤 Enviando requisição para /api/conversations');
-      console.log('📤 Request body:', requestBody);
-      console.log('📤 API URL:', getApiUrl());
-
-      // Criar conversa e enviar mensagem inicial em uma única chamada
-      const response = await fetch(`${getApiUrl()}/api/conversations`, {
+      const response = await fetch(`${getApiUrl()}/api/service/${proposal.serviceRequestId}/complete`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+          notes: 'Serviço concluído com sucesso'
+        })
       });
 
-      console.log('📥 Response status:', response.status);
-      console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
-
       if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Resposta bem-sucedida:', result);
-        
         toast({
-          title: "Conversa iniciada!",
-          description: `Mensagem enviada para ${proposal.serviceRequest.clientName}`,
+          title: "Sucesso!",
+          description: "Serviço marcado como concluído. Aguardando confirmação do cliente.",
         });
         
-        // Navegar para a tela de chat com a conversa específica
-        console.log('🧭 Navegando para:', `/messages/${result.id}`);
-        setLocation(`/messages/${result.id}`);
+        // Recarregar propostas para atualizar o status
+        window.location.reload();
       } else {
         const errorData = await response.json();
-        console.error('❌ Erro na resposta:', errorData);
-        console.error('❌ Status:', response.status);
         toast({
           title: "Erro",
-          description: errorData.message || "Erro ao iniciar conversa",
+          description: errorData.error || "Erro ao confirmar conclusão do serviço",
           variant: "destructive"
         });
       }
     } catch (error) {
-      console.error('❌ Erro ao abrir chat:', error);
+      console.error('Erro ao confirmar conclusão:', error);
       toast({
         title: "Erro",
-        description: "Erro ao abrir chat. Tente novamente.",
+        description: "Erro ao confirmar conclusão do serviço",
         variant: "destructive"
       });
     }
   };
-
 
 
   if (isLoading) {
@@ -518,6 +485,31 @@ export default function ProviderProposals() {
                         <MessageCircle className="h-4 w-4 mr-2" />
                         Chat com Cliente
                       </Button>
+                      
+                      {/* Botão para confirmar conclusão (apenas para propostas aceitas e serviços não concluídos) */}
+                      {proposal.status === 'accepted' && proposal.serviceRequest?.status !== 'awaiting_confirmation' && (
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          onClick={() => confirmServiceCompletion(proposal)}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Confirmar Conclusão
+                        </Button>
+                      )}
+                      
+                      {/* Mostrar status quando o serviço já foi concluído */}
+                      {proposal.status === 'accepted' && proposal.serviceRequest?.status === 'awaiting_confirmation' && (
+                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-orange-600" />
+                            <span className="text-sm font-medium text-orange-800">
+                              Serviço Concluído - Aguardando Confirmação do Cliente
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>

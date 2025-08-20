@@ -148,6 +148,40 @@ export const serviceOffers = pgTable("service_offers", {
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });
+// Tabela para transações/pagamentos
+export const transactions = pgTable("transactions", {
+    id: serial("id").primaryKey(),
+    serviceRequestId: integer("service_request_id").notNull(),
+    serviceOfferId: integer("service_offer_id").notNull(),
+    clientId: integer("client_id").notNull(),
+    professionalId: integer("professional_id").notNull(),
+    amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Valor da transação
+    status: text("status", {
+        enum: ["pending", "completed", "failed", "refunded"]
+    }).notNull().default("pending"),
+    type: text("type", {
+        enum: ["service_payment", "refund", "bonus"]
+    }).notNull().default("service_payment"),
+    description: text("description"), // Descrição da transação
+    paymentMethod: text("payment_method", {
+        enum: ["pix", "credit_card", "debit_card", "bank_transfer"]
+    }).default("pix"),
+    transactionId: text("transaction_id"), // ID externo da transação (gateway de pagamento)
+    completedAt: timestamp("completed_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
+export const serviceReviews = pgTable("service_reviews", {
+    id: serial("id").primaryKey(),
+    serviceRequestId: integer("service_request_id").notNull(),
+    serviceOfferId: integer("service_offer_id").notNull(),
+    clientId: integer("client_id").notNull(),
+    professionalId: integer("professional_id").notNull(),
+    rating: integer("rating").notNull(), // 1-5 estrelas
+    comment: text("comment"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
 // Tabela para acompanhar o progresso do serviço
 export const serviceProgress = pgTable("service_progress", {
     id: serial("id").primaryKey(),

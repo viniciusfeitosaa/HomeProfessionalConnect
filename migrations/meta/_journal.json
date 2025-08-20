@@ -8,6 +8,20 @@
       "when": 1755266630172,
       "tag": "0000_clever_daredevil",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1756396800000,
+      "tag": "0001_add_transactions_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1756396800000,
+      "tag": "0002_add_service_reviews_table",
+      "breakpoints": true
     }
   ]
 }
