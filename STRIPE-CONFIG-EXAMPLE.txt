@@ -1,0 +1,8 @@
+# Stripe Configuration Example
+# Copie para server/.env
+
+STRIPE_SECRET_KEY=sk_test_SEU_SEGREGO_AQUI
+STRIPE_WEBHOOK_SECRET=whsec_SEU_WEBHOOK_AQUI
+
+# Frontend
+REACT_APP_STRIPE_PUBLISHABLE_KEY=pk_test_SUA_CHAVE_PUBLICA_AQUI

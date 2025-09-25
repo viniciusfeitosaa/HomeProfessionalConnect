@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, decimal, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, decimal, timestamp, jsonb } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -74,7 +74,10 @@ export const appointments = pgTable("appointments", {
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
   message: text("message").notNull(),
+  data: jsonb("data"),
   read: boolean("read").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -154,7 +157,7 @@ export const serviceOffers = pgTable("service_offers", {
   finalPrice: decimal("final_price", { precision: 8, scale: 2 }), // Preço final acordado
   estimatedTime: text("estimated_time").notNull(), // Tempo estimado (ex: "1 hora", "2 horas")
   message: text("message").notNull(), // Mensagem da proposta
-  status: text("status", { enum: ["pending", "accepted", "rejected", "withdrawn"] }).default("pending"), // Status da proposta
+  status: text("status", { enum: ["pending", "accepted", "rejected", "withdrawn", "paid", "completed"] }).default("pending"), // Status da proposta
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -195,6 +198,23 @@ export const serviceReviews = pgTable("service_reviews", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const paymentReferences = pgTable("payment_references", {
+  id: serial("id").primaryKey(),
+  serviceRequestId: integer("service_request_id").notNull(),
+  serviceOfferId: integer("service_offer_id").notNull(),
+  clientId: integer("client_id").notNull(),
+  professionalId: integer("professional_id").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  preferenceId: text("preference_id").notNull().unique(),
+  status: text("status", { enum: ["pending", "approved", "rejected", "cancelled"] }).notNull().default("pending"),
+  statusDetail: text("status_detail"), // Detalhes do status do pagamento
+  externalReference: text("external_reference").notNull(),
+  paymentId: text("payment_id"), // ID do pagamento no Mercado Pago quando aprovado
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Tipos TypeScript inferidos das tabelas
 export type User = typeof users.$inferSelect;
 export type Professional = typeof professionals.$inferSelect;
@@ -226,6 +246,7 @@ export type ServiceOffer = typeof serviceOffers.$inferSelect;
 export type ServiceProgress = typeof serviceProgress.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
 export type ServiceReview = typeof serviceReviews.$inferSelect;
+export type PaymentReference = typeof paymentReferences.$inferSelect;
 
 // Tipos para inserção (sem campos auto-gerados)
 export type InsertUser = Omit<User, 'id' | 'createdAt' | 'updatedAt'>;
@@ -253,3 +274,16 @@ export type InsertTransaction = {
   completedAt?: Date | null;
 };
 export type InsertServiceReview = Omit<ServiceReview, 'id' | 'createdAt' | 'updatedAt'>;
+export type InsertPaymentReference = {
+  serviceRequestId: number;
+  serviceOfferId: number;
+  clientId: number;
+  professionalId: number;
+  amount: string;
+  preferenceId: string;
+  status: "pending" | "approved" | "rejected" | "cancelled";
+  statusDetail?: string | null;
+  externalReference: string;
+  paymentId?: string | null;
+  approvedAt?: Date | null;
+};

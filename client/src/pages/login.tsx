@@ -237,10 +237,9 @@ export default function Login({ onLogin }: LoginProps) {
     try {
       if (isLogin) {
         // Login
-        const response = await apiRequest('POST', '/api/auth/login', {
-          email,
-          password,
-          userType
+        const response = await apiRequest('POST', '/api/login', {
+          username: email,
+          password
         });
 
         const data = await response.json();
@@ -260,7 +259,7 @@ export default function Login({ onLogin }: LoginProps) {
         }
       } else {
         // Registration
-        const response = await apiRequest('POST', '/api/auth/register', {
+        const response = await apiRequest('POST', '/api/register', {
           username: email,
           email,
           password,

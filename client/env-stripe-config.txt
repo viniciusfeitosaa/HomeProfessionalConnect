@@ -1,0 +1,8 @@
+# Configuração do Stripe - LifeBee
+# Copie este conteúdo para o arquivo client/.env
+
+# Stripe Configuration
+REACT_APP_STRIPE_PUBLISHABLE_KEY=<SUA_CHAVE_PUBLICA_TESTE>
+
+# API Configuration
+REACT_APP_API_URL=http://localhost:8080

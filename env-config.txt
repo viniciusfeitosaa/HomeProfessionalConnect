@@ -1,13 +1,23 @@
 # Copie este conteúdo para um arquivo .env na raiz do projeto
 
-# Configurações do Banco de Dados (Neon)
-DATABASE_URL=postgresql://seu-usuario:sua-senha@seu-host-neon:5432/seu-banco?sslmode=require
+# Configurações do Banco de Dados
+DATABASE_URL=postgresql://neondb_owner:npg_L9mgJX6UuftC@ep-lingering-pine-a54hc3dj-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
 
-# Configurações JWT
-JWT_SECRET=sua-chave-secreta-jwt-aqui
+# Configurações do Mercado Pago
+MERCADOPAGO_ACCESS_TOKEN=APP_USR-1923177717890465-082109-8f2125345d1601bce3a067b6eb1258c1-810345213
+MERCADOPAGO_PUBLIC_KEY=APP_USR-74bd256d-babe-4f73-88e6-efeea4c503aa
+MERCADOPAGO_CLIENT_ID=1923177717890465
+MERCADOPAGO_CLIENT_SECRET=WANzuMqWGqmHzSLRvMzacZZIM4yc7gZB
+
+# Configurações da Sessão
+SESSION_SECRET=your-session-secret-key-here
+JWT_SECRET=your-jwt-secret-key-here
+
+# Configurações do Servidor
+PORT=8080
 
 # Ambiente
 NODE_ENV=development
 
-# Porta do servidor
-PORT=5000 
+# URL do Backend
+BACKEND_URL=http://localhost:8080 

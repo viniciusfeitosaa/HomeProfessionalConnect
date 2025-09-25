@@ -35,6 +35,7 @@ import {
   AlertDialogTrigger,
 } from "../components/ui/alert-dialog";
 import RatingPopup from '../components/rating-popup';
+import PaymentButton from '../components/payment-button';
 
 interface ServiceRequest {
   id: number;
@@ -61,7 +62,7 @@ interface ServiceOffer {
   price: number;
   estimatedTime: number;
   message: string;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'paid';
   createdAt: string;
   serviceTitle: string;
   serviceStatus: string;
@@ -699,6 +700,16 @@ export default function Services() {
                   >
                     Rejeitadas
                   </button>
+                  <button
+                    onClick={() => setStatusFilter('completed')}
+                    className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                      statusFilter === 'completed'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Concluídas
+                  </button>
                 </div>
               </div>
             </div>
@@ -770,10 +781,12 @@ export default function Services() {
                             <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
                               offer.status === 'accepted' ? 'bg-green-100 text-green-800' :
                               offer.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                              offer.status === 'completed' ? 'bg-blue-100 text-blue-800' :
                               'bg-yellow-100 text-yellow-800'
                             }`}>
                               {offer.status === 'accepted' ? 'Aceita' :
-                               offer.status === 'rejected' ? 'Rejeitada' : 'Pendente'}
+                               offer.status === 'rejected' ? 'Rejeitada' :
+                               offer.status === 'completed' ? 'Concluída' : 'Pendente'}
                             </span>
                           </div>
                         </div>
@@ -1018,16 +1031,42 @@ export default function Services() {
                               Confirme para liberar o pagamento ao profissional
                             </p>
                           </div>
+                        ) : offer.status === 'completed' ? (
+                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200 mb-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                              <p className="text-sm font-semibold text-blue-800">Serviço Concluído</p>
+                            </div>
+                            <p className="text-sm text-blue-700 mb-4">
+                              ✅ Pagamento aprovado! O profissional foi notificado e o serviço está concluído.
+                            </p>
+                          </div>
                         ) : (
-                          <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
+                          <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200 mb-4">
                             <div className="flex items-center gap-2 mb-2">
                               <CheckCircle2 className="h-5 w-5 text-green-600" />
                               <p className="text-sm font-semibold text-green-800">Proposta Aceita</p>
                             </div>
-                            <p className="text-sm text-green-700">
-                              O profissional foi contratado e está realizando o serviço. 
-                              O botão de confirmação aparecerá quando o profissional concluir o trabalho.
+                            <p className="text-sm text-green-700 mb-4">
+                              Proposta aceita! Efetue o pagamento para que o profissional possa iniciar o serviço.
                             </p>
+                            
+                            {/* Botão de Pagamento */}
+                            <PaymentButton
+                              serviceOfferId={offer.id}
+                              serviceRequestId={offer.serviceRequestId}
+                              amount={offer.price}
+                              serviceName={`${serviceRequests.find(r => r.id === offer.serviceRequestId)?.title || 'Serviço'}`}
+                              professionalName={offer.professionalName}
+                              onPaymentSuccess={() => {
+                                // Recarregar dados após pagamento
+                                fetchServiceOffers();
+                                toast({
+                                  title: "Pagamento Realizado",
+                                  description: "Pagamento processado com sucesso! O profissional foi notificado.",
+                                });
+                              }}
+                            />
                           </div>
                         )}
                       </div>
@@ -1052,7 +1091,7 @@ export default function Services() {
               </div>
             </div>
             {/* Estatísticas dos Pedidos */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-r from-orange-500 to-yellow-500">
@@ -1085,7 +1124,7 @@ export default function Services() {
                   <div>
                     <p className="text-sm text-gray-600">Pedidos Ativos</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {serviceRequests.filter(r => r.status === 'open').length}
+                      {serviceRequests.filter(r => r.status === 'open' || r.status === 'assigned').length}
                     </p>
                   </div>
                 </div>
@@ -1099,7 +1138,21 @@ export default function Services() {
                   <div>
                     <p className="text-sm text-gray-600">Em Andamento</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {serviceRequests.filter(r => r.status === 'in_progress').length}
+                      {serviceRequests.filter(r => r.status === 'in_progress' || r.status === 'awaiting_confirmation').length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-r from-green-500 to-emerald-500">
+                    <CheckCircle className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Concluídos</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {serviceRequests.filter(r => r.status === 'completed').length}
                     </p>
                   </div>
                 </div>
@@ -1133,12 +1186,24 @@ export default function Services() {
                   const acceptedOffers = requestOffers.filter(o => o.status === 'accepted');
 
                   return (
-                    <div key={request.id} className="bg-white rounded-xl p-4 sm:p-5 shadow-md border border-gray-100 hover:shadow-lg hover:ring-1 hover:ring-orange-200 transition-all duration-200">
+                    <div key={request.id} className={`bg-white rounded-xl p-4 sm:p-5 shadow-md border transition-all duration-200 ${
+                      request.status === 'completed' 
+                        ? 'border-green-200 bg-green-50/30 hover:shadow-lg hover:ring-1 hover:ring-green-200' 
+                        : 'border-gray-100 hover:shadow-lg hover:ring-1 hover:ring-orange-200'
+                    }`}>
                       {/* Header */}
                       <div className="flex items-start justify-between gap-3 mb-4">
                         <div className="flex items-start gap-3 flex-1">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md">
-                            <Briefcase className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md ${
+                            request.status === 'completed' 
+                              ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
+                              : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                          }`}>
+                            {request.status === 'completed' ? (
+                              <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                            ) : (
+                              <Briefcase className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <h3 className="font-bold text-base sm:text-lg text-gray-900 mb-1 line-clamp-2">{request.title}</h3>
@@ -1160,6 +1225,18 @@ export default function Services() {
                           </span>
                         </div>
                       </div>
+
+                      {/* Mensagem para serviços concluídos */}
+                      {request.status === 'completed' && (
+                        <div className="mb-4 bg-green-100 border border-green-200 rounded-lg p-3">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <p className="text-sm font-medium text-green-800">
+                              Serviço Concluído - Este serviço foi finalizado e não pode mais ser editado
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Descrição */}
                       <div className="mb-4">
@@ -1239,11 +1316,24 @@ export default function Services() {
                               Ver Detalhes
                             </button>
                           </Link>
-                          <Link href={`/servico`}>
-                            <button className="flex-1 sm:flex-none px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-sm font-medium hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-md hover:shadow-lg">
+                          
+                          {/* Botão Editar - desabilitado se concluído */}
+                          {request.status === 'completed' ? (
+                            <button
+                              disabled
+                              className="flex-1 sm:flex-none px-4 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm font-medium cursor-not-allowed transition-all duration-200"
+                              title="Serviços concluídos não podem ser editados"
+                            >
                               Editar
                             </button>
-                          </Link>
+                          ) : (
+                            <Link href={`/servico`}>
+                              <button className="flex-1 sm:flex-none px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-sm font-medium hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-md hover:shadow-lg">
+                                Editar
+                              </button>
+                            </Link>
+                          )}
+                          
                           <button
                             onClick={() => deleteServiceRequest(request.id)}
                             className="flex-1 sm:flex-none px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg text-sm font-medium hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-md hover:shadow-lg"

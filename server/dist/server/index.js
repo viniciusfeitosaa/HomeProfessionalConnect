@@ -1,8 +1,10 @@
 import 'dotenv/config';
 import express from "express";
 import { sql } from "drizzle-orm";
-import { registerRoutes } from "./routes.js";
+import { setupRoutes } from "./routes-simple.js";
 import { Server as SocketIOServer } from "socket.io";
+import { createServer } from "http";
+import Redis from "redis";
 const app = express();
 console.log('=== Backend inicializado ===');
 // CORS unificado (inclui preflight)
@@ -85,7 +87,21 @@ app.use((req, res, next) => {
 });
 (async () => {
     // await seedDatabase(); // REMOVIDO: não limpar mais o banco automaticamente
-    const server = await registerRoutes(app);
+    // Configurar Redis
+    const redisClient = Redis.createClient({
+        url: process.env.REDIS_URL || 'redis://localhost:6379'
+    });
+    try {
+        await redisClient.connect();
+        console.log('✅ Redis conectado');
+    }
+    catch (error) {
+        console.log('⚠️ Redis não disponível, usando fallback');
+    }
+    // Configurar rotas
+    setupRoutes(app, redisClient);
+    // Criar servidor HTTP
+    const server = createServer(app);
     // Inicializa o Socket.IO junto ao servidor HTTP
     const io = new SocketIOServer(server, {
         cors: {

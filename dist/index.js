@@ -16,6 +16,7 @@ __export(schema_exports, {
   loginAttempts: () => loginAttempts,
   messages: () => messages,
   notifications: () => notifications,
+  paymentReferences: () => paymentReferences,
   professionals: () => professionals,
   serviceOffers: () => serviceOffers,
   serviceProgress: () => serviceProgress,
@@ -26,7 +27,7 @@ __export(schema_exports, {
   verificationCodes: () => verificationCodes
 });
 import { pgTable, text, serial, integer, boolean, decimal, timestamp } from "drizzle-orm/pg-core";
-var users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, serviceOffers, transactions, serviceReviews, serviceProgress;
+var users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, serviceOffers, transactions, serviceReviews, paymentReferences, serviceProgress;
 var init_schema = __esm({
   "server/schema.ts"() {
     "use strict";
@@ -232,6 +233,22 @@ var init_schema = __esm({
       rating: integer("rating").notNull(),
       // 1-5 estrelas
       comment: text("comment"),
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    paymentReferences = pgTable("payment_references", {
+      id: serial("id").primaryKey(),
+      serviceRequestId: integer("service_request_id").notNull(),
+      serviceOfferId: integer("service_offer_id").notNull(),
+      clientId: integer("client_id").notNull(),
+      professionalId: integer("professional_id").notNull(),
+      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+      preferenceId: text("preference_id").notNull().unique(),
+      status: text("status", { enum: ["pending", "approved", "rejected", "cancelled"] }).notNull().default("pending"),
+      externalReference: text("external_reference").notNull(),
+      paymentId: text("payment_id"),
+      // ID do pagamento no Mercado Pago quando aprovado
+      approvedAt: timestamp("approved_at"),
       createdAt: timestamp("created_at").defaultNow(),
       updatedAt: timestamp("updated_at").defaultNow()
     });
@@ -594,10 +611,6 @@ var init_storage = __esm({
         await db.update(verificationCodes).set({ [verificationCodes.used.name]: true }).where(eq(verificationCodes.id, id));
       }
       // Conversations & Messages
-      async getProfessionalById(userId) {
-        const result = await db.select().from(professionals).where(eq(professionals.userId, userId)).limit(1);
-        return result[0];
-      }
       async getConversation(clientId, professionalId) {
         const result = await db.select().from(conversations).where(
           and(
@@ -1463,6 +1476,76 @@ var init_storage = __esm({
           throw error;
         }
       }
+      // ==================== HELPER METHODS FOR PAYMENTS ====================
+      async getServiceOfferById(offerId) {
+        try {
+          const [result] = await db.select().from(serviceOffers).where(eq(serviceOffers.id, offerId));
+          return result || null;
+        } catch (error) {
+          console.error("\u274C Erro ao buscar oferta de servi\xE7o:", error);
+          throw error;
+        }
+      }
+      async getServiceRequestById(requestId) {
+        try {
+          const [result] = await db.select().from(serviceRequests).where(eq(serviceRequests.id, requestId));
+          return result || null;
+        } catch (error) {
+          console.error("\u274C Erro ao buscar solicita\xE7\xE3o de servi\xE7o:", error);
+          throw error;
+        }
+      }
+      async getProfessionalById(professionalId) {
+        try {
+          const [result] = await db.select().from(professionals).where(eq(professionals.id, professionalId));
+          return result || null;
+        } catch (error) {
+          console.error("\u274C Erro ao buscar profissional:", error);
+          throw error;
+        }
+      }
+      // ==================== PAYMENT REFERENCES METHODS ====================
+      async createPaymentReference(paymentRef) {
+        try {
+          console.log("\u{1F4B3} Criando refer\xEAncia de pagamento:", paymentRef);
+          const [result] = await db.insert(paymentReferences).values(paymentRef).returning();
+          console.log("\u2705 Refer\xEAncia de pagamento criada:", result.id);
+          return result;
+        } catch (error) {
+          console.error("\u274C Erro ao criar refer\xEAncia de pagamento:", error);
+          throw error;
+        }
+      }
+      async getPaymentReferenceByPreferenceId(preferenceId) {
+        try {
+          console.log("\u{1F50D} Buscando refer\xEAncia de pagamento por preference ID:", preferenceId);
+          const [result] = await db.select().from(paymentReferences).where(eq(paymentReferences.preferenceId, preferenceId));
+          return result || null;
+        } catch (error) {
+          console.error("\u274C Erro ao buscar refer\xEAncia de pagamento:", error);
+          throw error;
+        }
+      }
+      async updatePaymentReferenceStatus(preferenceId, status, paymentId) {
+        try {
+          console.log("\u{1F4DD} Atualizando status da refer\xEAncia de pagamento:", { preferenceId, status, paymentId });
+          const updateData = {
+            status,
+            updatedAt: /* @__PURE__ */ new Date()
+          };
+          if (paymentId) {
+            updateData.paymentId = paymentId;
+          }
+          if (status === "approved") {
+            updateData.approvedAt = /* @__PURE__ */ new Date();
+          }
+          await db.update(paymentReferences).set(updateData).where(eq(paymentReferences.preferenceId, preferenceId));
+          console.log("\u2705 Status da refer\xEAncia de pagamento atualizado");
+        } catch (error) {
+          console.error("\u274C Erro ao atualizar status da refer\xEAncia de pagamento:", error);
+          throw error;
+        }
+      }
     };
     storage = new DatabaseStorage();
   }
@@ -1752,6 +1835,12 @@ import multer from "multer";
 import path2 from "path";
 import fs from "fs";
 import { sql as sql2 } from "drizzle-orm";
+import { MercadoPagoConfig, Preference } from "mercadopago";
+var client = new MercadoPagoConfig({
+  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || "APP_USR-1923177717890465-082109-8f2125345d1601bce3a067b6eb1258c1-810345213",
+  options: { timeout: 5e3, idempotencyKey: "abc" }
+});
+var preference = new Preference(client);
 var multerStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path2.join(process.cwd(), "uploads");
@@ -2297,9 +2386,9 @@ async function registerRoutes(app2) {
       }
       console.log("clientId recebido:", clientId);
       console.log("serviceRequestId recebido:", serviceRequestId);
-      const client = await storage.getUser(clientId);
-      console.log("Resultado da busca do cliente:", client);
-      if (!client) {
+      const client2 = await storage.getUser(clientId);
+      console.log("Resultado da busca do cliente:", client2);
+      if (!client2) {
         return res.status(404).json({ message: "Cliente n\xE3o encontrado" });
       }
       const existingConversation = await storage.getConversation(clientId, user.id);
@@ -3624,12 +3713,16 @@ async function registerRoutes(app2) {
   });
   app2.get("/api/professional/:id/completed-services", authenticateToken, async (req, res) => {
     try {
-      const professionalId = parseInt(req.params.id);
       const user = req.user;
-      if (user.id !== professionalId) {
-        return res.status(403).json({ error: "Acesso negado" });
+      if (user.userType !== "provider") {
+        return res.status(403).json({ error: "Apenas profissionais podem acessar este recurso" });
       }
-      const completedServices = await storage.getProfessionalCompletedServices(professionalId);
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
+      }
+      console.log("\u{1F50D} Buscando servi\xE7os para profissional ID:", professional.id, "userId:", user.id);
+      const completedServices = await storage.getProfessionalCompletedServices(professional.id);
       res.json({
         success: true,
         data: completedServices
@@ -3654,6 +3747,137 @@ async function registerRoutes(app2) {
       });
     } catch (error) {
       console.error("\u274C Erro ao buscar avalia\xE7\xF5es do profissional:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/payment/create-preference", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const { serviceOfferId, serviceRequestId } = req.body;
+      console.log("\u{1F680} Iniciando cria\xE7\xE3o de prefer\xEAncia de pagamento:", { serviceOfferId, serviceRequestId, userId: user.id });
+      if (user.userType !== "client") {
+        return res.status(403).json({ error: "Apenas clientes podem criar pagamentos" });
+      }
+      console.log("\u{1F50D} Buscando dados da proposta...");
+      const serviceOffer = await storage.getServiceOfferById(serviceOfferId);
+      console.log("\u{1F4DD} Dados da proposta:", serviceOffer);
+      if (!serviceOffer || serviceOffer.status !== "accepted") {
+        return res.status(404).json({ error: "Proposta n\xE3o encontrada ou n\xE3o aceita" });
+      }
+      console.log("\u{1F50D} Buscando dados da solicita\xE7\xE3o...");
+      const serviceRequest = await storage.getServiceRequestById(serviceRequestId);
+      console.log("\u{1F4DD} Dados da solicita\xE7\xE3o:", serviceRequest);
+      if (!serviceRequest || serviceRequest.clientId !== user.id) {
+        return res.status(404).json({ error: "Solicita\xE7\xE3o de servi\xE7o n\xE3o encontrada" });
+      }
+      console.log("\u{1F50D} Buscando dados do profissional...");
+      const professional = await storage.getProfessionalById(serviceOffer.professionalId);
+      console.log("\u{1F4DD} Dados do profissional:", professional);
+      if (!professional) {
+        return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
+      }
+      console.log("\u{1F4B0} Convertendo valores:", { finalPrice: serviceOffer.finalPrice, proposedPrice: serviceOffer.proposedPrice });
+      let amount;
+      const finalPrice = serviceOffer.finalPrice ? parseFloat(serviceOffer.finalPrice.toString()) : null;
+      const proposedPrice = serviceOffer.proposedPrice ? parseFloat(serviceOffer.proposedPrice.toString()) : 0;
+      amount = finalPrice || proposedPrice;
+      console.log("\u{1F4B0} Valor calculado:", { finalPrice, proposedPrice, amount });
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ error: "Valor da proposta inv\xE1lido" });
+      }
+      const lifebeeCommission = amount * 0.05;
+      const professionalAmount = amount - lifebeeCommission;
+      console.log("\u{1F3EA} Preparando dados para o Mercado Pago...");
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+      const backendUrl = process.env.BACKEND_URL || "http://localhost:8080";
+      console.log("\u{1F310} URLs configuradas:", { frontendUrl, backendUrl });
+      const preferenceData = {
+        items: [
+          {
+            id: `service_${serviceRequestId}`,
+            title: `${serviceRequest.serviceType} - ${professional.name}`,
+            description: serviceRequest.description,
+            quantity: 1,
+            unit_price: amount,
+            currency_id: "BRL"
+          }
+        ],
+        back_urls: {
+          success: `${frontendUrl}/payment/success`,
+          failure: `${frontendUrl}/payment/failure`,
+          pending: `${frontendUrl}/payment/pending`
+        },
+        external_reference: `${serviceRequestId}_${serviceOfferId}`,
+        notification_url: `${backendUrl}/api/payment/webhook`
+      };
+      console.log("\u{1F4E6} Dados da prefer\xEAncia:", JSON.stringify(preferenceData, null, 2));
+      console.log("\u{1F4B3} Criando prefer\xEAncia no Mercado Pago...");
+      const result = await preference.create({ body: preferenceData });
+      console.log("\u2705 Prefer\xEAncia criada:", { id: result.id, init_point: result.init_point });
+      console.log("\u{1F4BE} Salvando refer\xEAncia no banco...");
+      await storage.createPaymentReference({
+        serviceRequestId,
+        serviceOfferId,
+        clientId: user.id,
+        professionalId: serviceOffer.professionalId,
+        amount: amount.toString(),
+        preferenceId: result.id,
+        status: "pending",
+        externalReference: `${serviceRequestId}_${serviceOfferId}`
+      });
+      console.log("\u{1F389} Prefer\xEAncia de pagamento criada com sucesso!");
+      res.json({
+        success: true,
+        preferenceId: result.id,
+        initPoint: result.init_point,
+        sandboxInitPoint: result.sandbox_init_point
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao criar prefer\xEAncia de pagamento:", error);
+      console.error("\u{1F4CB} Stack trace:", error?.stack);
+      let errorMessage = "Erro interno do servidor";
+      if (error?.message) {
+        console.error("\u{1F4AC} Mensagem do erro:", error.message);
+        if (process.env.NODE_ENV === "development") {
+          errorMessage = error.message;
+        }
+      }
+      res.status(500).json({ error: errorMessage });
+    }
+  });
+  app2.post("/api/payment/webhook", async (req, res) => {
+    try {
+      const { type, data } = req.body;
+      if (type === "payment") {
+        const paymentId = data.id;
+        console.log("\u{1F514} Webhook recebido - Payment ID:", paymentId);
+        res.status(200).json({ success: true });
+      } else {
+        res.status(200).json({ success: true });
+      }
+    } catch (error) {
+      console.error("\u274C Erro no webhook:", error);
+      res.status(500).json({ error: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/payment/status/:preferenceId", authenticateToken, async (req, res) => {
+    try {
+      const { preferenceId } = req.params;
+      const paymentRef = await storage.getPaymentReferenceByPreferenceId(preferenceId);
+      if (!paymentRef) {
+        return res.status(404).json({ error: "Pagamento n\xE3o encontrado" });
+      }
+      res.json({
+        success: true,
+        payment: {
+          status: paymentRef.status,
+          amount: paymentRef.amount,
+          serviceRequestId: paymentRef.serviceRequestId,
+          serviceOfferId: paymentRef.serviceOfferId
+        }
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao verificar status do pagamento:", error);
       res.status(500).json({ error: "Erro interno do servidor" });
     }
   });

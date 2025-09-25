@@ -1760,6 +1760,12 @@ export default function ProviderDashboard() {
                     <p className="text-sm font-medium text-green-600 dark:text-green-400">Receita Total</p>
                     <p className="text-2xl font-bold text-green-900 dark:text-green-100">R$ {monthlyCompletedEarnings.toLocaleString('pt-BR')}</p>
                     <p className="text-xs text-green-600 dark:text-green-400">Este mês</p>
+                    <Link href="/payment-dashboard">
+                      <Button variant="ghost" size="sm" className="mt-2 text-green-600 hover:text-green-700 hover:bg-green-100 dark:hover:bg-green-800/30">
+                        <DollarSign className="h-4 w-4 mr-1" />
+                        Ver Pagamentos
+                      </Button>
+                    </Link>
                   </div>
                   <div className="p-3 bg-green-500 rounded-full">
                     <DollarSign className="h-6 w-6 text-white" />
@@ -1851,7 +1857,7 @@ export default function ProviderDashboard() {
                 </CardHeader>
                 <CardContent>
                   {/* Map Placeholder */}
-                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg h-48 sm:h-56 md:h-64 mb-4 sm:mb-6 overflow-hidden relative sticky top-2 sm:top-4 z-10">
+                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg h-48 sm:h-56 md:h-64 mb-4 sm:mb-6 overflow-hidden sticky top-2 sm:top-4 z-10">
                     {/* Botão de localização */}
                     <div className="absolute top-2 right-2 z-20">
                       <Button
@@ -2295,56 +2301,46 @@ export default function ProviderDashboard() {
                         {(() => {
                           const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
                             const now = new Date();
-                          const weekStart = new Date(now.getTime() - (now.getDay() * 24 * 60 * 60 * 1000));
+                          // Calcular início da semana (domingo)
+                          const weekStart = new Date(now);
+                          weekStart.setDate(now.getDate() - now.getDay());
+                          weekStart.setHours(0, 0, 0, 0);
                           
                           // Debug: verificar dados
                           console.log('🔍 Debug Gráfico Semanal:', {
                             totalCompletedServices: completedServices.length,
                             completedServices: completedServices.slice(0, 3),
-                            weekStart: weekStart.toISOString(),
-                            weeklyData: weekDays.map((day, index) => {
-                              const dayStart = new Date(weekStart.getTime() + (index * 24 * 60 * 60 * 1000));
-                              const dayEnd = new Date(dayStart.getTime() + (24 * 60 * 60 * 1000));
-                              const servicesCount = completedServices.filter((service: any) => {
-                                const completionDate = service.completionDate ? new Date(service.completionDate) : 
-                                                     service.createdAt ? new Date(service.createdAt) : null;
-                                return completionDate && completionDate >= dayStart && completionDate < dayEnd;
-                              }).length;
-                              return { day, count: servicesCount, dayStart: dayStart.toISOString(), dayEnd: dayEnd.toISOString() };
-                            })
+                            weekStart: weekStart.toISOString()
                           });
                           
                           const weeklyData = weekDays.map((day, index) => {
-                            const dayStart = new Date(weekStart.getTime() + (index * 24 * 60 * 60 * 1000));
-                            const dayEnd = new Date(dayStart.getTime() + (24 * 60 * 60 * 1000));
+                            const dayStart = new Date(weekStart);
+                            dayStart.setDate(weekStart.getDate() + index);
+                            const dayEnd = new Date(dayStart);
+                            dayEnd.setDate(dayStart.getDate() + 1);
                             
                             // Usar dados reais dos serviços concluídos
                             const servicesCount = completedServices.filter((service: any) => {
                               const completionDate = service.completedAt ? new Date(service.completedAt) : null;
+                              if (!completionDate) return false;
                               
-                              // Debug para cada serviço
-                              if (completedServices.length > 0) {
-                                console.log('🔍 Filtro diário:', {
-                                  serviceId: service.serviceRequestId,
-                                  completedAt: service.completedAt,
-                                  parsedDate: completionDate?.toISOString(),
-                                  dayStart: dayStart.toISOString(),
-                                  dayEnd: dayEnd.toISOString(),
-                                  isInRange: completionDate && completionDate >= dayStart && completionDate < dayEnd
-                                });
-                              }
+                              // Verificar se a data está dentro do intervalo do dia
+                              const dayStartTime = dayStart.getTime();
+                              const dayEndTime = dayEnd.getTime();
+                              const completionTime = completionDate.getTime();
                               
-                              return completionDate && completionDate >= dayStart && completionDate < dayEnd;
+                              return completionTime >= dayStartTime && completionTime < dayEndTime;
                             }).length;
                             
                             // Calcular altura da barra de forma fixa e confiável
                             let height = 0;
                             if (servicesCount > 0) {
-                              if (servicesCount === 1) height = 25;
-                              else if (servicesCount === 2) height = 50;
-                              else if (servicesCount === 3) height = 75;
-                              else height = 100;
+                              // Altura mínima de 20% para qualquer serviço
+                              height = Math.max(20, Math.min(100, servicesCount * 20));
                             }
+                            
+                            // Debug para cada dia
+                            console.log(`📊 ${day}: ${servicesCount} serviços, altura: ${height}%`);
                             
                             return { day, count: servicesCount, height };
                           });

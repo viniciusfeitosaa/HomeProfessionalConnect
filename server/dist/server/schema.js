@@ -182,6 +182,22 @@ export const serviceReviews = pgTable("service_reviews", {
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });
+export const paymentReferences = pgTable("payment_references", {
+    id: serial("id").primaryKey(),
+    serviceRequestId: integer("service_request_id").notNull(),
+    serviceOfferId: integer("service_offer_id").notNull(),
+    clientId: integer("client_id").notNull(),
+    professionalId: integer("professional_id").notNull(),
+    amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+    preferenceId: text("preference_id").notNull().unique(),
+    status: text("status", { enum: ["pending", "approved", "rejected", "cancelled"] }).notNull().default("pending"),
+    statusDetail: text("status_detail"), // Detalhes do status do pagamento
+    externalReference: text("external_reference").notNull(),
+    paymentId: text("payment_id"), // ID do pagamento no Mercado Pago quando aprovado
+    approvedAt: timestamp("approved_at"),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+});
 // Tabela para acompanhar o progresso do serviço
 export const serviceProgress = pgTable("service_progress", {
     id: serial("id").primaryKey(),

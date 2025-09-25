@@ -1,59 +1,76 @@
 const express = require('express');
+const Stripe = require('stripe');
+
 const app = express();
 
-console.log('🚀 Servidor de teste iniciado');
+// Configurar Stripe
+const stripeKey = process.env.STRIPE_SECRET_KEY;
 
-// Middleware básico
+if (!stripeKey) {
+  throw new Error('STRIPE_SECRET_KEY não configurada. Defina no .env antes de executar este script.');
+}
+
+const stripe = new Stripe(stripeKey);
+
 app.use(express.json());
 
-// Rota de teste simples
-app.get('/api/test', (req, res) => {
-  console.log('✅ Rota /api/test acessada');
-  res.json({ 
-    message: 'Servidor de teste funcionando!', 
-    timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV,
-    googleClientId: process.env.GOOGLE_CLIENT_ID ? 'Presente' : 'Ausente',
-    googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Presente' : 'Ausente'
-  });
+// CORS
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
 });
 
-// Rota de teste para Google OAuth
-app.get('/api/auth/test', (req, res) => {
-  console.log('✅ Rota /api/auth/test acessada');
+// Rota de teste
+app.get('/api/payment/test-config', (req, res) => {
+  console.log('🧪 Testando configuração do Stripe...');
+  
   res.json({
-    message: 'Rotas de autenticação funcionando',
-    googleAuthUrl: '/api/auth/google',
-    googleClientId: process.env.GOOGLE_CLIENT_ID ? 'Presente' : 'Ausente',
-    googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Presente' : 'Ausente'
+    success: true,
+    config: {
+      hasKey: !!process.env.STRIPE_SECRET_KEY,
+      keyLength: process.env.STRIPE_SECRET_KEY?.length || 0,
+      frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+      backendUrl: process.env.BACKEND_URL || 'http://localhost:8080',
+    },
+    message: 'Configuração verificada com sucesso'
   });
 });
 
-// Rota simulada do Google OAuth
-app.get('/api/auth/google', (req, res) => {
-  console.log('✅ Rota /api/auth/google acessada');
-  res.json({
-    message: 'Google OAuth route funcionando',
-    status: 'success'
-  });
+// Rota para criar Payment Intent
+app.post('/api/payment/create-intent', async (req, res) => {
+  try {
+    console.log('🔍 Criando Payment Intent de teste...');
+    
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: 100, // R$ 1.00 em centavos
+      currency: 'brl',
+      metadata: {
+        test: 'true'
+      }
+    });
+
+    res.json({
+      success: true,
+      clientSecret: paymentIntent.client_secret,
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao criar Payment Intent:', error);
+    res.status(500).json({
+      error: 'Erro ao criar Payment Intent',
+      details: error.message,
+    });
+  }
 });
 
-// Middleware de erro
-app.use((err, req, res, next) => {
-  console.error('❌ Erro:', err);
-  res.status(500).json({ error: 'Internal Server Error' });
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Servidor de teste rodando na porta ${PORT}`);
+  console.log(`🔑 Stripe configurado: ${!!process.env.STRIPE_SECRET_KEY}`);
 });
-
-// Rota 404 para todas as outras rotas
-app.use('*', (req, res) => {
-  console.log('❌ Rota não encontrada:', req.originalUrl);
-  res.status(404).json({ error: 'Not Found', path: req.originalUrl });
-});
-
-const port = process.env.PORT || 5000;
-app.listen(port, '0.0.0.0', () => {
-  console.log(`🚀 Servidor de teste rodando na porta ${port}`);
-  console.log(`🌐 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔑 GOOGLE_CLIENT_ID: ${process.env.GOOGLE_CLIENT_ID ? 'Presente' : 'Ausente'}`);
-  console.log(`🔑 GOOGLE_CLIENT_SECRET: ${process.env.GOOGLE_CLIENT_SECRET ? 'Presente' : 'Ausente'}`);
-}); 

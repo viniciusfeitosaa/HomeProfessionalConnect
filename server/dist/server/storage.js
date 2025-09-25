@@ -1,4 +1,4 @@
-import { users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, serviceOffers, serviceProgress, transactions, serviceReviews, } from "./schema.js";
+import { users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, serviceOffers, serviceProgress, transactions, serviceReviews, paymentReferences, } from "./schema.js";
 import { db } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
 // Database Storage Implementation
@@ -304,14 +304,6 @@ export class DatabaseStorage {
             .where(eq(verificationCodes.id, id));
     }
     // Conversations & Messages
-    async getProfessionalById(userId) {
-        const result = await db
-            .select()
-            .from(professionals)
-            .where(eq(professionals.userId, userId))
-            .limit(1);
-        return result[0];
-    }
     async getConversation(clientId, professionalId) {
         const result = await db
             .select()
@@ -500,6 +492,9 @@ export class DatabaseStorage {
             assignedProfessionalId: serviceRequests.assignedProfessionalId,
             createdAt: serviceRequests.createdAt,
             updatedAt: serviceRequests.updatedAt,
+            serviceStartedAt: serviceRequests.serviceStartedAt,
+            serviceCompletedAt: serviceRequests.serviceCompletedAt,
+            clientConfirmedAt: serviceRequests.clientConfirmedAt,
             // Client information
             clientName: users.name,
             clientEmail: users.email,
@@ -538,6 +533,9 @@ export class DatabaseStorage {
             responses: serviceRequests.responses,
             createdAt: serviceRequests.createdAt,
             updatedAt: serviceRequests.updatedAt,
+            serviceStartedAt: serviceRequests.serviceStartedAt,
+            serviceCompletedAt: serviceRequests.serviceCompletedAt,
+            clientConfirmedAt: serviceRequests.clientConfirmedAt,
             // Client information
             clientName: users.name,
             clientEmail: users.email,
@@ -589,6 +587,32 @@ export class DatabaseStorage {
             serviceRequestId: serviceOffers.serviceRequestId,
             professionalId: serviceOffers.professionalId,
             proposedPrice: serviceOffers.proposedPrice,
+            finalPrice: serviceOffers.finalPrice,
+            estimatedTime: serviceOffers.estimatedTime,
+            message: serviceOffers.message,
+            status: serviceOffers.status,
+            createdAt: serviceOffers.createdAt,
+            updatedAt: serviceOffers.updatedAt,
+            // Professional information
+            professionalName: professionals.name,
+            professionalRating: professionals.rating,
+            professionalTotalReviews: professionals.totalReviews,
+            professionalProfileImage: professionals.imageUrl
+        })
+            .from(serviceOffers)
+            .innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id))
+            .where(eq(serviceOffers.serviceRequestId, requestId))
+            .orderBy(desc(serviceOffers.createdAt));
+    }
+    async getProposalsByServiceRequest(requestId) {
+        return await db
+            .select({
+            // Service Offer fields
+            id: serviceOffers.id,
+            serviceRequestId: serviceOffers.serviceRequestId,
+            professionalId: serviceOffers.professionalId,
+            proposedPrice: serviceOffers.proposedPrice,
+            finalPrice: serviceOffers.finalPrice,
             estimatedTime: serviceOffers.estimatedTime,
             message: serviceOffers.message,
             status: serviceOffers.status,
@@ -613,6 +637,7 @@ export class DatabaseStorage {
             serviceRequestId: serviceOffers.serviceRequestId,
             professionalId: serviceOffers.professionalId,
             proposedPrice: serviceOffers.proposedPrice,
+            finalPrice: serviceOffers.finalPrice,
             estimatedTime: serviceOffers.estimatedTime,
             message: serviceOffers.message,
             status: serviceOffers.status,
@@ -622,6 +647,7 @@ export class DatabaseStorage {
             requestId: serviceRequests.id,
             clientId: serviceRequests.clientId,
             serviceType: serviceRequests.serviceType,
+            category: serviceRequests.category,
             description: serviceRequests.description,
             address: serviceRequests.address,
             budget: serviceRequests.budget,
@@ -633,6 +659,9 @@ export class DatabaseStorage {
             responses: serviceRequests.responses,
             requestCreatedAt: serviceRequests.createdAt,
             requestUpdatedAt: serviceRequests.updatedAt,
+            serviceStartedAt: serviceRequests.serviceStartedAt,
+            serviceCompletedAt: serviceRequests.serviceCompletedAt,
+            clientConfirmedAt: serviceRequests.clientConfirmedAt,
             // Client information
             clientName: users.name,
             clientEmail: users.email,
@@ -650,14 +679,16 @@ export class DatabaseStorage {
             serviceRequestId: result.serviceRequestId,
             professionalId: result.professionalId,
             proposedPrice: result.proposedPrice,
+            finalPrice: result.finalPrice,
             estimatedTime: result.estimatedTime,
             message: result.message,
             status: result.status,
             createdAt: result.createdAt,
             updatedAt: result.updatedAt,
             serviceRequest: {
-                id: result.serviceRequestId,
+                id: result.requestId,
                 clientId: result.clientId,
+                category: result.category,
                 serviceType: result.serviceType,
                 description: result.description,
                 address: result.address,
@@ -670,6 +701,9 @@ export class DatabaseStorage {
                 responses: result.responses,
                 createdAt: result.requestCreatedAt,
                 updatedAt: result.requestUpdatedAt,
+                serviceStartedAt: result.serviceStartedAt,
+                serviceCompletedAt: result.serviceCompletedAt,
+                clientConfirmedAt: result.clientConfirmedAt,
                 clientName: result.clientName,
                 clientEmail: result.clientEmail,
                 clientPhone: result.clientPhone,
@@ -821,6 +855,7 @@ export class DatabaseStorage {
                 id: serviceOffers.id,
                 serviceRequestId: serviceOffers.serviceRequestId,
                 professionalId: serviceOffers.professionalId,
+                proposedPrice: serviceOffers.proposedPrice,
                 status: serviceOffers.status,
                 clientId: serviceRequests.clientId
             })
@@ -1364,8 +1399,7 @@ export class DatabaseStorage {
                     .update(professionals)
                     .set({
                     rating: '5.0',
-                    totalReviews: 0,
-                    updatedAt: new Date()
+                    totalReviews: 0
                 })
                     .where(eq(professionals.id, professionalId));
                 return;
@@ -1378,14 +1412,220 @@ export class DatabaseStorage {
                 .update(professionals)
                 .set({
                 rating: averageRating.toFixed(1),
-                totalReviews: reviews.length,
-                updatedAt: new Date()
+                totalReviews: reviews.length
             })
                 .where(eq(professionals.id, professionalId));
             console.log(`✅ Avaliação do profissional ${professionalId} atualizada: ${averageRating.toFixed(1)} (${reviews.length} avaliações)`);
         }
         catch (error) {
             console.error('❌ Erro ao atualizar avaliação do profissional:', error);
+            throw error;
+        }
+    }
+    // ==================== HELPER METHODS FOR PAYMENTS ====================
+    async getServiceOfferById(offerId) {
+        try {
+            const [result] = await db
+                .select()
+                .from(serviceOffers)
+                .where(eq(serviceOffers.id, offerId));
+            return result || null;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar oferta de serviço:', error);
+            throw error;
+        }
+    }
+    async getServiceRequestById(requestId) {
+        try {
+            const [result] = await db
+                .select()
+                .from(serviceRequests)
+                .where(eq(serviceRequests.id, requestId));
+            return result || null;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar solicitação de serviço:', error);
+            throw error;
+        }
+    }
+    async getProfessionalById(professionalId) {
+        try {
+            const [result] = await db
+                .select()
+                .from(professionals)
+                .where(eq(professionals.id, professionalId));
+            return result || null;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar profissional:', error);
+            throw error;
+        }
+    }
+    // ==================== PAYMENT REFERENCES METHODS ====================
+    async createPaymentReference(paymentRef) {
+        try {
+            console.log('💳 Criando referência de pagamento:', paymentRef);
+            const [result] = await db
+                .insert(paymentReferences)
+                .values(paymentRef)
+                .returning();
+            console.log('✅ Referência de pagamento criada:', result.id);
+            return result;
+        }
+        catch (error) {
+            console.error('❌ Erro ao criar referência de pagamento:', error);
+            throw error;
+        }
+    }
+    async getPaymentReferenceByPreferenceId(preferenceId) {
+        try {
+            console.log('🔍 Buscando referência de pagamento por preference ID:', preferenceId);
+            const [result] = await db
+                .select()
+                .from(paymentReferences)
+                .where(eq(paymentReferences.preferenceId, preferenceId));
+            return result || null;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar referência de pagamento:', error);
+            throw error;
+        }
+    }
+    async updatePaymentReferenceStatus(preferenceId, status, statusDetail, paymentId, approvedAt) {
+        try {
+            console.log('📝 Atualizando status da referência de pagamento:', {
+                preferenceId,
+                status,
+                statusDetail,
+                paymentId,
+                approvedAt
+            });
+            const updateData = {
+                status,
+                updatedAt: new Date()
+            };
+            if (statusDetail) {
+                updateData.statusDetail = statusDetail;
+            }
+            if (paymentId) {
+                updateData.paymentId = paymentId;
+            }
+            if (approvedAt) {
+                updateData.approvedAt = approvedAt;
+            }
+            await db
+                .update(paymentReferences)
+                .set(updateData)
+                .where(eq(paymentReferences.preferenceId, preferenceId));
+            console.log('✅ Status da referência de pagamento atualizado');
+        }
+        catch (error) {
+            console.error('❌ Erro ao atualizar status da referência de pagamento:', error);
+            throw error;
+        }
+    }
+    // Service Offer Status Update
+    async updateServiceOfferStatus(offerId, status) {
+        try {
+            console.log('📝 Atualizando status da proposta:', { offerId, status });
+            await db
+                .update(serviceOffers)
+                .set({ status, updatedAt: new Date() })
+                .where(eq(serviceOffers.id, offerId));
+            console.log('✅ Status da proposta atualizado');
+        }
+        catch (error) {
+            console.error('❌ Erro ao atualizar status da proposta:', error);
+            throw error;
+        }
+    }
+    // ==================== PROVIDER PAYMENT METHODS ====================
+    async getProviderPayments(professionalId, filter) {
+        try {
+            console.log('🔍 Buscando pagamentos do profissional:', { professionalId, filter });
+            let whereCondition = eq(paymentReferences.professionalId, professionalId);
+            if (filter !== 'all') {
+                whereCondition = and(eq(paymentReferences.professionalId, professionalId), eq(paymentReferences.status, filter));
+            }
+            const result = await db
+                .select({
+                id: paymentReferences.id,
+                serviceRequestId: paymentReferences.serviceRequestId,
+                serviceOfferId: paymentReferences.serviceOfferId,
+                clientId: paymentReferences.clientId,
+                amount: paymentReferences.amount,
+                status: paymentReferences.status,
+                statusDetail: paymentReferences.statusDetail,
+                externalReference: paymentReferences.externalReference,
+                paymentId: paymentReferences.paymentId,
+                approvedAt: paymentReferences.approvedAt,
+                createdAt: paymentReferences.createdAt,
+                updatedAt: paymentReferences.updatedAt,
+                serviceRequest: {
+                    title: serviceRequests.title,
+                    description: serviceRequests.description,
+                    category: serviceRequests.category
+                },
+                client: {
+                    name: users.name,
+                    email: users.email
+                }
+            })
+                .from(paymentReferences)
+                .leftJoin(serviceRequests, eq(paymentReferences.serviceRequestId, serviceRequests.id))
+                .leftJoin(users, eq(paymentReferences.clientId, users.id))
+                .where(whereCondition)
+                .orderBy(desc(paymentReferences.createdAt));
+            console.log('✅ Pagamentos do profissional encontrados:', result.length);
+            return result;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar pagamentos do profissional:', error);
+            throw error;
+        }
+    }
+    async getProviderPaymentStats(professionalId) {
+        try {
+            console.log('📊 Calculando estatísticas de pagamento do profissional:', professionalId);
+            // Total de ganhos (apenas pagamentos aprovados)
+            const [totalEarningsResult] = await db
+                .select({
+                total: sql `COALESCE(SUM(${paymentReferences.amount} * 0.95), 0)`
+            })
+                .from(paymentReferences)
+                .where(and(eq(paymentReferences.professionalId, professionalId), eq(paymentReferences.status, 'approved')));
+            // Pagamentos pendentes
+            const [pendingResult] = await db
+                .select({ count: sql `COUNT(*)` })
+                .from(paymentReferences)
+                .where(and(eq(paymentReferences.professionalId, professionalId), eq(paymentReferences.status, 'pending')));
+            // Pagamentos aprovados
+            const [approvedResult] = await db
+                .select({ count: sql `COUNT(*)` })
+                .from(paymentReferences)
+                .where(and(eq(paymentReferences.professionalId, professionalId), eq(paymentReferences.status, 'approved')));
+            // Ganhos do mês atual
+            const currentMonth = new Date();
+            currentMonth.setDate(1);
+            currentMonth.setHours(0, 0, 0, 0);
+            const [monthlyResult] = await db
+                .select({
+                total: sql `COALESCE(SUM(${paymentReferences.amount} * 0.95), 0)`
+            })
+                .from(paymentReferences)
+                .where(and(eq(paymentReferences.professionalId, professionalId), eq(paymentReferences.status, 'approved'), gte(paymentReferences.approvedAt, currentMonth)));
+            const stats = {
+                totalEarnings: Number(totalEarningsResult?.total || 0),
+                pendingPayments: Number(pendingResult?.count || 0),
+                completedPayments: Number(approvedResult?.count || 0),
+                monthlyEarnings: Number(monthlyResult?.total || 0)
+            };
+            console.log('✅ Estatísticas calculadas:', stats);
+            return stats;
+        }
+        catch (error) {
+            console.error('❌ Erro ao calcular estatísticas de pagamento:', error);
             throw error;
         }
     }

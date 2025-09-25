@@ -1,0 +1,43 @@
+# Configuração do Mercado Pago - LifeBee
+# Copie este conteúdo para o arquivo .env do servidor
+
+# ===========================================
+# CONFIGURAÇÃO DO MERCADO PAGO
+# ===========================================
+
+# 1. Acesse: https://www.mercadopago.com.br/developers/
+# 2. Faça login na sua conta
+# 3. Crie uma aplicação
+# 4. Copie o Access Token (TEST-...)
+# 5. Cole abaixo:
+
+MERCADOPAGO_ACCESS_TOKEN=TEST-SEU-TOKEN-AQUI
+
+# ===========================================
+# URLs DO SISTEMA
+# ===========================================
+
+FRONTEND_URL=http://localhost:5173
+BACKEND_URL=http://localhost:8080
+
+# ===========================================
+# CONFIGURAÇÃO DO BANCO
+# ===========================================
+
+DATABASE_URL=postgresql://usuario:senha@localhost:5432/lifebee
+
+# ===========================================
+# OUTRAS CONFIGURAÇÕES
+# ===========================================
+
+NODE_ENV=development
+PORT=8080
+
+# ===========================================
+# INSTRUÇÕES
+# ===========================================
+
+# 1. Copie este arquivo para server/.env
+# 2. Substitua TEST-SEU-TOKEN-AQUI pelo seu token real
+# 3. Configure as outras variáveis conforme necessário
+# 4. Reinicie o servidor: npm run dev

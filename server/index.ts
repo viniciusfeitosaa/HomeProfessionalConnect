@@ -1,9 +1,19 @@
 import 'dotenv/config';
+import path from 'path';
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+
+// Carregar .env do diretório atual
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+config({ path: path.join(__dirname, '.env') });
 import express, { type Request, Response, NextFunction } from "express";
 import { sql } from "drizzle-orm";
-import { registerRoutes } from "./routes.js";
+import { setupRoutes } from "./routes-simple.js";
 import { seedDatabase } from "./seedData.js";
 import { Server as SocketIOServer } from "socket.io";
+import { createServer } from "http";
+import Redis from "redis";
 
 // Extend Express Request type for user property
 declare global {
@@ -109,7 +119,23 @@ app.use((req, res, next) => {
 (async () => {
   // await seedDatabase(); // REMOVIDO: não limpar mais o banco automaticamente
   
-  const server = await registerRoutes(app);
+  // Configurar Redis
+  const redisClient = Redis.createClient({
+    url: process.env.REDIS_URL || 'redis://localhost:6379'
+  });
+  
+  try {
+    await redisClient.connect();
+    console.log('✅ Redis conectado');
+  } catch (error) {
+    console.log('⚠️ Redis não disponível, usando fallback');
+  }
+  
+  // Configurar rotas
+  setupRoutes(app, redisClient);
+  
+  // Criar servidor HTTP
+  const server = createServer(app);
 
   // Inicializa o Socket.IO junto ao servidor HTTP
   const io = new SocketIOServer(server, {

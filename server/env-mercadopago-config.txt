@@ -1,0 +1,22 @@
+# Mercado Pago - Configuração para Marketplace
+# Credenciais de PRODUÇÃO para teste com contas de teste
+
+# Mercado Pago
+MERCADOPAGO_ACCESS_TOKEN=APP_USR-1923177717890465-082109-8f2125345d1601bce3a067b6eb1258c1-810345213
+MERCADOPAGO_PUBLIC_KEY=APP_USR-74bd256d-babe-4f73-88e6-efeea4c503aa
+MERCADOPAGO_CLIENT_ID=1923177717890465
+MERCADOPAGO_CLIENT_SECRET=WANzuMqWGqmHzSLRvMzacZZIM4yc7gZB
+
+# URLs do frontend para retorno de pagamento
+FRONTEND_URL=http://localhost:5173
+BACKEND_URL=http://localhost:8080
+
+# IMPORTANTE: Estas são credenciais de PRODUÇÃO
+# Use apenas para testes com contas de teste do Mercado Pago
+# Não use em ambiente de desenvolvimento com dados reais
+
+# INSTRUÇÕES:
+# 1. Copie este arquivo para .env no servidor
+# 2. Crie 2 contas de teste no Mercado Pago
+# 3. Teste o fluxo de pagamento com cartões de teste
+# 4. Verifique webhooks e notificações

@@ -1,0 +1,132 @@
+{
+  "version": "5",
+  "dialect": "postgresql",
+  "id": "0003_add_payment_references_table",
+  "prevId": "0002_add_service_reviews_table",
+  "tables": [
+    {
+      "name": "payment_references",
+      "schema": "",
+      "columns": [
+        {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        {
+          "name": "service_request_id",
+          "type": "integer",
+          "notNull": true
+        },
+        {
+          "name": "service_offer_id",
+          "type": "integer",
+          "notNull": true
+        },
+        {
+          "name": "client_id",
+          "type": "integer",
+          "notNull": true
+        },
+        {
+          "name": "professional_id",
+          "type": "integer",
+          "notNull": true
+        },
+        {
+          "name": "amount",
+          "type": "numeric(10,2)",
+          "notNull": true
+        },
+        {
+          "name": "preference_id",
+          "type": "text",
+          "notNull": true,
+          "unique": true
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "notNull": true,
+          "default": "pending"
+        },
+        {
+          "name": "status_detail",
+          "type": "text"
+        },
+        {
+          "name": "external_reference",
+          "type": "text",
+          "notNull": true
+        },
+        {
+          "name": "payment_id",
+          "type": "text"
+        },
+        {
+          "name": "approved_at",
+          "type": "timestamp"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp",
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "type": "timestamp",
+          "default": "now()"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "payment_references_preference_id_idx",
+          "columns": ["preference_id"]
+        },
+        {
+          "name": "payment_references_external_reference_idx",
+          "columns": ["external_reference"]
+        },
+        {
+          "name": "payment_references_status_idx",
+          "columns": ["status"]
+        }
+      ],
+      "foreignKeys": [
+        {
+          "name": "payment_references_service_request_id_fkey",
+          "table": "payment_references",
+          "columns": ["service_request_id"],
+          "referencedTable": "service_requests",
+          "referencedColumns": ["id"],
+          "onDelete": "cascade"
+        },
+        {
+          "name": "payment_references_service_offer_id_fkey",
+          "table": "payment_references",
+          "columns": ["service_offer_id"],
+          "referencedTable": "service_offers",
+          "referencedColumns": ["id"],
+          "onDelete": "cascade"
+        },
+        {
+          "name": "payment_references_client_id_fkey",
+          "table": "payment_references",
+          "columns": ["client_id"],
+          "referencedTable": "users",
+          "referencedColumns": ["id"],
+          "onDelete": "cascade"
+        },
+        {
+          "name": "payment_references_professional_id_fkey",
+          "table": "payment_references",
+          "columns": ["professional_id"],
+          "referencedTable": "professionals",
+          "referencedColumns": ["id"],
+          "onDelete": "cascade"
+        }
+      ]
+    }
+  ]
+}

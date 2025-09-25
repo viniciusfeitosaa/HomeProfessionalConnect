@@ -20,11 +20,9 @@ export async function apiRequest(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // Em desenvolvimento, use o proxy do Vite mantendo URLs relativas
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://lifebee-backend.onrender.com';
-  const fullUrl = import.meta.env.DEV
-    ? url
-    : (url.startsWith('http') ? url : `${baseUrl}${url}`);
+  // Sempre usar a URL completa do backend
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+  const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
 
   let res = await fetch(fullUrl, {
     method,
@@ -33,17 +31,6 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  // Fallback no dev: se 404 no proxy, tentar direto no backend (VITE_API_URL)
-  if (import.meta.env.DEV && res.status === 404 && url.startsWith('/api')) {
-    const fallbackBase = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-    const fallbackUrl = `${fallbackBase}${url}`;
-    res = await fetch(fallbackUrl, {
-      method,
-      headers,
-      body: data ? JSON.stringify(data) : undefined,
-      credentials: "include",
-    });
-  }
 
   // Handle 401 errors by clearing token
   if (res.status === 401) {
@@ -64,11 +51,9 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://lifebee-backend.onrender.com';
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       const url = queryKey[0] as string;
-      const fullUrl = import.meta.env.DEV
-        ? url
-        : (url.startsWith('http') ? url : `${baseUrl}${url}`);
+      const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
       
       const token = localStorage.getItem('token');
       const headers: Record<string, string> = {};
@@ -87,19 +72,6 @@ export const getQueryFn: <T>(options: {
 
       clearTimeout(timeoutId);
 
-      // Fallback no dev: se 404 no proxy, tentar direto no backend (VITE_API_URL)
-      if (import.meta.env.DEV && res.status === 404 && url.startsWith('/api')) {
-        const fallbackBase = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-        const fallbackUrl = `${fallbackBase}${url}`;
-        const controller2 = new AbortController();
-        const timeoutId2 = setTimeout(() => controller2.abort(), 10000);
-        res = await fetch(fallbackUrl, {
-          headers,
-          credentials: "include",
-          signal: controller2.signal,
-        });
-        clearTimeout(timeoutId2);
-      }
 
       if (unauthorizedBehavior === "returnNull" && (res.status === 401 || res.status === 403)) {
         return null;

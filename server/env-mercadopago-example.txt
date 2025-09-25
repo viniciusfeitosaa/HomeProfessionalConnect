@@ -1,0 +1,77 @@
+# Configuração do Mercado Pago para o LifeBee - MARKETPLACE
+
+## Variáveis de Ambiente Necessárias:
+
+# Mercado Pago Access Token (PRODUÇÃO para teste com contas de teste)
+MERCADOPAGO_ACCESS_TOKEN=APP_USR-1923177717890465-082109-8f2125345d1601bce3a067b6eb1258c1-810345213
+
+# Public Key (chave pública para frontend)
+MERCADOPAGO_PUBLIC_KEY=APP_USR-74bd256d-babe-4f73-88e6-efeea4c503aa
+
+# Client ID (ID da aplicação)
+MERCADOPAGO_CLIENT_ID=1923177717890465
+
+# Client Secret (segredo da aplicação)
+MERCADOPAGO_CLIENT_SECRET=WANzuMqWGqmHzSLRvMzacZZIM4yc7gZB
+
+# URLs para redirecionamento
+FRONTEND_URL=http://localhost:5173
+BACKEND_URL=http://localhost:8080
+
+## Configuração de Webhook:
+URL do Webhook: http://localhost:8080/api/payment/webhook
+(Em produção, use a URL do seu servidor)
+
+## Como obter o Access Token:
+
+1. Acesse: https://www.mercadopago.com.br/developers/
+2. Faça login na sua conta Mercado Pago
+3. Vá em "Suas integrações" > "Criar aplicação"
+4. Escolha "Pagamentos online" como produto
+5. Preencha os dados da aplicação
+6. Após criar, você terá acesso aos tokens:
+   - Public Key (para frontend)
+   - Access Token (para backend)
+
+## Configuração de Webhook:
+
+URL do Webhook: http://localhost:8080/api/payment/webhook
+(Em produção, use a URL do seu servidor)
+
+## Contas de Teste para Marketplace:
+
+Para testar o Marketplace, você precisa criar 2 contas de teste:
+
+1. **Conta Recebedora (LifeBee/Plataforma)**: 
+   - Use as credenciais de PRODUÇÃO desta conta
+   - Esta conta receberá os pagamentos
+
+2. **Conta Compradora (Cliente de Teste)**:
+   - Use cartões de teste para fazer pagamentos
+   - Esta conta simulará os clientes
+
+## Cartões de Teste:
+
+**Visa**: 4509 9535 6623 3704
+**Mastercard**: 5031 7557 3453 0604
+**Elo**: 6363 6800 0000 0001
+
+**CVV**: 123
+**Validade**: 11/25
+
+**IMPORTANTE**: Use apenas com contas de teste do Mercado Pago
+
+## Importante:
+
+- **CREDENCIAIS DE PRODUÇÃO**: Estas são credenciais reais para Marketplace
+- **APENAS PARA TESTE**: Use apenas com contas de teste do Mercado Pago
+- **NUNCA COMMITE**: Nunca commite tokens reais no repositório
+- **SEGURANÇA**: Configure as variáveis de ambiente no seu servidor de produção
+- **TESTE SEGURO**: Use valores baixos (R$ 1,00, R$ 5,00) para testes
+
+## Próximos Passos:
+
+1. Copie este arquivo para `.env` no servidor
+2. Crie 2 contas de teste no Mercado Pago
+3. Teste o fluxo de pagamento com cartões de teste
+4. Verifique webhooks e notificações

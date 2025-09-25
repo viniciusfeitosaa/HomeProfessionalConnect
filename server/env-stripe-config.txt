@@ -1,0 +1,20 @@
+# Configuração do Stripe - LifeBee
+# Copie este conteúdo para o arquivo server/.env
+
+# Stripe Configuration
+STRIPE_SECRET_KEY=<SUA_CHAVE_SECRETA_TESTE>
+STRIPE_WEBHOOK_SECRET=<SUA_CHAVE_WEBHOOK_TESTE>
+
+# URLs do sistema
+FRONTEND_URL=http://localhost:5173
+BACKEND_URL=http://localhost:8080
+
+# Database
+DATABASE_URL=postgresql://usuario:senha@localhost:5432/lifebee
+
+# Session
+SESSION_SECRET=your-secret-key-here
+
+# Environment
+NODE_ENV=development
+PORT=8080
