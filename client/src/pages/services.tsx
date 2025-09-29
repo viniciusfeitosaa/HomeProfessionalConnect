@@ -19,7 +19,8 @@ import {
   Eye,
   Filter,
   Search,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { getApiUrl } from '../lib/api-config';
@@ -998,77 +999,106 @@ export default function Services() {
                       </div>
                     )}
 
-                    {/* Botão para confirmar conclusão do serviço (apenas para propostas aceitas) */}
-                    {offer.status === 'accepted' && (
+                    {/* Status do serviço vinculado e ações */}
+                    {(offer.status === 'accepted' || offer.status === 'completed') && (
                       <div className="pt-4 border-t border-gray-200">
-                        {offer.serviceStatus === 'awaiting_confirmation' ? (
-                          <div>
-                            <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-4 border border-orange-200 mb-4">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Clock className="h-5 w-5 text-orange-600" />
-                                <p className="text-sm font-semibold text-orange-800">Serviço Concluído - Aguardando Confirmação</p>
+                        {(() => {
+                          const linkedRequest = serviceRequests.find(r => r.id === offer.serviceRequestId);
+
+                          if (!linkedRequest) {
+                            return (
+                              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <AlertCircle className="h-5 w-5 text-yellow-600" />
+                                  <p className="text-sm font-semibold text-yellow-800">Carregando informações do pedido...</p>
+                                </div>
+                                <p className="text-sm text-yellow-700">
+                                  Recarregue a página para sincronizar o status do pedido vinculado a esta proposta.
+                                </p>
                               </div>
-                              <p className="text-sm text-orange-700">
-                                O profissional marcou o serviço como concluído. 
-                                Confirme se tudo está correto para liberar o pagamento.
+                            );
+                          }
+
+                          const requestStatus = linkedRequest.status;
+
+                          if (requestStatus === 'awaiting_confirmation') {
+                            return (
+                              <div>
+                                <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-4 border border-orange-200 mb-4">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Clock className="h-5 w-5 text-orange-600" />
+                                    <p className="text-sm font-semibold text-orange-800">Serviço Concluído - Aguardando Confirmação</p>
+                                  </div>
+                                  <p className="text-sm text-orange-700">
+                                    O profissional marcou o serviço como concluído. Confirme se tudo está correto para liberar o pagamento.
+                                  </p>
+                                </div>
+
+                                <button
+                                  onClick={() => confirmServiceCompletion(offer.serviceRequestId)}
+                                  disabled={confirmingServiceId === offer.serviceRequestId}
+                                  className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {confirmingServiceId === offer.serviceRequestId ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  )}
+                                  <span>Confirmar Conclusão do Serviço</span>
+                                </button>
+
+                                <p className="text-xs text-gray-500 text-center mt-2">
+                                  Confirme para liberar o pagamento ao profissional
+                                </p>
+                              </div>
+                            );
+                          }
+
+                          if (requestStatus === 'completed') {
+                            return (
+                              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200 mb-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                                  <p className="text-sm font-semibold text-blue-800">Serviço e pedido concluídos</p>
+                                </div>
+                                <p className="text-sm text-blue-700 mb-2">
+                                  ✅ Pagamento aprovado! O profissional foi notificado e o pedido correspondente está marcado como concluído.
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  Caso o card do pedido ainda mostre outro status, recarregue esta página para sincronizar os dados.
+                                </p>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200 mb-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                <p className="text-sm font-semibold text-green-800">Proposta Aceita</p>
+                              </div>
+                              <p className="text-sm text-green-700 mb-4">
+                                Proposta aceita! Efetue o pagamento para que o profissional possa iniciar o serviço.
                               </p>
+
+                              <PaymentButton
+                                serviceOfferId={offer.id}
+                                serviceRequestId={offer.serviceRequestId}
+                                amount={offer.price}
+                                serviceName={`${linkedRequest.title || 'Serviço'}`}
+                                professionalName={offer.professionalName}
+                                onPaymentSuccess={() => {
+                                  fetchServiceOffers();
+                                  fetchServiceRequests();
+                                  toast({
+                                    title: "Pagamento Realizado",
+                                    description: "Pagamento processado com sucesso! O profissional foi notificado.",
+                                  });
+                                }}
+                              />
                             </div>
-                            
-                            <button
-                              onClick={() => confirmServiceCompletion(offer.serviceRequestId)}
-                              disabled={confirmingServiceId === offer.serviceRequestId}
-                              className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {confirmingServiceId === offer.serviceRequestId ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="h-4 w-4" />
-                              )}
-                              <span>Confirmar Conclusão do Serviço</span>
-                            </button>
-                            
-                            <p className="text-xs text-gray-500 text-center mt-2">
-                              Confirme para liberar o pagamento ao profissional
-                            </p>
-                          </div>
-                        ) : offer.status === 'completed' ? (
-                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200 mb-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <CheckCircle2 className="h-5 w-5 text-blue-600" />
-                              <p className="text-sm font-semibold text-blue-800">Serviço Concluído</p>
-                            </div>
-                            <p className="text-sm text-blue-700 mb-4">
-                              ✅ Pagamento aprovado! O profissional foi notificado e o serviço está concluído.
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200 mb-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <CheckCircle2 className="h-5 w-5 text-green-600" />
-                              <p className="text-sm font-semibold text-green-800">Proposta Aceita</p>
-                            </div>
-                            <p className="text-sm text-green-700 mb-4">
-                              Proposta aceita! Efetue o pagamento para que o profissional possa iniciar o serviço.
-                            </p>
-                            
-                            {/* Botão de Pagamento */}
-                            <PaymentButton
-                              serviceOfferId={offer.id}
-                              serviceRequestId={offer.serviceRequestId}
-                              amount={offer.price}
-                              serviceName={`${serviceRequests.find(r => r.id === offer.serviceRequestId)?.title || 'Serviço'}`}
-                              professionalName={offer.professionalName}
-                              onPaymentSuccess={() => {
-                                // Recarregar dados após pagamento
-                                fetchServiceOffers();
-                                toast({
-                                  title: "Pagamento Realizado",
-                                  description: "Pagamento processado com sucesso! O profissional foi notificado.",
-                                });
-                              }}
-                            />
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
