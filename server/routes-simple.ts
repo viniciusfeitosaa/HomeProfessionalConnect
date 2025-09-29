@@ -21,6 +21,25 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 console.log(`✅ Stripe inicializado com sucesso`);
 
 export function setupRoutes(app: Express, redisClient: any) {
+  app.get('/api/payment/config', (req, res) => {
+    try {
+      const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLIC_KEY;
+
+      if (!publishableKey) {
+        console.error('❌ STRIPE_PUBLISHABLE_KEY não configurada');
+        return res.status(500).json({
+          error: 'Chave pública do Stripe não configurada. Defina STRIPE_PUBLISHABLE_KEY nas variáveis de ambiente.'
+        });
+      }
+
+      res.json({
+        publishableKey,
+      });
+    } catch (error) {
+      console.error('❌ Erro ao obter configuração do Stripe:', error);
+      res.status(500).json({ error: 'Erro interno ao obter configuração do Stripe' });
+    }
+  });
   
   // ==================== STRIPE TEST ROUTE ====================
   app.get('/api/payment/test-stripe', async (req, res) => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,7 @@ import { getApiUrl } from '@/lib/api-config';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { loadStripe } from '@stripe/stripe-js';
+import type { Stripe } from '@stripe/stripe-js';
 import {
   Elements,
   CardElement,
@@ -30,14 +31,28 @@ import {
   PaymentElement
 } from '@stripe/react-stripe-js';
 
-// Initialize Stripe
-const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+// Cache da promise do Stripe para evitar múltiplas chamadas
+let cachedStripePromise: Promise<Stripe | null> | null = null;
 
-if (!stripePublicKey) {
-  throw new Error('VITE_STRIPE_PUBLIC_KEY não configurada. Defina no arquivo .env do client.');
+async function loadStripeFromServer() {
+  if (!cachedStripePromise) {
+    const response = await fetch(`${getApiUrl()}/api/payment/config`);
+
+    if (!response.ok) {
+      throw new Error('Não foi possível obter a configuração do Stripe');
+    }
+
+    const data: { publishableKey?: string } = await response.json();
+
+    if (!data.publishableKey) {
+      throw new Error('Chave pública do Stripe não configurada no servidor');
+    }
+
+    cachedStripePromise = loadStripe(data.publishableKey);
+  }
+
+  return cachedStripePromise;
 }
-
-const stripePromise = loadStripe(stripePublicKey);
 
 interface PaymentButtonProps {
   serviceOfferId: number;
@@ -51,10 +66,10 @@ interface PaymentButtonProps {
 
 // Componente interno para processar o pagamento
 function PaymentForm({ 
-  serviceOfferId, 
-  amount, 
-  serviceName, 
-  professionalName, 
+  serviceOfferId,
+  amount,
+  serviceName,
+  professionalName,
   clientSecret
 }: PaymentButtonProps) {
   const stripe = useStripe();
@@ -385,7 +400,30 @@ export default function PaymentButton(props: PaymentButtonProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stripeLoadError, setStripeLoadError] = useState<string | null>(null);
+  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    let mounted = true;
+
+    loadStripeFromServer()
+      .then((promise) => {
+        if (mounted) {
+          setStripePromise(promise);
+        }
+      })
+      .catch((stripeError) => {
+        console.error('❌ Erro ao carregar Stripe:', stripeError);
+        if (mounted) {
+          setStripeLoadError(stripeError instanceof Error ? stripeError.message : 'Erro ao carregar Stripe');
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleCreatePayment = async () => {
     if (!clientSecret && !isLoading) {
@@ -395,39 +433,39 @@ export default function PaymentButton(props: PaymentButtonProps) {
       try {
         const token = localStorage.getItem('token');
         const response = await fetch(`${getApiUrl()}/api/payment/create-intent`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
             serviceOfferId: props.serviceOfferId,
             serviceRequestId: props.serviceRequestId
-          })
-        });
+        })
+      });
 
-        const data = await response.json();
+      const data = await response.json();
 
-        if (response.ok && data.success) {
+      if (response.ok && data.success) {
           setClientSecret(data.clientSecret);
-          toast({
-            title: "Pagamento Criado",
-            description: "Escolha seu método de pagamento",
-          });
-        } else {
-          throw new Error(data.error || 'Erro ao criar pagamento');
-        }
-      } catch (error) {
-        console.error('Erro ao criar pagamento:', error);
-        setError(error instanceof Error ? error.message : 'Erro interno do servidor');
         toast({
-          title: "Erro no Pagamento",
-          description: error instanceof Error ? error.message : "Erro interno do servidor",
-          variant: "destructive",
+          title: "Pagamento Criado",
+            description: "Escolha seu método de pagamento",
         });
-      } finally {
-        setIsLoading(false);
+      } else {
+        throw new Error(data.error || 'Erro ao criar pagamento');
       }
+    } catch (error) {
+      console.error('Erro ao criar pagamento:', error);
+        setError(error instanceof Error ? error.message : 'Erro interno do servidor');
+      toast({
+        title: "Erro no Pagamento",
+        description: error instanceof Error ? error.message : "Erro interno do servidor",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
     }
   };
 
@@ -449,10 +487,16 @@ export default function PaymentButton(props: PaymentButtonProps) {
       {error && (
         <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
           <p className="text-sm text-red-600">{error}</p>
+          </div>
+      )}
+
+      {stripeLoadError && (
+        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-sm text-red-600">{stripeLoadError}</p>
         </div>
       )}
 
-      {clientSecret && (
+      {clientSecret && stripePromise && !stripeLoadError && (
         <Elements stripe={stripePromise} options={{ clientSecret }}>
           <PaymentForm {...props} clientSecret={clientSecret} />
         </Elements>
