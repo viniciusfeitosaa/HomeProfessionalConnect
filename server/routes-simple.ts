@@ -185,6 +185,196 @@ export function setupRoutes(app: Express, redisClient: any) {
     }
   });
 
+  // ==================== MESSAGING ROUTES ====================
+  app.get('/api/messages', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      console.log('🔍 GET /api/messages - Usuário autenticado:', user.id, user.userType);
+
+      const conversations = await storage.getConversationsByUser(user.id);
+      console.log('📋 Conversas encontradas:', conversations.length);
+
+      const enrichedConversations = await Promise.all(conversations.map(async (conv) => {
+        const lastMessage = await storage.getLastMessageByConversation(conv.id);
+        const unreadCount = await storage.getUnreadMessageCount(conv.id, user.id);
+
+        if (user.userType === 'provider') {
+          const client = await storage.getUser(conv.clientId);
+          return {
+            id: conv.id,
+            clientId: conv.clientId,
+            clientName: client?.name || 'Cliente',
+            clientAvatar: client?.profileImage || '',
+            professionalId: conv.professionalId,
+            professionalName: user.name || 'Profissional',
+            professionalAvatar: user.profileImage || '',
+            specialization: '',
+            lastMessage: lastMessage?.content || 'Nenhuma mensagem',
+            lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+            unreadCount,
+            isOnline: Math.random() > 0.5,
+            rating: 5.0,
+            location: client && (client as any).city ? (client as any).city : '',
+            messages: await storage.getMessagesByConversation(conv.id)
+          };
+        }
+
+        const professional = await storage.getProfessionalById(conv.professionalId);
+
+        return {
+          id: conv.id,
+          clientId: conv.clientId,
+          professionalId: conv.professionalId,
+          professionalName: professional?.name || 'Profissional',
+          professionalAvatar: professional?.imageUrl ? storage['getFullImageUrl']?.(professional.imageUrl) ?? professional.imageUrl : '',
+          specialization: professional?.specialization || '',
+          lastMessage: lastMessage?.content || 'Nenhuma mensagem',
+          lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+          unreadCount,
+          isOnline: Math.random() > 0.5,
+          rating: Number(professional?.rating) || 5.0,
+          location: professional?.location || '',
+          messages: await storage.getMessagesByConversation(conv.id)
+        };
+      }));
+
+      res.json(enrichedConversations);
+    } catch (error) {
+      console.error('❌ Erro ao buscar conversas:', error);
+      res.status(500).json({ message: 'Erro interno ao buscar conversas' });
+    }
+  });
+
+  app.get('/api/messages/:conversationId', authenticateToken, async (req, res) => {
+    try {
+      const { conversationId } = req.params;
+      const user = req.user;
+
+      const conversation = await storage.getMessagesByConversation(parseInt(conversationId));
+
+      if (!conversation) {
+        return res.status(404).json({ message: 'Conversa não encontrada' });
+      }
+
+      // Marcar mensagens como lidas (se houver lógica no storage)
+      try {
+        await storage.markMessagesAsRead?.(parseInt(conversationId), user.id);
+      } catch (err) {
+        console.warn('⚠️ Não foi possível marcar mensagens como lidas:', err);
+      }
+
+      res.json(conversation);
+    } catch (error) {
+      console.error('❌ Erro ao buscar mensagens da conversa:', error);
+      res.status(500).json({ message: 'Erro interno ao buscar mensagens' });
+    }
+  });
+
+  app.post('/api/messages', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const { recipientId, content, type, conversationId } = req.body;
+
+      if (!recipientId || !content || !conversationId) {
+        return res.status(400).json({ message: 'Destinatário, conversa e conteúdo são obrigatórios' });
+      }
+
+      const conversations = await storage.getConversationsByUser(user.id);
+      const isParticipant = conversations.some(conv => conv.id === conversationId);
+
+      if (!isParticipant) {
+        const isDeletedByUser = await storage.isConversationDeletedByUser?.(conversationId, user.id);
+        if (isDeletedByUser) {
+          await storage.restoreConversation?.(conversationId, user.id);
+        } else {
+          return res.status(403).json({ message: 'Acesso negado à conversa' });
+        }
+      }
+
+      const isDeletedByRecipient = await storage.isConversationDeletedByUser?.(conversationId, recipientId);
+      if (isDeletedByRecipient) {
+        await storage.restoreConversation?.(conversationId, recipientId);
+      }
+
+      const message = await storage.createMessage({
+        conversationId,
+        senderId: user.id,
+        recipientId,
+        content,
+        type: type || 'text',
+        isRead: false
+      });
+
+      res.status(201).json(message);
+    } catch (error) {
+      console.error('❌ Erro ao enviar mensagem:', error);
+      res.status(500).json({ message: 'Erro interno ao enviar mensagem' });
+    }
+  });
+
+  app.post('/api/messages/start-conversation', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const { professionalId, message } = req.body;
+
+      const professional = await storage.getProfessionalById(professionalId);
+      if (!professional) {
+        return res.status(404).json({ message: 'Profissional não encontrado' });
+      }
+
+      const existingConversation = await storage.getConversation(user.id, professionalId);
+
+      let conversationId: number;
+
+      if (existingConversation) {
+        const isDeletedByUser = await storage.isConversationDeletedByUser?.(existingConversation.id, user.id);
+        if (isDeletedByUser) {
+          await storage.restoreConversation?.(existingConversation.id, user.id);
+        }
+
+        const isDeletedByProfessional = await storage.isConversationDeletedByUser?.(existingConversation.id, professionalId);
+        if (isDeletedByProfessional) {
+          await storage.restoreConversation?.(existingConversation.id, professionalId);
+        }
+
+        conversationId = existingConversation.id;
+      } else {
+        const conversation = await storage.createConversation({
+          clientId: user.id,
+          professionalId,
+        });
+        conversationId = conversation.id;
+      }
+
+      const newMessage = await storage.createMessage({
+        conversationId,
+        senderId: user.id,
+        recipientId: professionalId,
+        content: message || 'Olá! Gostaria de conversar sobre seus serviços.',
+        type: 'text',
+        isRead: false
+      });
+
+      res.status(201).json({ conversationId, message: newMessage });
+    } catch (error) {
+      console.error('❌ Erro ao iniciar conversa:', error);
+      res.status(500).json({ message: 'Erro interno ao iniciar conversa' });
+    }
+  });
+
+  app.delete('/api/messages/conversation/:conversationId', authenticateToken, async (req, res) => {
+    try {
+      const { conversationId } = req.params;
+      const user = req.user;
+
+      await storage.deleteConversation?.(parseInt(conversationId), user.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('❌ Erro ao excluir conversa:', error);
+      res.status(500).json({ message: 'Erro interno ao excluir conversa' });
+    }
+  });
+
   // ==================== DATABASE TEST ROUTE ====================
   app.get('/api/payment/test-db', async (req, res) => {
     try {
