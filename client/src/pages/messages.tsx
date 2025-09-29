@@ -81,7 +81,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
         });
         return;
       }
-      const response = await fetch(`${getApiUrl()}/api/messages`, {
+      const response = await fetch(`${getApiUrl()}/api/messages/conversations`, {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',

@@ -1,3 +1,113 @@
+  app.get('/api/messages/conversations', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      console.log('🔍 GET /api/messages/conversations - Usuário:', user.id, user.userType);
+
+      const userConversations = await storage.getConversationsByUser(user.id);
+      console.log('📋 Conversas encontradas:', userConversations.length);
+
+      const conversationsWithDetails = await Promise.all(userConversations.map(async (conv) => {
+        const lastMessage = await storage.getLastMessageByConversation(conv.id);
+        const unreadCount = await storage.getUnreadMessageCount(conv.id, user.id);
+
+        if (user.userType === 'provider') {
+          const client = await storage.getUser(conv.clientId);
+          return {
+            id: conv.id,
+            professionalId: conv.professionalId,
+            professionalName: user.name || 'Profissional',
+            professionalAvatar: user.profileImage || '',
+            specialization: '',
+            lastMessage: lastMessage?.content || 'Nenhuma mensagem',
+            lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+            unreadCount,
+            isOnline: Math.random() > 0.5,
+            rating: 5.0,
+            location: client?.city || '',
+            clientId: conv.clientId,
+            clientName: client?.name || 'Cliente',
+            clientAvatar: client?.profileImage || ''
+          };
+        }
+
+        const professional = await storage.getProfessionalById(conv.professionalId);
+        return {
+          id: conv.id,
+          professionalId: conv.professionalId,
+          professionalName: professional?.name || 'Profissional',
+          professionalAvatar: professional?.imageUrl ? storage.getFullImageUrl(professional.imageUrl) : '',
+          specialization: professional?.specialization || '',
+          lastMessage: lastMessage?.content || 'Nenhuma mensagem',
+          lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+          unreadCount,
+          isOnline: Math.random() > 0.5,
+          rating: Number(professional?.rating) || 5.0,
+          location: professional?.location || '',
+        };
+      }));
+
+      res.json(conversationsWithDetails);
+    } catch (error) {
+      console.error('❌ Erro ao buscar conversas:', error);
+      res.status(500).json({ message: 'Erro interno ao buscar conversas' });
+    }
+  });
+
+  app.get('/api/messages/conversations', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      console.log('🔍 GET /api/messages/conversations - Usuário:', user.id, user.userType);
+
+      const userConversations = await storage.getConversationsByUser(user.id);
+      console.log('📋 Conversas encontradas:', userConversations.length);
+
+      const conversationsWithDetails = await Promise.all(userConversations.map(async (conv) => {
+        const lastMessage = await storage.getLastMessageByConversation(conv.id);
+        const unreadCount = await storage.getUnreadMessageCount(conv.id, user.id);
+
+        if (user.userType === 'provider') {
+          const client = await storage.getUser(conv.clientId);
+          return {
+            id: conv.id,
+            professionalId: conv.professionalId,
+            professionalName: user.name || 'Profissional',
+            professionalAvatar: user.profileImage || '',
+            specialization: '',
+            lastMessage: lastMessage?.content || 'Nenhuma mensagem',
+            lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+            unreadCount,
+            isOnline: Math.random() > 0.5,
+            rating: 5.0,
+            location: client?.city || '',
+            clientId: conv.clientId,
+            clientName: client?.name || 'Cliente',
+            clientAvatar: client?.profileImage || ''
+          };
+        }
+
+        const professional = await storage.getProfessionalById(conv.professionalId);
+        return {
+          id: conv.id,
+          professionalId: conv.professionalId,
+          professionalName: professional?.name || 'Profissional',
+          professionalAvatar: professional?.imageUrl ? storage.getFullImageUrl(professional.imageUrl) : '',
+          specialization: professional?.specialization || '',
+          lastMessage: lastMessage?.content || 'Nenhuma mensagem',
+          lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+          unreadCount,
+          isOnline: Math.random() > 0.5,
+          rating: Number(professional?.rating) || 5.0,
+          location: professional?.location || '',
+        };
+      }));
+
+      res.json(conversationsWithDetails);
+    } catch (error) {
+      console.error('❌ Erro ao buscar conversas:', error);
+      res.status(500).json({ message: 'Erro interno ao buscar conversas' });
+    }
+  });
+
 import type { Express } from "express";
 import express from "express";
 import { storage } from "./storage.js";
