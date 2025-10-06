@@ -27,11 +27,16 @@ export function useAuth() {
 
   useEffect(() => {
     const verifyToken = async () => {
+    console.log('🔐 useAuth: Verificando token...');
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
     
+    console.log('🔐 useAuth: Token presente:', !!token);
+    console.log('🔐 useAuth: UserData presente:', !!userData);
+    
     if (token && userData) {
         try {
+          console.log('🔐 useAuth: Verificando token com backend...');
           // Verify token with backend
           const response = await fetch(`${getApiUrl()}/api/user`, {
             credentials: 'include',
@@ -43,6 +48,7 @@ export function useAuth() {
           
           if (response.ok) {
             const user = await response.json();
+            console.log('🔐 useAuth: Usuário verificado com sucesso:', user);
             setAuthState({
               user,
               isLoading: false,
@@ -60,9 +66,11 @@ export function useAuth() {
           }
         } catch (error) {
           console.error('Error verifying token:', error);
+          console.log('🔐 useAuth: Usando fallback com dados armazenados...');
           // Fallback to stored user data if network error
       try {
         const user = JSON.parse(userData);
+        console.log('🔐 useAuth: Usuário carregado do localStorage:', user);
         setAuthState({
           user,
           isLoading: false,

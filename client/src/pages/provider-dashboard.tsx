@@ -1,3 +1,5 @@
+console.log('📦 ProviderDashboard module loading...');
+
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,6 +75,11 @@ function MapController({ userLocation }: { userLocation: [number, number] }) {
 }
 
 export default function ProviderDashboard() {
+  console.log('🏗️ =========================================');
+  console.log('🏗️ ProviderDashboard component rendering');
+  console.log('🏗️ Timestamp:', new Date().toISOString());
+  console.log('🏗️ =========================================');
+  
   const [selectedService, setSelectedService] = useState<number | null>(null);
   const [isAvailable, setIsAvailable] = useState(true);
   const [searchRadius, setSearchRadius] = useState(5);
@@ -87,6 +94,11 @@ export default function ProviderDashboard() {
   const { theme, setTheme } = useTheme();
   const { logout, user } = useAuth();
   const { toast } = useToast();
+  
+  console.log('👤 User from useAuth:', user);
+  console.log('👤 User type:', user?.userType);
+  console.log('👤 User ID:', user?.id);
+  console.log('👤 User name:', user?.name);
   const [mapKey, setMapKey] = useState(0); // Para forçar re-render do mapa
   const [locationUpdated, setLocationUpdated] = useState(false); // Para indicar se a localização foi atualizada
   const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null); // Precisão da localização
@@ -96,6 +108,31 @@ export default function ProviderDashboard() {
   const [totalCompletedServices, setTotalCompletedServices] = useState<number>(0);
   const [totalEarnings, setTotalEarnings] = useState<number>(0);
   const [completedServices, setCompletedServices] = useState<any[]>([]);
+  
+  console.log('📊 Estados atuais do dashboard:', {
+    monthlyCompletedServices,
+    monthlyCompletedEarnings,
+    totalCompletedServices,
+    totalEarnings,
+    completedServicesCount: completedServices.length
+  });
+
+  // Monitorar mudanças nos estados do dashboard
+  useEffect(() => {
+    console.log('📊 Estados do dashboard atualizados:', {
+      monthlyCompletedServices,
+      monthlyCompletedEarnings,
+      totalCompletedServices,
+      totalEarnings,
+      completedServicesCount: completedServices.length
+    });
+    console.log('📊 Valores específicos:', {
+      monthlyCompletedServices: monthlyCompletedServices,
+      monthlyCompletedEarnings: monthlyCompletedEarnings,
+      totalCompletedServices: totalCompletedServices,
+      totalEarnings: totalEarnings
+    });
+  }, [monthlyCompletedServices, monthlyCompletedEarnings, totalCompletedServices, totalEarnings, completedServices]);
   const [monthlyGoalMode, setMonthlyGoalMode] = useState<'services' | 'revenue'>(() => {
     const saved = localStorage.getItem('lb_monthly_goal_mode');
     return (saved === 'revenue' || saved === 'services') ? saved : 'services';
@@ -355,6 +392,27 @@ export default function ProviderDashboard() {
   const handleLogout = () => {
     logout();
     window.location.href = '/';
+  };
+
+  const fetchAvailabilityStatus = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(`${getApiUrl()}/api/provider/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setIsAvailable(data.available ?? true);
+        console.log('✅ Estado de disponibilidade carregado:', data.available);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar estado de disponibilidade:', error);
+    }
   };
 
   const handleAvailabilityChange = async (available: boolean) => {
@@ -974,13 +1032,66 @@ export default function ProviderDashboard() {
     ];
   };
 
-  // Buscar estatísticas de performance do profissional
-  const fetchPerformanceStats = async () => {
+  // Buscar dados gerais do dashboard
+  const fetchDashboardData = async () => {
     if (!user) return;
     
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
+
+      console.log('📊 Buscando dados gerais do dashboard...');
+      
+      const response = await fetch(`${getApiUrl()}/api/provider/dashboard`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Dados do dashboard carregados:', data);
+        
+        // Atualizar estados com os dados recebidos
+        if (data.stats) {
+          setTotalCompletedServices(data.stats.completedOffers);
+          setTotalEarnings(data.stats.totalEarnings);
+          setMonthlyCompletedEarnings(data.stats.monthlyEarnings);
+          setMonthlyCompletedServices(data.stats.completedOffers); // Usar o número real de serviços concluídos
+        }
+        
+        if (data.recentActivity) {
+          setCompletedServices(data.recentActivity.recentOffers || []);
+        }
+      } else {
+        console.error('❌ Erro ao carregar dados do dashboard:', response.statusText);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar dados do dashboard:', error);
+    }
+  };
+
+  // Buscar estatísticas de performance do profissional
+  const fetchPerformanceStats = async () => {
+    console.log('🚀 fetchPerformanceStats iniciado');
+    console.log('🚀 User no fetchPerformanceStats:', user);
+    console.log('🚀 Timestamp:', new Date().toISOString());
+    console.log('🚀 Estados antes da chamada:', { monthlyCompletedServices, monthlyCompletedEarnings });
+    if (!user) {
+      console.log('❌ Usuário não encontrado');
+      return;
+    }
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('❌ Token não encontrado');
+        return;
+      }
+
+      console.log(`📊 Buscando dados para usuário ID: ${user.id}`);
+      console.log(`🔗 URL: ${getApiUrl()}/api/professional/${user.id}/completed-services`);
 
       // Buscar serviços concluídos do profissional
       const response = await fetch(`${getApiUrl()}/api/professional/${user.id}/completed-services`, {
@@ -990,9 +1101,14 @@ export default function ProviderDashboard() {
         }
       });
 
+      console.log('📡 Resposta da API:', response.status, response.statusText);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('📊 Dados brutos recebidos:', data);
         const completedServices = data.data || [];
+        console.log('📋 Serviços concluídos encontrados:', completedServices.length);
+        console.log('📋 Primeiro serviço:', completedServices[0]);
         
         // Calcular estatísticas do mês atual
         const now = new Date();
@@ -1023,22 +1139,42 @@ export default function ProviderDashboard() {
           return total + (Number(service.amount) || 0);
         }, 0);
         
+        console.log('💰 Valores calculados:', {
+          monthlyServicesCount: monthlyServices.length,
+          monthlyEarningsValue: monthlyEarnings,
+          totalServicesCount: completedServices.length,
+          totalEarningsValue: totalEarnings
+        });
+
+        console.log('🔄 Atualizando estados...');
         setMonthlyCompletedServices(monthlyServices.length);
         setMonthlyCompletedEarnings(monthlyEarnings);
         setTotalCompletedServices(completedServices.length);
         setTotalEarnings(totalEarnings);
         setCompletedServices(completedServices); // Salvar dados para o gráfico
+        console.log('✅ Estados atualizados:', {
+          monthlyCompletedServices: monthlyServices.length,
+          monthlyCompletedEarnings: monthlyEarnings,
+          totalCompletedServices: completedServices.length,
+          totalEarnings: totalEarnings
+        });
         
-        console.log('📊 Estatísticas carregadas:', {
+        console.log('📊 Estatísticas carregadas e estados atualizados:', {
           totalServices: completedServices.length,
           monthlyServices: monthlyServices.length,
           monthlyEarnings,
           totalEarnings,
           completedServices: completedServices.slice(0, 3) // Mostrar primeiros 3 serviços para debug
         });
+      } else {
+        console.log('❌ Erro na resposta da API:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.log('❌ Detalhes do erro:', errorText);
       }
     } catch (error) {
       console.error('❌ Erro ao carregar estatísticas:', error);
+    } finally {
+      console.log('🏁 fetchPerformanceStats finalizada');
     }
   };
 
@@ -1341,13 +1477,26 @@ export default function ProviderDashboard() {
 
   // Carregar solicitações de serviço quando o usuário estiver autenticado
   useEffect(() => {
-    console.log('useEffect triggered - user:', user);
+    console.log('🔄 useEffect triggered - user:', user);
+    console.log('🔄 User type:', user?.userType);
+    console.log('🔄 User ID:', user?.id);
+    console.log('🔄 fetchPerformanceStats definida:', typeof fetchPerformanceStats);
     if (user) {
-      console.log('User authenticated, calling fetchServiceRequests');
+      console.log('✅ User authenticated, calling functions');
+      console.log('🚀 Chamando fetchAvailabilityStatus...');
+      fetchAvailabilityStatus(); // Carregar estado de disponibilidade
+      console.log('🚀 Chamando fetchServiceRequests...');
       fetchServiceRequests();
-      fetchPerformanceStats(); // Carregar estatísticas de performance
+      console.log('🚀 Chamando fetchPerformanceStats...');
+      if (typeof fetchPerformanceStats === 'function') {
+        fetchPerformanceStats(); // Carregar estatísticas de performance
+      } else {
+        console.log('❌ fetchPerformanceStats não é uma função');
+      }
+      // console.log('🚀 Chamando fetchDashboardData...');
+      // fetchDashboardData(); // REMOVIDO: estava sobrescrevendo os dados de fetchPerformanceStats
     } else {
-      console.log('User not authenticated yet');
+      console.log('❌ User not authenticated yet');
     }
   }, [user]);
 
@@ -1614,7 +1763,7 @@ export default function ProviderDashboard() {
                     </div>
                   </div>
                   <div className="max-h-96 overflow-y-auto">
-                    {notifications.length === 0 ? (
+                    {!notifications || notifications.length === 0 ? (
                       <div className="p-4 text-center text-gray-500">
                         Nenhuma notificação
                       </div>
@@ -1653,7 +1802,7 @@ export default function ProviderDashboard() {
                       })
                     )}
                   </div>
-                  {notifications.length > 0 && (
+                  {notifications && notifications.length > 0 && (
                     <div className="p-3 border-t">
                       <Button variant="ghost" size="sm" className="w-full">
                         Ver todas as notificações
@@ -1735,6 +1884,9 @@ export default function ProviderDashboard() {
 
         <div className="p-4 sm:p-6 lg:p-8 pb-8 sm:pb-12 lg:pb-16 space-y-6 sm:space-y-8">
           {/* Dashboard Overview - Performance */}
+          {console.log('🎨 Renderizando cards do dashboard')}
+          {console.log('🎨 Valor de monthlyCompletedServices:', monthlyCompletedServices)}
+          {console.log('🎨 Valor de monthlyCompletedEarnings:', monthlyCompletedEarnings)}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Total de Serviços Concluídos */}
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-700">
@@ -1742,8 +1894,8 @@ export default function ProviderDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total de Serviços</p>
-                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{monthlyCompletedServices}</p>
-                    <p className="text-xs text-blue-600 dark:text-blue-400">Este mês</p>
+                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{totalCompletedServices}</p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400">Total</p>
                   </div>
                   <div className="p-3 bg-blue-500 rounded-full">
                     <CheckCircle className="h-6 w-6 text-white" />
@@ -1758,14 +1910,8 @@ export default function ProviderDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-green-600 dark:text-green-400">Receita Total</p>
-                    <p className="text-2xl font-bold text-green-900 dark:text-green-100">R$ {monthlyCompletedEarnings.toLocaleString('pt-BR')}</p>
-                    <p className="text-xs text-green-600 dark:text-green-400">Este mês</p>
-                    <Link href="/payment-dashboard">
-                      <Button variant="ghost" size="sm" className="mt-2 text-green-600 hover:text-green-700 hover:bg-green-100 dark:hover:bg-green-800/30">
-                        <DollarSign className="h-4 w-4 mr-1" />
-                        Ver Pagamentos
-                      </Button>
-                    </Link>
+                    <p className="text-2xl font-bold text-green-900 dark:text-green-100">R$ {totalEarnings.toLocaleString('pt-BR')}</p>
+                    <p className="text-xs text-green-600 dark:text-green-400">Total</p>
                   </div>
                   <div className="p-3 bg-green-500 rounded-full">
                     <DollarSign className="h-6 w-6 text-white" />
@@ -1781,7 +1927,7 @@ export default function ProviderDashboard() {
                     <div>
                     <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Média por Serviço</p>
                     <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
-                      R$ {monthlyCompletedServices > 0 ? (monthlyCompletedEarnings / monthlyCompletedServices).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
+                      R$ {totalCompletedServices > 0 ? (totalEarnings / totalCompletedServices).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
                     </p>
                     <p className="text-xs text-purple-600 dark:text-purple-400">Valor médio</p>
                     </div>
@@ -1799,7 +1945,7 @@ export default function ProviderDashboard() {
                   <div>
                     <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Taxa de Conclusão</p>
                     <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
-                      {providerAppointments.length > 0 ? Math.round((monthlyCompletedServices / providerAppointments.length) * 100) : 0}%
+                      {providerAppointments && providerAppointments.length > 0 ? Math.round((totalCompletedServices / providerAppointments.length) * 100) : 100}%
                     </p>
                     <p className="text-xs text-orange-600 dark:text-orange-400">Serviços finalizados</p>
                   </div>
@@ -2025,7 +2171,7 @@ export default function ProviderDashboard() {
                           </div>
                           <div className="flex items-center gap-1">
                             <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                            <span>Solicitações ({nearbyServices.length})</span>
+                            <span>Solicitações ({nearbyServices?.length || 0})</span>
                           </div>
                           {selectedMapService && (
                             <div className="flex items-center gap-1">
@@ -2043,7 +2189,7 @@ export default function ProviderDashboard() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
                       <div>
                         <h3 className="font-semibold text-base sm:text-lg">Solicitações Disponíveis</h3>
-                        {geocodingErrors.length > 0 && (
+                        {geocodingErrors && geocodingErrors.length > 0 && (
                           <p className="text-xs text-red-600 mt-1">
                             ⚠️ {geocodingErrors.length} endereço(s) não localizados
                           </p>
@@ -2094,7 +2240,7 @@ export default function ProviderDashboard() {
                           ></div>
                         </div>
                       </div>
-                    ) : nearbyServices.length === 0 ? (
+                    ) : !nearbyServices || nearbyServices.length === 0 ? (
                       <div className="text-center py-6 sm:py-8">
                         <div className="bg-gray-100 dark:bg-gray-800 rounded-full w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center mx-auto mb-3 sm:mb-4">
                           <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />

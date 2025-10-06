@@ -1054,6 +1054,25 @@ export default function Services() {
                             );
                           }
 
+                          // Proposta concluída (paga e finalizada)
+                          if (offer.status === 'completed') {
+                            return (
+                              <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg p-4 border border-emerald-200 mb-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                                  <p className="text-sm font-semibold text-emerald-800">Proposta Concluída</p>
+                                </div>
+                                <p className="text-sm text-emerald-700 mb-3">
+                                  ✅ Pagamento realizado com sucesso! O serviço foi concluído e o profissional foi pago.
+                                </p>
+                                <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-100 px-3 py-2 rounded-lg">
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  <span className="font-medium">Status: Concluído e Pago</span>
+                                </div>
+                              </div>
+                            );
+                          }
+
                           if (requestStatus === 'completed') {
                             return (
                               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200 mb-4">

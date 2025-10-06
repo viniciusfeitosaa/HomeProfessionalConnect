@@ -333,7 +333,7 @@ export default function MessagesProvider({ params }: { params?: { conversationId
                   <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
                     <div className="relative flex-shrink-0">
                       <Avatar className="w-10 h-10 sm:w-12 sm:h-12">
-                        <AvatarImage src={conversation.clientAvatar} alt={conversation.clientName} />
+                        <AvatarImage src={conversation.clientAvatar ? `${getApiUrl()}${conversation.clientAvatar}` : undefined} alt={conversation.clientName} />
                         <AvatarFallback className="bg-yellow-500 text-white text-xs sm:text-sm">
                           {conversation.clientName?.split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
@@ -434,7 +434,7 @@ export default function MessagesProvider({ params }: { params?: { conversationId
               </Button>
               <div className="relative">
                 <Avatar className="w-10 h-10">
-                  <AvatarImage src={selectedConv?.clientAvatar} alt={selectedConv?.clientName} />
+                  <AvatarImage src={selectedConv?.clientAvatar ? `${getApiUrl()}${selectedConv.clientAvatar}` : undefined} alt={selectedConv?.clientName} />
                   <AvatarFallback className="bg-yellow-500 text-white">
                     {selectedConv?.clientName?.split(' ').map(n => n[0]).join('')}
                   </AvatarFallback>
@@ -468,7 +468,7 @@ export default function MessagesProvider({ params }: { params?: { conversationId
           </div>
         </div>
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ maxHeight: '60vh' }}>
+        <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-4" style={{ maxHeight: '60vh' }}>
           {messages.map((message) => {
             const isOwn = message.senderId === user?.id;
             return (
@@ -512,8 +512,8 @@ export default function MessagesProvider({ params }: { params?: { conversationId
           <div ref={messagesEndRef} />
         </div>
         {/* Message Input */}
-        <div className="p-4 border-t border-gray-200 bg-white">
-          <div className="flex items-center gap-2">
+        <div className="fixed bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white z-40">
+          <div className="flex items-center gap-2 max-w-4xl mx-auto">
             <Button variant="ghost" size="sm">
               <Paperclip className="h-4 w-4" />
             </Button>

@@ -1,4 +1,11 @@
 import 'dotenv/config';
+import path from 'path';
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+// Carregar .env do diretório atual
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+config({ path: path.join(__dirname, '.env') });
 import express from "express";
 import { sql } from "drizzle-orm";
 import { setupRoutes } from "./routes-simple.js";

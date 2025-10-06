@@ -1,112 +1,3 @@
-  app.get('/api/messages/conversations', authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      console.log('🔍 GET /api/messages/conversations - Usuário:', user.id, user.userType);
-
-      const userConversations = await storage.getConversationsByUser(user.id);
-      console.log('📋 Conversas encontradas:', userConversations.length);
-
-      const conversationsWithDetails = await Promise.all(userConversations.map(async (conv) => {
-        const lastMessage = await storage.getLastMessageByConversation(conv.id);
-        const unreadCount = await storage.getUnreadMessageCount(conv.id, user.id);
-
-        if (user.userType === 'provider') {
-          const client = await storage.getUser(conv.clientId);
-          return {
-            id: conv.id,
-            professionalId: conv.professionalId,
-            professionalName: user.name || 'Profissional',
-            professionalAvatar: user.profileImage || '',
-            specialization: '',
-            lastMessage: lastMessage?.content || 'Nenhuma mensagem',
-            lastMessageTime: lastMessage?.timestamp || conv.createdAt,
-            unreadCount,
-            isOnline: Math.random() > 0.5,
-            rating: 5.0,
-            location: client?.city || '',
-            clientId: conv.clientId,
-            clientName: client?.name || 'Cliente',
-            clientAvatar: client?.profileImage || ''
-          };
-        }
-
-        const professional = await storage.getProfessionalById(conv.professionalId);
-        return {
-          id: conv.id,
-          professionalId: conv.professionalId,
-          professionalName: professional?.name || 'Profissional',
-          professionalAvatar: professional?.imageUrl ? storage.getFullImageUrl(professional.imageUrl) : '',
-          specialization: professional?.specialization || '',
-          lastMessage: lastMessage?.content || 'Nenhuma mensagem',
-          lastMessageTime: lastMessage?.timestamp || conv.createdAt,
-          unreadCount,
-          isOnline: Math.random() > 0.5,
-          rating: Number(professional?.rating) || 5.0,
-          location: professional?.location || '',
-        };
-      }));
-
-      res.json(conversationsWithDetails);
-    } catch (error) {
-      console.error('❌ Erro ao buscar conversas:', error);
-      res.status(500).json({ message: 'Erro interno ao buscar conversas' });
-    }
-  });
-
-  app.get('/api/messages/conversations', authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      console.log('🔍 GET /api/messages/conversations - Usuário:', user.id, user.userType);
-
-      const userConversations = await storage.getConversationsByUser(user.id);
-      console.log('📋 Conversas encontradas:', userConversations.length);
-
-      const conversationsWithDetails = await Promise.all(userConversations.map(async (conv) => {
-        const lastMessage = await storage.getLastMessageByConversation(conv.id);
-        const unreadCount = await storage.getUnreadMessageCount(conv.id, user.id);
-
-        if (user.userType === 'provider') {
-          const client = await storage.getUser(conv.clientId);
-          return {
-            id: conv.id,
-            professionalId: conv.professionalId,
-            professionalName: user.name || 'Profissional',
-            professionalAvatar: user.profileImage || '',
-            specialization: '',
-            lastMessage: lastMessage?.content || 'Nenhuma mensagem',
-            lastMessageTime: lastMessage?.timestamp || conv.createdAt,
-            unreadCount,
-            isOnline: Math.random() > 0.5,
-            rating: 5.0,
-            location: client?.city || '',
-            clientId: conv.clientId,
-            clientName: client?.name || 'Cliente',
-            clientAvatar: client?.profileImage || ''
-          };
-        }
-
-        const professional = await storage.getProfessionalById(conv.professionalId);
-        return {
-          id: conv.id,
-          professionalId: conv.professionalId,
-          professionalName: professional?.name || 'Profissional',
-          professionalAvatar: professional?.imageUrl ? storage.getFullImageUrl(professional.imageUrl) : '',
-          specialization: professional?.specialization || '',
-          lastMessage: lastMessage?.content || 'Nenhuma mensagem',
-          lastMessageTime: lastMessage?.timestamp || conv.createdAt,
-          unreadCount,
-          isOnline: Math.random() > 0.5,
-          rating: Number(professional?.rating) || 5.0,
-          location: professional?.location || '',
-        };
-      }));
-
-      res.json(conversationsWithDetails);
-    } catch (error) {
-      console.error('❌ Erro ao buscar conversas:', error);
-      res.status(500).json({ message: 'Erro interno ao buscar conversas' });
-    }
-  });
 
 import type { Express } from "express";
 import express from "express";
@@ -120,15 +11,16 @@ console.log(`🔧 Inicializando Stripe...`);
 console.log(`🔑 STRIPE_SECRET_KEY presente: ${process.env.STRIPE_SECRET_KEY ? 'Sim' : 'Não'}`);
 console.log(`🔑 STRIPE_SECRET_KEY início: ${process.env.STRIPE_SECRET_KEY?.substring(0, 20)}...`);
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY não encontrada nas variáveis de ambiente');
+let stripe: Stripe | null = null;
+
+if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY !== 'sk_test_placeholder') {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2025-08-27.basil',
+  });
+  console.log(`✅ Stripe inicializado com sucesso`);
+} else {
+  console.log(`⚠️ Stripe desabilitado - configure STRIPE_SECRET_KEY para habilitar pagamentos`);
 }
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2025-08-27.basil',
-});
-
-console.log(`✅ Stripe inicializado com sucesso`);
 
 export function setupRoutes(app: Express, redisClient: any) {
   app.get('/api/payment/config', (req, res) => {
@@ -156,6 +48,13 @@ export function setupRoutes(app: Express, redisClient: any) {
     try {
       console.log(`🧪 Testando Stripe...`);
       
+      if (!stripe) {
+        return res.status(503).json({ 
+          error: 'Stripe não configurado',
+          message: 'Configure STRIPE_SECRET_KEY para habilitar pagamentos'
+        });
+      }
+
       // Teste simples: criar um Payment Intent de R$ 5,00
       const paymentIntent = await stripe.paymentIntents.create({
         amount: 500, // R$ 5,00 em centavos
@@ -417,6 +316,13 @@ export function setupRoutes(app: Express, redisClient: any) {
 
     let event;
 
+    if (!stripe) {
+      return res.status(503).json({ 
+        error: 'Stripe não configurado',
+        message: 'Configure STRIPE_SECRET_KEY para habilitar webhooks'
+      });
+    }
+
     try {
       event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
     } catch (err) {
@@ -439,8 +345,29 @@ export function setupRoutes(app: Express, redisClient: any) {
           const clientId = paymentIntent.metadata.clientId;
           
           if (serviceOfferId) {
+            // Buscar dados da proposta para obter o serviceRequestId
+            const serviceOffer = await storage.getServiceOfferById(parseInt(serviceOfferId));
+            if (!serviceOffer) {
+              console.log('❌ Proposta não encontrada:', serviceOfferId);
+              return res.status(404).json({ error: 'Proposta não encontrada' });
+            }
+
+            // Buscar dados do serviço
+            const serviceRequest = await storage.getServiceRequestById(serviceOffer.serviceRequestId);
+            if (!serviceRequest) {
+              console.log('❌ Serviço não encontrado:', serviceOffer.serviceRequestId);
+              return res.status(404).json({ error: 'Serviço não encontrado' });
+            }
+
             // Atualizar status da proposta para concluída (pagamento realizado)
             await storage.updateServiceOfferStatus(parseInt(serviceOfferId), 'completed');
+            console.log('✅ Proposta marcada como concluída');
+
+            // Atualizar status do serviço para concluído se ainda não estiver
+            if (serviceRequest.status !== 'completed') {
+              await storage.updateServiceRequestStatus(serviceRequest.id, 'completed');
+              console.log('✅ Serviço marcado como concluído automaticamente');
+            }
             
             // Criar notificação para o profissional
             await storage.createNotification({
@@ -686,6 +613,13 @@ export function setupRoutes(app: Express, redisClient: any) {
       console.log(`💰 Valor final (mínimo R$ 5,00): R$ ${finalAmount.toFixed(2)}`);
       console.log(`🔑 Stripe Secret Key presente: ${process.env.STRIPE_SECRET_KEY ? 'Sim' : 'Não'}`);
 
+      if (!stripe) {
+        return res.status(503).json({ 
+          error: 'Stripe não configurado',
+          message: 'Configure STRIPE_SECRET_KEY para habilitar pagamentos'
+        });
+      }
+
       // Cria Payment Intent no Stripe com métodos de pagamento brasileiros
       console.log(`🚀 Criando Payment Intent com valor: ${Math.round(finalAmount * 100)} centavos`);
       
@@ -730,66 +664,6 @@ export function setupRoutes(app: Express, redisClient: any) {
     }
   });
 
-  // Webhook para receber notificações do Stripe
-  app.post('/api/payment/webhook', express.raw({type: 'application/json'}), async (req, res) => {
-    const sig = req.headers['stripe-signature'];
-    let event;
-
-    try {
-      event = stripe.webhooks.constructEvent(req.body, sig!, process.env.STRIPE_WEBHOOK_SECRET!);
-    } catch (err: any) {
-      console.error(`❌ Erro de verificação do Webhook Stripe: ${err.message}`);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    // Handle the event
-    switch (event.type) {
-      case 'payment_intent.succeeded':
-        const paymentIntentSucceeded = event.data.object;
-        console.log('✅ PaymentIntent succeeded:', paymentIntentSucceeded.id);
-        // Update payment status in DB
-        await storage.updatePaymentReferenceStatus(
-          paymentIntentSucceeded.id,
-          'approved',
-          'succeeded',
-          paymentIntentSucceeded.id,
-          new Date()
-        );
-        // Update service offer status
-        const serviceOfferIdApproved = paymentIntentSucceeded.metadata.serviceOfferId;
-        if (serviceOfferIdApproved) {
-          await storage.updateServiceOfferStatus(parseInt(serviceOfferIdApproved), 'accepted');
-          console.log(`✅ Proposta ${serviceOfferIdApproved} marcada como paga`);
-        }
-        break;
-      case 'payment_intent.payment_failed':
-        const paymentIntentFailed = event.data.object;
-        console.log('❌ PaymentIntent failed:', paymentIntentFailed.id);
-        // Update payment status in DB
-        await storage.updatePaymentReferenceStatus(
-          paymentIntentFailed.id,
-          'rejected',
-          paymentIntentFailed.last_payment_error?.message || 'failed',
-          paymentIntentFailed.id
-        );
-        break;
-      case 'payment_intent.processing':
-        const paymentIntentProcessing = event.data.object;
-        console.log('⏳ PaymentIntent processing:', paymentIntentProcessing.id);
-        // Update payment status in DB
-        await storage.updatePaymentReferenceStatus(
-          paymentIntentProcessing.id,
-          'pending',
-          'processing',
-          paymentIntentProcessing.id
-        );
-        break;
-      default:
-        console.log(`Unhandled event type ${event.type}`);
-    }
-
-    res.status(200).json({ received: true });
-  });
 
   // Rota de teste para verificar configuração
   app.get('/api/payment/test-config', (req, res) => {
@@ -1149,6 +1023,268 @@ export function setupRoutes(app: Express, redisClient: any) {
       });
     } catch (error: any) {
       console.error('❌ Erro no registro:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ==================== DELETE SERVICE REQUEST ====================
+
+  // Delete service request (with cascade delete of related offers)
+  app.delete('/api/service-requests/:id', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      
+      console.log('🗑️ Tentativa de exclusão de service request ID:', requestId, 'por usuário:', user.id);
+      
+      const serviceRequest = await storage.getServiceRequestById(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicitação não encontrada" });
+      }
+
+      // Verificar se o usuário é o proprietário da solicitação
+      if (user.userType !== 'client' || serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ message: "Apenas o cliente que criou a solicitação pode excluí-la" });
+      }
+
+      // Permitir exclusão de solicitações abertas, pendentes ou atribuídas (mas não concluídas)
+      if (!['open', 'pending', 'assigned'].includes(serviceRequest.status)) {
+        return res.status(400).json({ 
+          message: "Apenas solicitações abertas, pendentes ou atribuídas podem ser excluídas",
+          currentStatus: serviceRequest.status
+        });
+      }
+
+      // Excluir o service request (isso automaticamente excluirá todas as propostas relacionadas)
+      await storage.deleteServiceRequest(requestId);
+      
+      console.log('✅ Service request excluído com sucesso, ID:', requestId);
+      
+      res.json({ 
+        success: true,
+        message: "Solicitação e todas as propostas relacionadas foram excluídas com sucesso",
+        deletedRequestId: requestId
+      });
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao excluir solicitação:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ==================== PROVIDER APPOINTMENTS ====================
+
+  // Get appointments for provider
+  app.get('/api/appointments/provider', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: 'Acesso negado. Apenas profissionais podem acessar esta rota.' });
+      }
+
+      console.log('📅 Buscando agendamentos para profissional ID:', user.id);
+
+      // Buscar agendamentos do profissional (usando service requests assigned para ele)
+      const appointments = await storage.getServiceRequestsByProfessional(user.id);
+      
+      console.log('✅ Agendamentos encontrados:', appointments.length);
+
+      res.json(appointments);
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar agendamentos:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ==================== SERVICE REQUESTS BY CATEGORY ====================
+
+  // Get service requests by category
+  app.get('/api/service-requests/category/:category', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const category = req.params.category;
+
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: 'Acesso negado. Apenas profissionais podem acessar esta rota.' });
+      }
+
+      console.log('🔍 Buscando solicitações para categoria:', category, 'por profissional ID:', user.id);
+
+      // Buscar service requests da categoria específica que ainda não foram assigned
+      const serviceRequests = await storage.getServiceRequestsByCategory(category);
+      
+      // Filtrar apenas os que não estão assigned ou estão assigned para este profissional
+      const availableRequests = serviceRequests.filter(request => 
+        request.status === 'open' || request.status === 'pending' || 
+        (request.status === 'assigned' && request.assignedProfessionalId === user.id)
+      );
+
+      console.log('✅ Solicitações encontradas:', availableRequests.length);
+
+      res.json(availableRequests);
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar solicitações por categoria:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ==================== PROVIDER AVAILABILITY ====================
+
+  // Update provider availability
+  app.put('/api/provider/availability', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const { available } = req.body;
+      
+      console.log('🔧 Atualizando disponibilidade do profissional:', { userId: user.id, available });
+
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: 'Acesso negado. Apenas profissionais podem atualizar sua disponibilidade.' });
+      }
+
+      // Atualizar disponibilidade do profissional usando user.id
+      await storage.updateProfessionalAvailability(user.id, available);
+      
+      console.log('✅ Disponibilidade atualizada com sucesso');
+
+      res.json({ message: 'Disponibilidade atualizada com sucesso', available });
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao atualizar disponibilidade:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ==================== PROFESSIONAL COMPLETED SERVICES ====================
+
+  // Get completed services for professional
+  app.get('/api/professional/:id/completed-services', authenticateToken, async (req, res) => {
+    try {
+      console.log('🚀 Endpoint /api/professional/:id/completed-services chamado');
+      const user = req.user;
+      const professionalId = parseInt(req.params.id);
+      
+      console.log('👤 Usuário autenticado:', { id: user?.id, userType: user?.userType, name: user?.name });
+      console.log('📋 Professional ID solicitado:', professionalId);
+
+      if (user.userType !== 'provider' || user.id !== professionalId) {
+        console.log('❌ Acesso negado - verificação de permissão falhou');
+        return res.status(403).json({ message: 'Acesso negado. Você só pode acessar seus próprios dados.' });
+      }
+
+      console.log('✅ Permissão aprovada, buscando dados...');
+      console.log('📊 Buscando serviços concluídos para profissional ID:', professionalId);
+
+      // Buscar o professional_id correspondente ao user_id
+      console.log('🔍 Buscando professional_id para user_id:', professionalId);
+      const professional = await storage.getProfessionalByUserId(professionalId);
+      if (!professional) {
+        console.log('❌ Profissional não encontrado para user_id:', professionalId);
+        return res.status(404).json({ message: 'Profissional não encontrado' });
+      }
+      
+      console.log('✅ Profissional encontrado:', { id: professional.id, userId: professional.userId, name: professional.name });
+
+      // Buscar service requests concluídos do profissional com dados completos
+      console.log('🔍 Buscando serviços concluídos para professional_id:', professional.id);
+      const completedServices = await storage.getProfessionalCompletedServices(professional.id);
+      
+      console.log('✅ Serviços concluídos encontrados:', completedServices.length);
+      console.log('📋 Primeiro serviço:', completedServices[0] || 'Nenhum serviço');
+
+      res.json({ data: completedServices });
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar serviços concluídos:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ==================== PROVIDER PAYMENTS ====================
+
+  // Get payments for provider
+  app.get('/api/provider/payments', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const filter = req.query.filter || 'all';
+
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: 'Acesso negado. Apenas profissionais podem acessar esta rota.' });
+      }
+
+      console.log('💳 Buscando pagamentos para profissional ID:', user.id, 'com filtro:', filter);
+
+      // Buscar pagamentos do profissional
+      const payments = await storage.getPaymentsByProfessional(user.id, filter as string);
+      
+      // Buscar estatísticas de pagamento
+      const stats = await storage.getPaymentStatsByProfessional(user.id);
+      
+      console.log('✅ Pagamentos encontrados:', payments.length);
+      console.log('✅ Estatísticas:', stats);
+
+      res.json({
+        payments,
+        stats
+      });
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar pagamentos:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ==================== PROVIDER PROFILE ====================
+
+  // Get provider profile data
+  app.get('/api/provider/profile', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: 'Acesso negado. Apenas profissionais podem acessar esta rota.' });
+      }
+
+      console.log('👤 Buscando perfil do profissional ID:', user.id);
+
+      // Buscar dados completos do profissional
+      const profileData = await storage.getProviderProfile(user.id);
+      
+      console.log('✅ Perfil encontrado:', !!profileData);
+
+      res.json(profileData);
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar perfil do profissional:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ==================== PROVIDER DASHBOARD OVERVIEW ====================
+
+  // Get provider dashboard overview data
+  app.get('/api/provider/dashboard', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ message: 'Acesso negado. Apenas profissionais podem acessar esta rota.' });
+      }
+
+      console.log('📊 Buscando dados do dashboard para profissional ID:', user.id);
+
+      // Buscar dados completos do dashboard
+      const dashboardData = await storage.getProviderDashboardData(user.id);
+      
+      console.log('✅ Dados do dashboard encontrados:', !!dashboardData);
+
+      res.json(dashboardData);
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar dados do dashboard:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });

@@ -245,8 +245,18 @@ export default function Login({ onLogin }: LoginProps) {
         const data = await response.json();
         
         if (response.ok) {
+          console.log('🔐 Login bem-sucedido!');
+          console.log('🔑 Token recebido:', data.token ? 'Sim' : 'Não');
+          console.log('👤 User recebido:', data.user);
+          
           localStorage.setItem('token', data.token);
           localStorage.setItem('user', JSON.stringify(data.user));
+          
+          console.log('💾 Token salvo no localStorage');
+          console.log('💾 User salvo no localStorage');
+          console.log('🔍 Verificando localStorage...');
+          console.log('🔍 Token no localStorage:', localStorage.getItem('token') ? 'Presente' : 'Ausente');
+          console.log('🔍 User no localStorage:', localStorage.getItem('user') ? 'Presente' : 'Ausente');
           
           toast({
             title: "Login realizado com sucesso!",

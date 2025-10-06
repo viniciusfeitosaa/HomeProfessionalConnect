@@ -564,9 +564,14 @@ export class DatabaseStorage {
         return serviceRequest;
     }
     async deleteServiceRequest(id) {
+        console.log('🗑️ Excluindo service request ID:', id);
+        // Primeiro, excluir todas as propostas relacionadas a este service request
+        await this.deleteServiceOffersByRequest(id);
+        // Depois, excluir o service request
         await db
             .delete(serviceRequests)
             .where(eq(serviceRequests.id, id));
+        console.log('✅ Service request excluído com sucesso');
     }
     async assignProfessionalToRequest(requestId, professionalId) {
         await db
@@ -738,6 +743,13 @@ export class DatabaseStorage {
         await db
             .delete(serviceOffers)
             .where(eq(serviceOffers.id, id));
+    }
+    async deleteServiceOffersByRequest(serviceRequestId) {
+        console.log('🗑️ Excluindo todas as propostas do service request ID:', serviceRequestId);
+        await db
+            .delete(serviceOffers)
+            .where(eq(serviceOffers.serviceRequestId, serviceRequestId));
+        console.log('✅ Todas as propostas excluídas com sucesso');
     }
     // ==================== SERVICE REQUESTS FOR CLIENT ====================
     async getServiceRequestsForClient(userId) {
@@ -1540,6 +1552,20 @@ export class DatabaseStorage {
             throw error;
         }
     }
+    async updateServiceRequestStatus(requestId, status) {
+        try {
+            console.log('📝 Atualizando status da solicitação:', { requestId, status });
+            await db
+                .update(serviceRequests)
+                .set({ status, updatedAt: new Date() })
+                .where(eq(serviceRequests.id, requestId));
+            console.log('✅ Status da solicitação atualizado');
+        }
+        catch (error) {
+            console.error('❌ Erro ao atualizar status da solicitação:', error);
+            throw error;
+        }
+    }
     // ==================== PROVIDER PAYMENT METHODS ====================
     async getProviderPayments(professionalId, filter) {
         try {
@@ -1626,6 +1652,288 @@ export class DatabaseStorage {
         }
         catch (error) {
             console.error('❌ Erro ao calcular estatísticas de pagamento:', error);
+            throw error;
+        }
+    }
+    // ==================== PROVIDER APPOINTMENTS ====================
+    async getServiceRequestsByProfessional(professionalId) {
+        try {
+            console.log('📅 Buscando service requests para profissional ID:', professionalId);
+            const results = await db
+                .select()
+                .from(serviceRequests)
+                .where(eq(serviceRequests.assignedProfessionalId, professionalId))
+                .orderBy(desc(serviceRequests.createdAt));
+            console.log('✅ Service requests encontrados:', results.length);
+            return results;
+        }
+        catch (error) {
+            console.error('❌ Erro em getServiceRequestsByProfessional:', error);
+            throw error;
+        }
+    }
+    // ==================== COMPLETED SERVICES BY PROFESSIONAL ====================
+    async getCompletedServicesByProfessional(professionalId) {
+        try {
+            console.log('📊 Buscando serviços concluídos para profissional ID:', professionalId);
+            const results = await db
+                .select()
+                .from(serviceRequests)
+                .where(and(eq(serviceRequests.assignedProfessionalId, professionalId), eq(serviceRequests.status, 'completed')))
+                .orderBy(desc(serviceRequests.updatedAt));
+            console.log('✅ Serviços concluídos encontrados:', results.length);
+            return results;
+        }
+        catch (error) {
+            console.error('❌ Erro em getCompletedServicesByProfessional:', error);
+            throw error;
+        }
+    }
+    // ==================== PROVIDER PAYMENTS ====================
+    async getPaymentsByProfessional(professionalId, filter = 'all') {
+        try {
+            console.log('💳 Buscando pagamentos para profissional ID:', professionalId, 'com filtro:', filter);
+            // Buscar service offers do profissional que foram pagas
+            let whereCondition = eq(serviceOffers.professionalId, professionalId);
+            if (filter === 'approved') {
+                whereCondition = and(eq(serviceOffers.professionalId, professionalId), eq(serviceOffers.status, 'completed'));
+            }
+            else if (filter === 'pending') {
+                whereCondition = and(eq(serviceOffers.professionalId, professionalId), eq(serviceOffers.status, 'accepted'));
+            }
+            const results = await db
+                .select({
+                id: serviceOffers.id,
+                serviceRequestId: serviceOffers.serviceRequestId,
+                professionalId: serviceOffers.professionalId,
+                proposedPrice: serviceOffers.proposedPrice,
+                finalPrice: serviceOffers.finalPrice,
+                status: serviceOffers.status,
+                createdAt: serviceOffers.createdAt,
+                updatedAt: serviceOffers.updatedAt,
+                serviceTitle: serviceRequests.serviceType,
+                clientName: users.name,
+                clientEmail: users.email
+            })
+                .from(serviceOffers)
+                .leftJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id))
+                .leftJoin(users, eq(serviceRequests.clientId, users.id))
+                .where(whereCondition)
+                .orderBy(desc(serviceOffers.updatedAt));
+            console.log('✅ Pagamentos encontrados:', results.length);
+            return results;
+        }
+        catch (error) {
+            console.error('❌ Erro em getPaymentsByProfessional:', error);
+            throw error;
+        }
+    }
+    async getPaymentStatsByProfessional(professionalId) {
+        try {
+            console.log('📊 Calculando estatísticas de pagamento para profissional ID:', professionalId);
+            // Total de propostas
+            const totalOffers = await db
+                .select({ count: sql `count(*)` })
+                .from(serviceOffers)
+                .where(eq(serviceOffers.professionalId, professionalId));
+            // Propostas aprovadas/concluídas
+            const completedOffers = await db
+                .select({ count: sql `count(*)` })
+                .from(serviceOffers)
+                .where(and(eq(serviceOffers.professionalId, professionalId), eq(serviceOffers.status, 'completed')));
+            // Propostas pendentes
+            const pendingOffers = await db
+                .select({ count: sql `count(*)` })
+                .from(serviceOffers)
+                .where(and(eq(serviceOffers.professionalId, professionalId), eq(serviceOffers.status, 'accepted')));
+            // Valor total ganho (propostas concluídas)
+            const totalEarnings = await db
+                .select({ total: sql `sum(${serviceOffers.finalPrice})` })
+                .from(serviceOffers)
+                .where(and(eq(serviceOffers.professionalId, professionalId), eq(serviceOffers.status, 'completed')));
+            const stats = {
+                totalOffers: Number(totalOffers[0]?.count || 0),
+                completedOffers: Number(completedOffers[0]?.count || 0),
+                pendingOffers: Number(pendingOffers[0]?.count || 0),
+                totalEarnings: Number(totalEarnings[0]?.total || 0)
+            };
+            console.log('✅ Estatísticas calculadas:', stats);
+            return stats;
+        }
+        catch (error) {
+            console.error('❌ Erro em getPaymentStatsByProfessional:', error);
+            throw error;
+        }
+    }
+    // ==================== PROVIDER PROFILE ====================
+    async getProviderProfile(professionalId) {
+        try {
+            console.log('👤 Buscando perfil completo do profissional ID:', professionalId);
+            // Buscar dados básicos do usuário
+            const userData = await db
+                .select()
+                .from(users)
+                .where(eq(users.id, professionalId))
+                .limit(1);
+            if (userData.length === 0) {
+                throw new Error('Profissional não encontrado');
+            }
+            const user = userData[0];
+            // Buscar estatísticas do profissional
+            const totalOffers = await db
+                .select({ count: sql `count(*)` })
+                .from(serviceOffers)
+                .where(eq(serviceOffers.professionalId, professionalId));
+            const completedOffers = await db
+                .select({ count: sql `count(*)` })
+                .from(serviceOffers)
+                .where(and(eq(serviceOffers.professionalId, professionalId), eq(serviceOffers.status, 'completed')));
+            const totalEarnings = await db
+                .select({ total: sql `sum(${serviceOffers.finalPrice})` })
+                .from(serviceOffers)
+                .where(and(eq(serviceOffers.professionalId, professionalId), eq(serviceOffers.status, 'completed')));
+            // Buscar avaliações
+            const reviews = await db
+                .select({
+                rating: serviceReviews.rating,
+                comment: serviceReviews.comment,
+                createdAt: serviceReviews.createdAt,
+                clientName: users.name
+            })
+                .from(serviceReviews)
+                .leftJoin(users, eq(serviceReviews.clientId, users.id))
+                .where(eq(serviceReviews.professionalId, professionalId))
+                .orderBy(desc(serviceReviews.createdAt))
+                .limit(10);
+            // Calcular rating médio
+            const avgRating = reviews.length > 0
+                ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+                : 0;
+            const profileData = {
+                ...user,
+                stats: {
+                    totalOffers: Number(totalOffers[0]?.count || 0),
+                    completedOffers: Number(completedOffers[0]?.count || 0),
+                    totalEarnings: Number(totalEarnings[0]?.total || 0),
+                    averageRating: Math.round(avgRating * 10) / 10,
+                    totalReviews: reviews.length
+                },
+                recentReviews: reviews
+            };
+            console.log('✅ Perfil do profissional montado com sucesso');
+            return profileData;
+        }
+        catch (error) {
+            console.error('❌ Erro em getProviderProfile:', error);
+            throw error;
+        }
+    }
+    // ==================== PROVIDER DASHBOARD OVERVIEW ====================
+    async getProviderDashboardData(professionalId) {
+        try {
+            console.log('📊 Buscando dados completos do dashboard para profissional ID:', professionalId);
+            // Buscar dados básicos do usuário
+            const userData = await db
+                .select()
+                .from(users)
+                .where(eq(users.id, professionalId))
+                .limit(1);
+            if (userData.length === 0) {
+                throw new Error('Profissional não encontrado');
+            }
+            const user = userData[0];
+            // Buscar estatísticas de propostas
+            const totalOffers = await db
+                .select({ count: sql `count(*)` })
+                .from(serviceOffers)
+                .where(eq(serviceOffers.professionalId, professionalId));
+            const acceptedOffers = await db
+                .select({ count: sql `count(*)` })
+                .from(serviceOffers)
+                .where(and(eq(serviceOffers.professionalId, professionalId), eq(serviceOffers.status, 'accepted')));
+            const completedOffers = await db
+                .select({ count: sql `count(*)` })
+                .from(serviceOffers)
+                .where(and(eq(serviceOffers.professionalId, professionalId), eq(serviceOffers.status, 'completed')));
+            // Buscar total de ganhos
+            const totalEarnings = await db
+                .select({ total: sql `sum(${serviceOffers.finalPrice})` })
+                .from(serviceOffers)
+                .where(and(eq(serviceOffers.professionalId, professionalId), eq(serviceOffers.status, 'completed')));
+            // Buscar ganhos do mês atual
+            const currentMonth = new Date().getMonth() + 1;
+            const currentYear = new Date().getFullYear();
+            const monthlyEarnings = await db
+                .select({ total: sql `sum(${serviceOffers.finalPrice})` })
+                .from(serviceOffers)
+                .where(and(eq(serviceOffers.professionalId, professionalId), eq(serviceOffers.status, 'completed'), sql `EXTRACT(MONTH FROM ${serviceOffers.updatedAt}) = ${currentMonth}`, sql `EXTRACT(YEAR FROM ${serviceOffers.updatedAt}) = ${currentYear}`));
+            // Buscar serviços disponíveis (service requests abertos)
+            const availableServices = await db
+                .select({ count: sql `count(*)` })
+                .from(serviceRequests)
+                .where(eq(serviceRequests.status, 'open'));
+            // Buscar avaliações e rating médio
+            const reviews = await db
+                .select({
+                rating: serviceReviews.rating,
+                comment: serviceReviews.comment,
+                createdAt: serviceReviews.createdAt,
+                clientName: users.name
+            })
+                .from(serviceReviews)
+                .leftJoin(users, eq(serviceReviews.clientId, users.id))
+                .where(eq(serviceReviews.professionalId, professionalId))
+                .orderBy(desc(serviceReviews.createdAt))
+                .limit(5);
+            // Calcular rating médio
+            const avgRating = reviews.length > 0
+                ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+                : 0;
+            // Buscar propostas recentes
+            const recentOffers = await db
+                .select({
+                id: serviceOffers.id,
+                proposedPrice: serviceOffers.proposedPrice,
+                finalPrice: serviceOffers.finalPrice,
+                status: serviceOffers.status,
+                createdAt: serviceOffers.createdAt,
+                serviceTitle: serviceRequests.serviceType,
+                clientName: users.name
+            })
+                .from(serviceOffers)
+                .leftJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id))
+                .leftJoin(users, eq(serviceRequests.clientId, users.id))
+                .where(eq(serviceOffers.professionalId, professionalId))
+                .orderBy(desc(serviceOffers.createdAt))
+                .limit(5);
+            const dashboardData = {
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    profileImage: user.profileImage,
+                    userType: user.userType
+                },
+                stats: {
+                    totalOffers: Number(totalOffers[0]?.count || 0),
+                    acceptedOffers: Number(acceptedOffers[0]?.count || 0),
+                    completedOffers: Number(completedOffers[0]?.count || 0),
+                    totalEarnings: Number(totalEarnings[0]?.total || 0),
+                    monthlyEarnings: Number(monthlyEarnings[0]?.total || 0),
+                    availableServices: Number(availableServices[0]?.count || 0),
+                    averageRating: Math.round(avgRating * 10) / 10,
+                    totalReviews: reviews.length
+                },
+                recentActivity: {
+                    recentOffers,
+                    recentReviews: reviews
+                }
+            };
+            console.log('✅ Dados do dashboard montados com sucesso');
+            return dashboardData;
+        }
+        catch (error) {
+            console.error('❌ Erro em getProviderDashboardData:', error);
             throw error;
         }
     }

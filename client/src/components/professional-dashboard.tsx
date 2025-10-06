@@ -65,12 +65,13 @@ export default function ProfessionalDashboard({ professionalId }: ProfessionalDa
       }
 
       const data = await response.json();
-      setCompletedServices(data.data);
+      const servicesData = data.data || [];
+      setCompletedServices(servicesData);
 
       // Calcular estatísticas
-      const totalEarnings = data.data.reduce((sum: number, service: CompletedService) => sum + Number(service.amount), 0);
-      const totalServices = data.data.length;
-      const servicesWithReviews = data.data.filter((service: CompletedService) => service.hasReview);
+      const totalEarnings = servicesData.reduce((sum: number, service: CompletedService) => sum + Number(service.amount), 0);
+      const totalServices = servicesData.length;
+      const servicesWithReviews = servicesData.filter((service: CompletedService) => service.hasReview);
       const totalReviews = servicesWithReviews.length;
       const averageRating = totalReviews > 0 
         ? servicesWithReviews.reduce((sum: number, service: CompletedService) => sum + (service.reviewRating || 0), 0) / totalReviews
@@ -85,6 +86,13 @@ export default function ProfessionalDashboard({ professionalId }: ProfessionalDa
 
     } catch (error) {
       console.error('Erro ao buscar serviços concluídos:', error);
+      setCompletedServices([]); // Garantir que sempre temos um array válido
+      setStats({
+        totalEarnings: 0,
+        totalServices: 0,
+        averageRating: 0,
+        totalReviews: 0
+      });
       toast({
         title: "Erro",
         description: "Não foi possível carregar os serviços concluídos",
@@ -190,14 +198,14 @@ export default function ProfessionalDashboard({ professionalId }: ProfessionalDa
           <h3 className="text-lg font-semibold text-gray-900">Serviços Concluídos</h3>
         </div>
         
-        {completedServices.length === 0 ? (
+        {!completedServices || completedServices.length === 0 ? (
           <div className="p-6 text-center text-gray-500">
             <CheckCircle className="h-12 w-12 mx-auto text-gray-300 mb-4" />
             <p>Nenhum serviço concluído ainda</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {completedServices.map((service) => (
+            {completedServices?.map((service) => (
               <div key={service.serviceRequestId} className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">

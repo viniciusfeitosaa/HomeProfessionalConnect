@@ -34,7 +34,6 @@ import AuthCallback from "@/pages/auth-callback";
 import PaymentSuccess from "@/pages/payment-success";
 import PaymentFailure from "@/pages/payment-failure";
 import PaymentPending from "@/pages/payment-pending";
-import PaymentDashboard from "@/pages/payment-dashboard";
 
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -83,7 +82,6 @@ function Router() {
         <Route path="/agenda-profissional" component={AgendaProfissional} />
         <Route path="/profile" component={Profile} />
         <Route path="/provider-profile" component={ProviderProfile} />
-        <Route path="/payment-dashboard" component={PaymentDashboard} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>

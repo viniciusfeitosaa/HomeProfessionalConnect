@@ -37,18 +37,22 @@ console.log('=== Backend inicializado ===');
 app.use((req, res, next) => {
   if (req.path.startsWith('/uploads')) return next();
   const origin = req.headers.origin as string | undefined;
-  const allowedOrigins = [
-    'https://lifebee.netlify.app',
-    'https://lifebee.com.br',
-    'http://localhost:5173',
-    'http://localhost:5174'
-  ];
-  res.setHeader('Vary', 'Origin');
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
+  // Para desenvolvimento, permitir todas as origens (incluindo arquivos locais)
+  if (process.env.NODE_ENV === 'development') {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
   } else {
-    const defaultOrigin = process.env.NODE_ENV === 'production' ? 'https://lifebee.netlify.app' : 'http://localhost:5173';
-    res.setHeader('Access-Control-Allow-Origin', defaultOrigin);
+    const allowedOrigins = [
+      'https://lifebee.netlify.app',
+      'https://lifebee.com.br',
+      'http://localhost:5173',
+      'http://localhost:5174'
+    ];
+    res.setHeader('Vary', 'Origin');
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', 'https://lifebee.netlify.app');
+    }
   }
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
@@ -194,8 +198,8 @@ app.use((req, res, next) => {
     res.status(status).json(errorResponse);
   });
 
-  // Servir no PORT fornecido pelo Render/ambiente (sem fixar 5000)
-  const port = process.env.PORT || 8080;
+  // Servir no PORT fornecido pelo Render/ambiente (padrão 3001 para desenvolvimento)
+  const port = process.env.PORT || 3001;
   server.listen({
     port: Number(port),
     host: "0.0.0.0",

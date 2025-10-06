@@ -14,6 +14,9 @@ export default function ClientNavbar({ hidePlus }: ClientNavbarProps) {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  // Ocultar navegação quando estiver em uma conversa específica (ex: /messages/7)
+  const shouldHideNavigation = location.match(/^\/messages\/\d+$/);
+
   const menuItems = [
     {
       label: "Início",
@@ -46,6 +49,11 @@ export default function ClientNavbar({ hidePlus }: ClientNavbarProps) {
       show: true,
     },
   ];
+
+  // Se deve ocultar a navegação, retornar null
+  if (shouldHideNavigation) {
+    return null;
+  }
 
   return (
     <nav className="bg-white border-t border-gray-200 fixed bottom-0 left-0 w-full z-50 shadow rounded-t-xl px-0">

@@ -535,18 +535,18 @@ export default function ProviderProfile() {
                     
                     <div className="flex justify-center gap-6 mb-4">
                       <div className="text-center">
-                        <p className="text-2xl font-bold text-primary">{professionalData.totalReviews}</p>
+                        <p className="text-2xl font-bold text-primary">{professionalData.totalReviews || 0}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Avaliações</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-2xl font-bold text-primary">{professionalData.rating}</p>
+                        <p className="text-2xl font-bold text-primary">{professionalData.rating || '0.0'}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Nota</p>
                       </div>
                       <div className="text-center">
                         <p className="text-2xl font-bold text-primary">
                           R$ {parseFloat(professionalData.hourlyRate || "0").toFixed(2)}
                         </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Hora</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">/Hora</p>
                       </div>
                     </div>
 

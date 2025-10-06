@@ -12,8 +12,8 @@ export const API_CONFIG = {
 }
 
 export const getApiUrl = () => {
-  // Em desenvolvimento, use 8080 padronizado
-  if (import.meta.env.DEV) return 'http://localhost:8080'
+  // Em desenvolvimento, use 3001 (porta alternativa para evitar conflitos)
+  if (import.meta.env.DEV) return 'http://localhost:3001'
   const env = import.meta.env.MODE || 'development'
   return API_CONFIG[env as keyof typeof API_CONFIG]?.baseUrl || API_CONFIG.development.baseUrl
 }

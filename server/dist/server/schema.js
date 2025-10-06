@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, decimal, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, decimal, timestamp, jsonb } from "drizzle-orm/pg-core";
 export const users = pgTable("users", {
     id: serial("id").primaryKey(),
     username: text("username").notNull().unique(),
@@ -70,7 +70,10 @@ export const appointments = pgTable("appointments", {
 export const notifications = pgTable("notifications", {
     id: serial("id").primaryKey(),
     userId: integer("user_id").notNull(),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
     message: text("message").notNull(),
+    data: jsonb("data"),
     read: boolean("read").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -144,7 +147,7 @@ export const serviceOffers = pgTable("service_offers", {
     finalPrice: decimal("final_price", { precision: 8, scale: 2 }), // Preço final acordado
     estimatedTime: text("estimated_time").notNull(), // Tempo estimado (ex: "1 hora", "2 horas")
     message: text("message").notNull(), // Mensagem da proposta
-    status: text("status", { enum: ["pending", "accepted", "rejected", "withdrawn"] }).default("pending"), // Status da proposta
+    status: text("status", { enum: ["pending", "accepted", "rejected", "withdrawn", "paid", "completed"] }).default("pending"), // Status da proposta
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),
 });

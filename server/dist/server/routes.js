@@ -101,7 +101,7 @@ export function setupRoutes(app, redisClient) {
     app.use(passport.session());
     // ==================== STRIPE PAYMENT ROUTES ====================
     // Teste de configuração do Stripe
-    app.get('/api/payment/test-config', authenticateToken, async (req, res) => {
+    app.get('/api/payment/test-config', async (req, res) => {
         try {
             console.log('🧪 Testando configuração do Stripe...');
             const config = {
@@ -344,7 +344,7 @@ export function setupRoutes(app, redisClient) {
     });
     // ==================== AUTHENTICATION ROUTES ====================
     // Register route
-    app.post("/api/register", rateLimitByIP(5, 15 * 60 * 1000), async (req, res) => {
+    app.post("/api/register", rateLimitByIP, async (req, res) => {
         try {
             const { username, email, password, name, phone, userType } = req.body;
             // Validation
@@ -400,7 +400,7 @@ export function setupRoutes(app, redisClient) {
         }
     });
     // Login route
-    app.post("/api/login", rateLimitByIP(5, 15 * 60 * 1000), async (req, res) => {
+    app.post("/api/login", rateLimitByIP, async (req, res) => {
         try {
             const { username, password } = req.body;
             if (!username || !password) {
@@ -421,13 +421,8 @@ export function setupRoutes(app, redisClient) {
             // Verify password
             const isValidPassword = await verifyPassword(password, user.password);
             if (!isValidPassword) {
-                // Increment login attempts
-                await storage.incrementLoginAttempts(user.id);
                 return res.status(401).json({ message: "Credenciais inválidas" });
             }
-            // Reset login attempts on successful login
-            await storage.resetLoginAttempts(user.id);
-            await storage.updateLastLogin(user.id);
             // Generate token
             const token = generateToken(user);
             res.json({
@@ -519,7 +514,7 @@ export function setupRoutes(app, redisClient) {
     app.get("/api/user", authenticateToken, async (req, res) => {
         try {
             const user = req.user;
-            const fullUser = await storage.getUserById(user.id);
+            const fullUser = await storage.getUser(user.id);
             if (!fullUser) {
                 return res.status(404).json({ message: "Usuário não encontrado" });
             }

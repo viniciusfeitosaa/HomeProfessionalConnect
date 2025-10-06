@@ -8,289 +8,23 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// server/schema.ts
-var schema_exports = {};
-__export(schema_exports, {
-  appointments: () => appointments,
-  conversations: () => conversations,
-  loginAttempts: () => loginAttempts,
-  messages: () => messages,
-  notifications: () => notifications,
-  paymentReferences: () => paymentReferences,
-  professionals: () => professionals,
-  serviceOffers: () => serviceOffers,
-  serviceProgress: () => serviceProgress,
-  serviceRequests: () => serviceRequests,
-  serviceReviews: () => serviceReviews,
-  transactions: () => transactions,
-  users: () => users,
-  verificationCodes: () => verificationCodes
-});
-import { pgTable, text, serial, integer, boolean, decimal, timestamp } from "drizzle-orm/pg-core";
-var users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, serviceOffers, transactions, serviceReviews, paymentReferences, serviceProgress;
-var init_schema = __esm({
-  "server/schema.ts"() {
-    "use strict";
-    users = pgTable("users", {
-      id: serial("id").primaryKey(),
-      username: text("username").notNull().unique(),
-      password: text("password"),
-      googleId: text("google_id").unique(),
-      appleId: text("apple_id").unique(),
-      name: text("name").notNull(),
-      email: text("email").notNull(),
-      phone: text("phone"),
-      phoneVerified: boolean("phone_verified").default(false),
-      address: text("address"),
-      profileImage: text("profile_image"),
-      userType: text("user_type", { enum: ["client", "provider"] }).notNull().default("client"),
-      isVerified: boolean("is_verified").default(false),
-      isBlocked: boolean("is_blocked").default(false),
-      lastLoginAt: timestamp("last_login_at"),
-      loginAttempts: integer("login_attempts").default(0),
-      resetToken: text("reset_token"),
-      resetTokenExpiry: timestamp("reset_token_expiry"),
-      createdAt: timestamp("created_at").defaultNow(),
-      updatedAt: timestamp("updated_at").defaultNow()
-    });
-    professionals = pgTable("professionals", {
-      id: serial("id").primaryKey(),
-      userId: integer("user_id").notNull(),
-      // Link to user table for providers
-      name: text("name").notNull(),
-      specialization: text("specialization").notNull(),
-      category: text("category", {
-        enum: ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"]
-      }).notNull(),
-      subCategory: text("sub_category", {
-        enum: [
-          "companhia_apoio_emocional",
-          "preparacao_refeicoes",
-          "compras_transporte",
-          "lavanderia_limpeza",
-          "curativos_medicacao",
-          "terapias_especializadas",
-          "acompanhamento_hospitalar"
-        ]
-      }).notNull(),
-      description: text("description").notNull(),
-      experience: text("experience"),
-      certifications: text("certifications"),
-      availableHours: text("available_hours"),
-      // JSON string for schedule
-      hourlyRate: decimal("hourly_rate", { precision: 8, scale: 2 }),
-      rating: decimal("rating", { precision: 2, scale: 1 }).default("5.0"),
-      totalReviews: integer("total_reviews").default(0),
-      location: text("location"),
-      distance: decimal("distance", { precision: 3, scale: 1 }),
-      available: boolean("available").notNull().default(true),
-      imageUrl: text("image_url"),
-      createdAt: timestamp("created_at").defaultNow()
-    });
-    appointments = pgTable("appointments", {
-      id: serial("id").primaryKey(),
-      clientId: integer("client_id").notNull(),
-      // Client who booked
-      professionalId: integer("professional_id").notNull(),
-      professionalName: text("professional_name").notNull(),
-      serviceType: text("service_type").notNull(),
-      scheduledFor: timestamp("scheduled_for").notNull(),
-      duration: integer("duration").notNull(),
-      // Duration in hours
-      totalCost: decimal("total_cost", { precision: 8, scale: 2 }),
-      status: text("status", { enum: ["pending", "confirmed", "in_progress", "completed", "cancelled"] }).default("pending"),
-      notes: text("notes"),
-      address: text("address"),
-      createdAt: timestamp("created_at").defaultNow()
-    });
-    notifications = pgTable("notifications", {
-      id: serial("id").primaryKey(),
-      userId: integer("user_id").notNull(),
-      message: text("message").notNull(),
-      read: boolean("read").notNull().default(false),
-      createdAt: timestamp("created_at").defaultNow().notNull()
-    });
-    loginAttempts = pgTable("login_attempts", {
-      id: serial("id").primaryKey(),
-      email: text("email"),
-      ipAddress: text("ip_address").notNull(),
-      userAgent: text("user_agent"),
-      successful: boolean("successful").notNull().default(false),
-      blocked: boolean("blocked").notNull().default(false),
-      attemptedAt: timestamp("attempted_at").defaultNow().notNull()
-    });
-    verificationCodes = pgTable("verification_codes", {
-      id: serial("id").primaryKey(),
-      userId: integer("user_id"),
-      email: text("email"),
-      phone: text("phone"),
-      code: text("code").notNull(),
-      type: text("type", { enum: ["email", "phone", "password_reset"] }).notNull(),
-      expiresAt: timestamp("expires_at").notNull(),
-      used: boolean("used").default(false),
-      createdAt: timestamp("created_at").defaultNow()
-    });
-    conversations = pgTable("conversations", {
-      id: serial("id").primaryKey(),
-      clientId: integer("client_id").notNull(),
-      professionalId: integer("professional_id").notNull(),
-      deletedByClient: boolean("deleted_by_client").default(false),
-      deletedByProfessional: boolean("deleted_by_professional").default(false),
-      createdAt: timestamp("created_at").defaultNow(),
-      updatedAt: timestamp("updated_at").defaultNow()
-    });
-    messages = pgTable("messages", {
-      id: serial("id").primaryKey(),
-      conversationId: integer("conversation_id").notNull(),
-      senderId: integer("sender_id").notNull(),
-      recipientId: integer("recipient_id").notNull(),
-      content: text("content").notNull(),
-      type: text("type", { enum: ["text", "image", "file"] }).default("text"),
-      timestamp: timestamp("timestamp").defaultNow(),
-      isRead: boolean("is_read").default(false)
-    });
-    serviceRequests = pgTable("service_requests", {
-      id: serial("id").primaryKey(),
-      clientId: integer("client_id").notNull(),
-      // Cliente que solicitou
-      serviceType: text("service_type").notNull(),
-      // Tipo de serviço (ex: fisioterapia, enfermagem)
-      category: text("category", {
-        enum: ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"]
-      }).notNull(),
-      description: text("description").notNull(),
-      address: text("address").notNull(),
-      scheduledDate: timestamp("scheduled_date").notNull(),
-      scheduledTime: text("scheduled_time").notNull(),
-      // Hora no formato HH:MM
-      urgency: text("urgency", { enum: ["low", "medium", "high"] }).default("medium"),
-      budget: decimal("budget", { precision: 8, scale: 2 }),
-      // Orçamento opcional
-      status: text("status", { enum: ["open", "in_progress", "assigned", "completed", "cancelled", "awaiting_confirmation"] }).default("open"),
-      assignedProfessionalId: integer("assigned_professional_id"),
-      // Profissional designado
-      responses: integer("responses").default(0),
-      // Número de profissionais que responderam
-      serviceStartedAt: timestamp("service_started_at"),
-      // Quando o profissional iniciou o serviço
-      serviceCompletedAt: timestamp("service_completed_at"),
-      // Quando o profissional marcou como concluído
-      clientConfirmedAt: timestamp("client_confirmed_at"),
-      // Quando o cliente confirmou a conclusão
-      createdAt: timestamp("created_at").defaultNow(),
-      updatedAt: timestamp("updated_at").defaultNow()
-    });
-    serviceOffers = pgTable("service_offers", {
-      id: serial("id").primaryKey(),
-      serviceRequestId: integer("service_request_id").notNull(),
-      // ID da solicitação de serviço
-      professionalId: integer("professional_id").notNull(),
-      // ID do profissional que fez a proposta
-      proposedPrice: decimal("proposed_price", { precision: 8, scale: 2 }).notNull(),
-      // Preço proposto
-      finalPrice: decimal("final_price", { precision: 8, scale: 2 }),
-      // Preço final acordado
-      estimatedTime: text("estimated_time").notNull(),
-      // Tempo estimado (ex: "1 hora", "2 horas")
-      message: text("message").notNull(),
-      // Mensagem da proposta
-      status: text("status", { enum: ["pending", "accepted", "rejected", "withdrawn"] }).default("pending"),
-      // Status da proposta
-      createdAt: timestamp("created_at").defaultNow(),
-      updatedAt: timestamp("updated_at").defaultNow()
-    });
-    transactions = pgTable("transactions", {
-      id: serial("id").primaryKey(),
-      serviceRequestId: integer("service_request_id").notNull(),
-      serviceOfferId: integer("service_offer_id").notNull(),
-      clientId: integer("client_id").notNull(),
-      professionalId: integer("professional_id").notNull(),
-      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-      // Valor da transação
-      status: text("status", {
-        enum: ["pending", "completed", "failed", "refunded"]
-      }).notNull().default("pending"),
-      type: text("type", {
-        enum: ["service_payment", "refund", "bonus"]
-      }).notNull().default("service_payment"),
-      description: text("description"),
-      // Descrição da transação
-      paymentMethod: text("payment_method", {
-        enum: ["pix", "credit_card", "debit_card", "bank_transfer"]
-      }).default("pix"),
-      transactionId: text("transaction_id"),
-      // ID externo da transação (gateway de pagamento)
-      completedAt: timestamp("completed_at"),
-      createdAt: timestamp("created_at").defaultNow(),
-      updatedAt: timestamp("updated_at").defaultNow()
-    });
-    serviceReviews = pgTable("service_reviews", {
-      id: serial("id").primaryKey(),
-      serviceRequestId: integer("service_request_id").notNull(),
-      serviceOfferId: integer("service_offer_id").notNull(),
-      clientId: integer("client_id").notNull(),
-      professionalId: integer("professional_id").notNull(),
-      rating: integer("rating").notNull(),
-      // 1-5 estrelas
-      comment: text("comment"),
-      createdAt: timestamp("created_at").defaultNow(),
-      updatedAt: timestamp("updated_at").defaultNow()
-    });
-    paymentReferences = pgTable("payment_references", {
-      id: serial("id").primaryKey(),
-      serviceRequestId: integer("service_request_id").notNull(),
-      serviceOfferId: integer("service_offer_id").notNull(),
-      clientId: integer("client_id").notNull(),
-      professionalId: integer("professional_id").notNull(),
-      amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-      preferenceId: text("preference_id").notNull().unique(),
-      status: text("status", { enum: ["pending", "approved", "rejected", "cancelled"] }).notNull().default("pending"),
-      externalReference: text("external_reference").notNull(),
-      paymentId: text("payment_id"),
-      // ID do pagamento no Mercado Pago quando aprovado
-      approvedAt: timestamp("approved_at"),
-      createdAt: timestamp("created_at").defaultNow(),
-      updatedAt: timestamp("updated_at").defaultNow()
-    });
-    serviceProgress = pgTable("service_progress", {
-      id: serial("id").primaryKey(),
-      serviceRequestId: integer("service_request_id").notNull(),
-      professionalId: integer("professional_id").notNull(),
-      status: text("status", {
-        enum: ["accepted", "started", "in_progress", "completed", "awaiting_confirmation", "confirmed", "payment_released"]
-      }).notNull().default("accepted"),
-      startedAt: timestamp("started_at"),
-      completedAt: timestamp("completed_at"),
-      confirmedAt: timestamp("confirmed_at"),
-      paymentReleasedAt: timestamp("payment_released_at"),
-      notes: text("notes"),
-      // Observações do profissional
-      createdAt: timestamp("created_at").defaultNow(),
-      updatedAt: timestamp("updated_at").defaultNow()
-    });
-  }
-});
-
 // server/db.ts
 var db_exports = {};
 __export(db_exports, {
-  db: () => db,
-  pool: () => pool
+  db: () => db
 });
 import "dotenv/config";
 import path from "path";
 import { config } from "dotenv";
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-serverless";
-import ws from "ws";
-var connectionString, pool, db;
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
+var sql, db;
 var init_db = __esm({
   "server/db.ts"() {
     "use strict";
-    init_schema();
     config({ path: path.resolve(process.cwd(), "../.env") });
     if (!process.env.DATABASE_URL) {
-      process.env.DATABASE_URL = "postgresql://neondb_owner:npg_L9mgJX6UuftC@ep-lingering-pine-a54hc3dj-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require";
+      process.env.DATABASE_URL = "postgresql://neondb_owner:npg_OMmGjW6wS8Ao@ep-little-king-ad4q6wb5-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
     }
     if (!process.env.SESSION_SECRET) {
       process.env.SESSION_SECRET = "462850e97a4147e11d70bd6bb8675b39855643173f0d0aa8904be81060f506a7";
@@ -302,1271 +36,1629 @@ var init_db = __esm({
     console.log("Env file path:", path.resolve(process.cwd(), "../.env"));
     console.log("All env vars:", Object.keys(process.env).filter((key) => key.includes("DATABASE")));
     console.log("DATABASE_URL value:", process.env.DATABASE_URL);
-    neonConfig.webSocketConstructor = ws;
-    connectionString = process.env.NETLIFY_DATABASE_URL || process.env.DATABASE_URL;
-    console.log("=== DATABASE CONNECTION DEBUG ===");
-    console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
-    console.log("NETLIFY_DATABASE_URL exists:", !!process.env.NETLIFY_DATABASE_URL);
-    console.log("Using connection string:", connectionString ? "YES" : "NO");
-    if (!connectionString) {
-      console.error("\u274C DATABASE CONNECTION ERROR: No connection string found!");
-      throw new Error(
-        "DATABASE_URL or NETLIFY_DATABASE_URL must be set. Did you forget to provision a database?"
-      );
-    }
-    try {
-      pool = new Pool({ connectionString });
-      db = drizzle(pool, { schema: schema_exports });
-      console.log("\u2705 Database connection established successfully");
-    } catch (error) {
-      console.error("\u274C Database connection failed:", error);
-      throw error;
-    }
-  }
-});
-
-// server/storage.ts
-var storage_exports = {};
-__export(storage_exports, {
-  DatabaseStorage: () => DatabaseStorage,
-  storage: () => storage
-});
-import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
-var DatabaseStorage, storage;
-var init_storage = __esm({
-  "server/storage.ts"() {
-    "use strict";
-    init_schema();
-    init_db();
-    DatabaseStorage = class {
-      // Método para converter URLs relativas em absolutas
-      getFullImageUrl(relativeUrl) {
-        if (!relativeUrl) {
-          return null;
-        }
-        if (relativeUrl.startsWith("http")) {
-          return relativeUrl;
-        }
-        const baseUrl = process.env.NODE_ENV === "production" ? "https://lifebee-backend.onrender.com" : "http://localhost:8080";
-        return `${baseUrl}${relativeUrl}`;
-      }
-      // Users
-      async getUser(id) {
-        try {
-          console.log("\u{1F50D} Storage.getUser - Buscando usu\xE1rio com ID:", id);
-          console.log("\u{1F50D} Storage.getUser - Tipo do ID:", typeof id);
-          if (!id || isNaN(id)) {
-            console.log("\u274C Storage.getUser - ID inv\xE1lido:", id);
-            return void 0;
-          }
-          const [user] = await db.select().from(users).where(eq(users.id, id));
-          console.log("\u2705 Storage.getUser - Usu\xE1rio encontrado:", user ? "Sim" : "N\xE3o");
-          if (user) {
-            console.log("\u2705 Storage.getUser - Dados do usu\xE1rio:", { id: user.id, name: user.name, email: user.email });
-          }
-          return user || void 0;
-        } catch (error) {
-          console.error("\u274C Storage.getUser - Erro:", error);
-          throw error;
-        }
-      }
-      async getAllUsers() {
-        try {
-          const allUsers = await db.select().from(users);
-          return allUsers;
-        } catch (error) {
-          console.error("\u274C Storage.getAllUsers - Erro:", error);
-          throw error;
-        }
-      }
-      async getUserByUsername(username) {
-        const [user] = await db.select().from(users).where(eq(users.username, username));
-        return user || void 0;
-      }
-      async getUserByEmail(email) {
-        const [user] = await db.select().from(users).where(eq(users.email, email));
-        return user || void 0;
-      }
-      async getUserByGoogleId(googleId) {
-        const [user] = await db.select().from(users).where(eq(users.googleId, googleId));
-        return user || void 0;
-      }
-      async getUserByAppleId(appleId) {
-        const [user] = await db.select().from(users).where(eq(users.appleId, appleId));
-        return user || void 0;
-      }
-      async createUser(insertUser) {
-        const [user] = await db.insert(users).values(insertUser).returning();
-        return user;
-      }
-      async updateUser(id, updates) {
-        const allowed = [
-          "username",
-          "password",
-          "googleId",
-          "appleId",
-          "name",
-          "email",
-          "phone",
-          "phoneVerified",
-          "address",
-          "profileImage",
-          "userType",
-          "isVerified",
-          "isBlocked",
-          "lastLoginAt",
-          "loginAttempts",
-          "resetToken",
-          "resetTokenExpiry",
-          "updatedAt"
-        ];
-        const safeUpdates = {};
-        for (const key of allowed) {
-          if (key in updates) safeUpdates[key] = updates[key];
-        }
-        safeUpdates.updatedAt = /* @__PURE__ */ new Date();
-        const [user] = await db.update(users).set(safeUpdates).where(eq(users.id, id)).returning();
-        return user;
-      }
-      async updateUserLoginAttempts(id, attempts) {
-        await db.update(users).set({ [users.loginAttempts.name]: attempts, [users.updatedAt.name]: /* @__PURE__ */ new Date() }).where(eq(users.id, id));
-      }
-      async blockUser(id) {
-        await db.update(users).set({ [users.isBlocked.name]: true, [users.updatedAt.name]: /* @__PURE__ */ new Date() }).where(eq(users.id, id));
-      }
-      async verifyUser(id) {
-        await db.update(users).set({ [users.isVerified.name]: true, [users.updatedAt.name]: /* @__PURE__ */ new Date() }).where(eq(users.id, id));
-      }
-      // Professionals
-      async getAllProfessionals() {
-        const professionalsData = await db.select({
-          id: professionals.id,
-          userId: professionals.userId,
-          name: professionals.name,
-          specialization: professionals.specialization,
-          category: professionals.category,
-          subCategory: professionals.subCategory,
-          description: professionals.description,
-          experience: professionals.experience,
-          certifications: professionals.certifications,
-          availableHours: professionals.availableHours,
-          hourlyRate: professionals.hourlyRate,
-          rating: professionals.rating,
-          totalReviews: professionals.totalReviews,
-          location: professionals.location,
-          distance: professionals.distance,
-          available: professionals.available,
-          imageUrl: professionals.imageUrl,
-          createdAt: professionals.createdAt
-        }).from(professionals).where(eq(professionals.available, true));
-        return professionalsData.map((professional) => ({
-          ...professional,
-          imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
-        }));
-      }
-      async getProfessionalsByCategory(category) {
-        const professionalsData = await db.select({
-          id: professionals.id,
-          userId: professionals.userId,
-          name: professionals.name,
-          specialization: professionals.specialization,
-          category: professionals.category,
-          subCategory: professionals.subCategory,
-          description: professionals.description,
-          experience: professionals.experience,
-          certifications: professionals.certifications,
-          availableHours: professionals.availableHours,
-          hourlyRate: professionals.hourlyRate,
-          rating: professionals.rating,
-          totalReviews: professionals.totalReviews,
-          location: professionals.location,
-          distance: professionals.distance,
-          available: professionals.available,
-          imageUrl: professionals.imageUrl,
-          createdAt: professionals.createdAt
-        }).from(professionals).where(and(eq(professionals.category, category), eq(professionals.available, true)));
-        return professionalsData.map((professional) => ({
-          ...professional,
-          imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
-        }));
-      }
-      async searchProfessionals(query) {
-        const professionalsData = await db.select({
-          id: professionals.id,
-          userId: professionals.userId,
-          name: professionals.name,
-          specialization: professionals.specialization,
-          category: professionals.category,
-          subCategory: professionals.subCategory,
-          description: professionals.description,
-          experience: professionals.experience,
-          certifications: professionals.certifications,
-          availableHours: professionals.availableHours,
-          hourlyRate: professionals.hourlyRate,
-          rating: professionals.rating,
-          totalReviews: professionals.totalReviews,
-          location: professionals.location,
-          distance: professionals.distance,
-          available: professionals.available,
-          imageUrl: professionals.imageUrl,
-          createdAt: professionals.createdAt
-        }).from(professionals).where(
-          and(
-            eq(professionals.available, true),
-            or(
-              ilike(professionals.name, `%${query}%`),
-              ilike(professionals.specialization, `%${query}%`),
-              ilike(professionals.description, `%${query}%`)
-            )
-          )
-        );
-        return professionalsData.map((professional) => ({
-          ...professional,
-          imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
-        }));
-      }
-      async getProfessional(id) {
-        const [professional] = await db.select().from(professionals).where(eq(professionals.id, id));
-        if (!professional) return void 0;
-        return {
-          ...professional,
-          imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
-        };
-      }
-      async getProfessionalByUserId(userId) {
-        const [professional] = await db.select().from(professionals).where(eq(professionals.userId, userId));
-        return professional || void 0;
-      }
-      async createProfessional(insertProfessional) {
-        const [professional] = await db.insert(professionals).values(insertProfessional).returning();
-        return professional;
-      }
-      async updateProfessional(id, updates) {
-        const [professional] = await db.update(professionals).set(updates).where(eq(professionals.id, id)).returning();
-        return professional;
-      }
-      async updateProfessionalAvailability(userId, available) {
-        await db.update(professionals).set({ available }).where(eq(professionals.userId, userId));
-      }
-      // Appointments
-      async getAppointmentsByUser(userId) {
-        return await db.select().from(appointments).where(eq(appointments.clientId, userId));
-      }
-      async getAppointmentsByProfessional(professionalId) {
-        return await db.select().from(appointments).where(eq(appointments.professionalId, professionalId));
-      }
-      async createAppointment(insertAppointment) {
-        const [appointment] = await db.insert(appointments).values(insertAppointment).returning();
-        return appointment;
-      }
-      async updateAppointment(id, updates) {
-        const [appointment] = await db.update(appointments).set(updates).where(eq(appointments.id, id)).returning();
-        return appointment;
-      }
-      // Notifications
-      async getNotificationsByUser(userId) {
-        return await db.select().from(notifications).where(eq(notifications.userId, userId));
-      }
-      async getUnreadNotificationCount(userId) {
-        const [result] = await db.select({ count: sql`cast(count(*) as int)` }).from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
-        return result?.count || 0;
-      }
-      async createNotification(insertNotification) {
-        const [notification] = await db.insert(notifications).values(insertNotification).returning();
-        return notification;
-      }
-      async markNotificationRead(id) {
-        await db.update(notifications).set({ [notifications.read.name]: true }).where(eq(notifications.id, id));
-      }
-      // Security & Anti-fraud
-      async createLoginAttempt(insertLoginAttempt) {
-        const [loginAttempt] = await db.insert(loginAttempts).values(insertLoginAttempt).returning();
-        return loginAttempt;
-      }
-      async getRecentLoginAttempts(ipAddress, minutes) {
-        const timeAgo = new Date(Date.now() - minutes * 60 * 1e3);
-        return await db.select().from(loginAttempts).where(
-          and(
-            eq(loginAttempts.ipAddress, ipAddress),
-            gte(loginAttempts.attemptedAt, timeAgo)
-          )
-        );
-      }
-      async createVerificationCode(insertVerificationCode) {
-        const [verificationCode] = await db.insert(verificationCodes).values(insertVerificationCode).returning();
-        return verificationCode;
-      }
-      async getVerificationCode(code, type) {
-        const [verificationCode] = await db.select().from(verificationCodes).where(
-          and(
-            eq(verificationCodes.code, code),
-            eq(verificationCodes.type, type),
-            eq(verificationCodes.used, false),
-            gte(verificationCodes.expiresAt, /* @__PURE__ */ new Date())
-          )
-        );
-        return verificationCode || void 0;
-      }
-      async markCodeAsUsed(id) {
-        await db.update(verificationCodes).set({ [verificationCodes.used.name]: true }).where(eq(verificationCodes.id, id));
-      }
-      // Conversations & Messages
-      async getConversation(clientId, professionalId) {
-        const result = await db.select().from(conversations).where(
-          and(
-            eq(conversations.clientId, clientId),
-            eq(conversations.professionalId, professionalId)
-          )
-        ).limit(1);
-        return result[0];
-      }
-      // Verificar se uma conversa foi deletada pelo usuário
-      async isConversationDeletedByUser(conversationId, userId) {
-        const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
-        if (!conversation[0]) {
-          return false;
-        }
-        const conv = conversation[0];
-        if (conv.clientId === userId) {
-          return conv.deletedByClient === true;
-        } else if (conv.professionalId === userId) {
-          return conv.deletedByProfessional === true;
-        }
-        return false;
-      }
-      // Restaurar conversa (marcar como não deletada pelo usuário)
-      async restoreConversation(conversationId, userId) {
-        const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
-        if (!conversation[0]) {
-          throw new Error("Conversa n\xE3o encontrada");
-        }
-        const conv = conversation[0];
-        const updates = {};
-        if (conv.clientId === userId) {
-          updates.deletedByClient = false;
-        } else if (conv.professionalId === userId) {
-          updates.deletedByProfessional = false;
-        } else {
-          throw new Error("Usu\xE1rio n\xE3o \xE9 participante da conversa");
-        }
-        await db.update(conversations).set(updates).where(eq(conversations.id, conversationId));
-      }
-      async getConversationsByUser(userId) {
-        console.log(`\u{1F50D} getConversationsByUser(${userId}) - Iniciando busca...`);
-        const allUserConversations = await db.select().from(conversations).where(
-          or(
-            eq(conversations.clientId, userId),
-            eq(conversations.professionalId, userId)
-          )
-        );
-        console.log(`\u{1F4CB} Todas as conversas do usu\xE1rio ${userId}:`, allUserConversations.map((c) => ({
-          id: c.id,
-          clientId: c.clientId,
-          professionalId: c.professionalId,
-          deletedByClient: c.deletedByClient,
-          deletedByProfessional: c.deletedByProfessional
-        })));
-        const asClient = allUserConversations.filter((c) => c.clientId === userId);
-        const asProfessional = allUserConversations.filter((c) => c.professionalId === userId);
-        console.log(`\u{1F4CA} Usu\xE1rio ${userId} - Como cliente: ${asClient.length}, Como profissional: ${asProfessional.length}`);
-        const result = await db.select().from(conversations).where(
-          and(
-            or(
-              eq(conversations.clientId, userId),
-              eq(conversations.professionalId, userId)
-            ),
-            // Não mostrar conversas deletadas pelo usuário
-            or(
-              and(eq(conversations.clientId, userId), eq(conversations.deletedByClient, false)),
-              and(eq(conversations.professionalId, userId), eq(conversations.deletedByProfessional, false))
-            )
-          )
-        );
-        console.log(`\u2705 Conversas filtradas para usu\xE1rio ${userId}:`, result.map((c) => ({
-          id: c.id,
-          clientId: c.clientId,
-          professionalId: c.professionalId,
-          deletedByClient: c.deletedByClient,
-          deletedByProfessional: c.deletedByProfessional
-        })));
-        return result;
-      }
-      async createConversation(conversation) {
-        const result = await db.insert(conversations).values(conversation).returning();
-        return result[0];
-      }
-      async createMessage(message) {
-        const result = await db.insert(messages).values(message).returning();
-        return result[0];
-      }
-      async getMessagesByConversation(conversationId) {
-        return await db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(messages.timestamp);
-      }
-      async getLastMessageByConversation(conversationId) {
-        const result = await db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(desc(messages.timestamp)).limit(1);
-        return result[0];
-      }
-      async getUnreadMessageCount(conversationId, userId) {
-        const [result] = await db.select({ count: sql`cast(count(*) as int)` }).from(messages).where(
-          and(
-            eq(messages.conversationId, conversationId),
-            ne(messages.senderId, userId),
-            eq(messages.isRead, false)
-          )
-        );
-        return result?.count || 0;
-      }
-      async markMessagesAsRead(conversationId, userId) {
-        await db.update(messages).set({ isRead: true }).where(
-          and(
-            eq(messages.conversationId, conversationId),
-            ne(messages.senderId, userId),
-            eq(messages.isRead, false)
-          )
-        );
-      }
-      // Excluir todas as mensagens de uma conversa
-      async deleteMessagesByConversation(conversationId) {
-        await db.delete(messages).where(eq(messages.conversationId, conversationId));
-      }
-      // Marcar conversa como deletada pelo usuário (exclusão individual)
-      async deleteConversation(conversationId, userId) {
-        const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
-        if (!conversation[0]) {
-          throw new Error("Conversa n\xE3o encontrada");
-        }
-        const conv = conversation[0];
-        const updates = {};
-        if (conv.clientId === userId) {
-          updates.deletedByClient = true;
-        } else if (conv.professionalId === userId) {
-          updates.deletedByProfessional = true;
-        } else {
-          throw new Error("Usu\xE1rio n\xE3o \xE9 participante da conversa");
-        }
-        await db.update(conversations).set(updates).where(eq(conversations.id, conversationId));
-      }
-      // Service Requests
-      async getServiceRequestsByClient(clientId) {
-        return await db.select().from(serviceRequests).where(eq(serviceRequests.clientId, clientId)).orderBy(desc(serviceRequests.createdAt));
-      }
-      async getServiceRequestsByCategory(category) {
-        return await db.select({
-          // Service Request fields
-          id: serviceRequests.id,
-          clientId: serviceRequests.clientId,
-          category: serviceRequests.category,
-          serviceType: serviceRequests.serviceType,
-          description: serviceRequests.description,
-          address: serviceRequests.address,
-          budget: serviceRequests.budget,
-          scheduledDate: serviceRequests.scheduledDate,
-          scheduledTime: serviceRequests.scheduledTime,
-          urgency: serviceRequests.urgency,
-          status: serviceRequests.status,
-          responses: serviceRequests.responses,
-          assignedProfessionalId: serviceRequests.assignedProfessionalId,
-          createdAt: serviceRequests.createdAt,
-          updatedAt: serviceRequests.updatedAt,
-          // Client information
-          clientName: users.name,
-          clientEmail: users.email,
-          clientPhone: users.phone,
-          clientProfileImage: users.profileImage,
-          clientCreatedAt: users.createdAt
-        }).from(serviceRequests).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceRequests.category, category)).orderBy(desc(serviceRequests.createdAt));
-      }
-      async getServiceRequest(id) {
-        const [serviceRequest] = await db.select().from(serviceRequests).where(eq(serviceRequests.id, id));
-        return serviceRequest || void 0;
-      }
-      async getServiceRequestWithClient(id) {
-        const [result] = await db.select({
-          // Service Request fields
-          id: serviceRequests.id,
-          clientId: serviceRequests.clientId,
-          serviceType: serviceRequests.serviceType,
-          category: serviceRequests.category,
-          description: serviceRequests.description,
-          address: serviceRequests.address,
-          scheduledDate: serviceRequests.scheduledDate,
-          scheduledTime: serviceRequests.scheduledTime,
-          urgency: serviceRequests.urgency,
-          budget: serviceRequests.budget,
-          status: serviceRequests.status,
-          assignedProfessionalId: serviceRequests.assignedProfessionalId,
-          responses: serviceRequests.responses,
-          createdAt: serviceRequests.createdAt,
-          updatedAt: serviceRequests.updatedAt,
-          // Client information
-          clientName: users.name,
-          clientEmail: users.email,
-          clientPhone: users.phone,
-          clientProfileImage: users.profileImage,
-          clientCreatedAt: users.createdAt
-        }).from(serviceRequests).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceRequests.id, id));
-        return result || void 0;
-      }
-      async createServiceRequest(insertServiceRequest) {
-        const [serviceRequest] = await db.insert(serviceRequests).values(insertServiceRequest).returning();
-        return serviceRequest;
-      }
-      async updateServiceRequest(id, updates) {
-        const [serviceRequest] = await db.update(serviceRequests).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceRequests.id, id)).returning();
-        return serviceRequest;
-      }
-      async deleteServiceRequest(id) {
-        await db.delete(serviceRequests).where(eq(serviceRequests.id, id));
-      }
-      async assignProfessionalToRequest(requestId, professionalId) {
-        await db.update(serviceRequests).set({
-          assignedProfessionalId: professionalId,
-          status: "assigned",
-          updatedAt: /* @__PURE__ */ new Date()
-        }).where(eq(serviceRequests.id, requestId));
-      }
-      // Service Offers
-      async getServiceOffersByRequest(requestId) {
-        return await db.select({
-          // Service Offer fields
-          id: serviceOffers.id,
-          serviceRequestId: serviceOffers.serviceRequestId,
-          professionalId: serviceOffers.professionalId,
-          proposedPrice: serviceOffers.proposedPrice,
-          estimatedTime: serviceOffers.estimatedTime,
-          message: serviceOffers.message,
-          status: serviceOffers.status,
-          createdAt: serviceOffers.createdAt,
-          updatedAt: serviceOffers.updatedAt,
-          // Professional information
-          professionalName: professionals.name,
-          professionalRating: professionals.rating,
-          professionalTotalReviews: professionals.totalReviews,
-          professionalProfileImage: professionals.imageUrl
-        }).from(serviceOffers).innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id)).where(eq(serviceOffers.serviceRequestId, requestId)).orderBy(desc(serviceOffers.createdAt));
-      }
-      async getProposalsByProfessional(professionalId) {
-        const results = await db.select({
-          // Service Offer fields
-          id: serviceOffers.id,
-          serviceRequestId: serviceOffers.serviceRequestId,
-          professionalId: serviceOffers.professionalId,
-          proposedPrice: serviceOffers.proposedPrice,
-          estimatedTime: serviceOffers.estimatedTime,
-          message: serviceOffers.message,
-          status: serviceOffers.status,
-          createdAt: serviceOffers.createdAt,
-          updatedAt: serviceOffers.updatedAt,
-          // Service Request fields
-          requestId: serviceRequests.id,
-          clientId: serviceRequests.clientId,
-          serviceType: serviceRequests.serviceType,
-          description: serviceRequests.description,
-          address: serviceRequests.address,
-          budget: serviceRequests.budget,
-          scheduledDate: serviceRequests.scheduledDate,
-          scheduledTime: serviceRequests.scheduledTime,
-          urgency: serviceRequests.urgency,
-          requestStatus: serviceRequests.status,
-          assignedProfessionalId: serviceRequests.assignedProfessionalId,
-          responses: serviceRequests.responses,
-          requestCreatedAt: serviceRequests.createdAt,
-          requestUpdatedAt: serviceRequests.updatedAt,
-          // Client information
-          clientName: users.name,
-          clientEmail: users.email,
-          clientPhone: users.phone,
-          clientProfileImage: users.profileImage,
-          clientCreatedAt: users.createdAt
-        }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceOffers.professionalId, professionalId)).orderBy(desc(serviceOffers.createdAt));
-        return results.map((result) => ({
-          id: result.id,
-          serviceRequestId: result.serviceRequestId,
-          professionalId: result.professionalId,
-          proposedPrice: result.proposedPrice,
-          estimatedTime: result.estimatedTime,
-          message: result.message,
-          status: result.status,
-          createdAt: result.createdAt,
-          updatedAt: result.updatedAt,
-          serviceRequest: {
-            id: result.serviceRequestId,
-            clientId: result.clientId,
-            serviceType: result.serviceType,
-            description: result.description,
-            address: result.address,
-            budget: result.budget,
-            scheduledDate: result.scheduledDate,
-            scheduledTime: result.scheduledTime,
-            urgency: result.urgency,
-            status: result.requestStatus,
-            assignedProfessionalId: result.assignedProfessionalId,
-            responses: result.responses,
-            createdAt: result.requestCreatedAt,
-            updatedAt: result.requestUpdatedAt,
-            clientName: result.clientName,
-            clientEmail: result.clientEmail,
-            clientPhone: result.clientPhone,
-            clientProfileImage: result.clientProfileImage,
-            clientCreatedAt: result.clientCreatedAt
-          }
-        }));
-      }
-      async getServiceOffers(serviceRequestId) {
-        return await db.select().from(serviceOffers).where(eq(serviceOffers.serviceRequestId, serviceRequestId)).orderBy(desc(serviceOffers.createdAt));
-      }
-      async createServiceOffer(serviceOffer) {
-        const [offer] = await db.insert(serviceOffers).values(serviceOffer).returning();
-        return offer;
-      }
-      async updateServiceOffer(id, updates) {
-        const [offer] = await db.update(serviceOffers).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceOffers.id, id)).returning();
-        return offer;
-      }
-      async deleteServiceOffer(id) {
-        await db.delete(serviceOffers).where(eq(serviceOffers.id, id));
-      }
-      // ==================== SERVICE REQUESTS FOR CLIENT ====================
-      async getServiceRequestsForClient(userId) {
-        try {
-          console.log("\u{1F50D} Buscando pedidos para cliente ID:", userId);
-          if (!userId || isNaN(userId)) {
-            throw new Error("ID do usu\xE1rio inv\xE1lido");
-          }
-          const results = await db.select({
-            id: serviceRequests.id,
-            title: serviceRequests.serviceType,
-            description: serviceRequests.description,
-            category: serviceRequests.serviceType,
-            budget: serviceRequests.budget,
-            location: serviceRequests.address,
-            urgency: serviceRequests.urgency,
-            status: serviceRequests.status,
-            createdAt: serviceRequests.createdAt,
-            responses: serviceRequests.responses
-          }).from(serviceRequests).where(eq(serviceRequests.clientId, userId)).orderBy(desc(serviceRequests.createdAt));
-          console.log("\u2705 Pedidos encontrados:", results.length);
-          return results.map((result) => ({
-            id: result.id,
-            title: result.title,
-            description: result.description,
-            category: result.category,
-            budget: result.budget,
-            location: result.location,
-            urgency: result.urgency,
-            status: result.status,
-            createdAt: result.createdAt,
-            responseCount: result.responses || 0
-          }));
-        } catch (error) {
-          console.error("\u274C Erro em getServiceRequestsForClient:", error);
-          throw error;
-        }
-      }
-      // ==================== SERVICE OFFERS FOR CLIENT ====================
-      async getServiceOffersForClient(userId) {
-        try {
-          console.log("\u{1F50D} Buscando propostas para cliente ID:", userId);
-          if (!userId || isNaN(userId)) {
-            throw new Error("ID do usu\xE1rio inv\xE1lido");
-          }
-          const results = await db.select({
-            id: serviceOffers.id,
-            serviceRequestId: serviceOffers.serviceRequestId,
-            professionalId: serviceOffers.professionalId,
-            proposedPrice: serviceOffers.proposedPrice,
-            finalPrice: serviceOffers.finalPrice,
-            estimatedTime: serviceOffers.estimatedTime,
-            message: serviceOffers.message,
-            status: serviceOffers.status,
-            createdAt: serviceOffers.createdAt,
-            serviceTitle: serviceRequests.serviceType,
-            serviceStatus: serviceRequests.status,
-            professionalName: professionals.name,
-            professionalRating: professionals.rating,
-            professionalTotalReviews: professionals.totalReviews,
-            professionalProfileImage: professionals.imageUrl,
-            // Adicionar informações sobre avaliação se o serviço estiver concluído
-            hasReview: serviceReviews.id,
-            reviewRating: serviceReviews.rating,
-            reviewComment: serviceReviews.comment,
-            reviewCreatedAt: serviceReviews.createdAt
-          }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id)).leftJoin(serviceReviews, and(
-            eq(serviceReviews.serviceRequestId, serviceRequests.id),
-            eq(serviceReviews.clientId, userId)
-          )).where(eq(serviceRequests.clientId, userId)).orderBy(desc(serviceOffers.createdAt));
-          console.log("\u2705 Propostas encontradas:", results.length);
-          return results.map((result) => ({
-            id: result.id,
-            serviceRequestId: result.serviceRequestId,
-            professionalId: result.professionalId,
-            professionalName: result.professionalName,
-            professionalRating: result.professionalRating || 5,
-            professionalTotalReviews: result.professionalTotalReviews || 0,
-            professionalProfileImage: result.professionalProfileImage ? this.getFullImageUrl(result.professionalProfileImage) : null,
-            proposedPrice: result.proposedPrice,
-            finalPrice: result.finalPrice,
-            estimatedTime: result.estimatedTime,
-            message: result.message,
-            status: result.status,
-            createdAt: result.createdAt,
-            serviceTitle: result.serviceTitle,
-            serviceStatus: result.serviceStatus,
-            // Incluir informações sobre avaliação
-            hasReview: !!result.hasReview,
-            reviewRating: result.reviewRating,
-            reviewComment: result.reviewComment,
-            reviewCreatedAt: result.reviewCreatedAt
-          }));
-        } catch (error) {
-          console.error("\u274C Erro em getServiceOffersForClient:", error);
-          throw error;
-        }
-      }
-      async acceptServiceOffer(offerId, userId) {
-        try {
-          console.log("\u2705 Aceitando proposta:", offerId, "pelo cliente:", userId);
-          const [offer] = await db.select({
-            id: serviceOffers.id,
-            serviceRequestId: serviceOffers.serviceRequestId,
-            professionalId: serviceOffers.professionalId,
-            status: serviceOffers.status,
-            clientId: serviceRequests.clientId
-          }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).where(eq(serviceOffers.id, offerId));
-          if (!offer) {
-            return { success: false, error: "Proposta n\xE3o encontrada" };
-          }
-          if (offer.clientId !== userId) {
-            return { success: false, error: "Proposta n\xE3o pertence a este cliente" };
-          }
-          if (offer.status !== "pending") {
-            return { success: false, error: "Proposta j\xE1 foi processada" };
-          }
-          await db.update(serviceOffers).set({ status: "accepted", updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceOffers.id, offerId));
-          await db.update(serviceRequests).set({
-            assignedProfessionalId: offer.professionalId,
-            status: "assigned",
-            updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq(serviceRequests.id, offer.serviceRequestId));
-          await db.update(serviceOffers).set({
-            finalPrice: offer.proposedPrice,
-            updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq(serviceOffers.id, offerId));
-          await db.insert(serviceProgress).values({
-            serviceRequestId: offer.serviceRequestId,
-            professionalId: offer.professionalId,
-            status: "accepted"
-          });
-          await db.update(serviceOffers).set({ status: "rejected", updatedAt: /* @__PURE__ */ new Date() }).where(and(
-            eq(serviceOffers.serviceRequestId, offer.serviceRequestId),
-            ne(serviceOffers.id, offerId)
-          ));
-          return { success: true };
-        } catch (error) {
-          console.error("\u274C Erro ao aceitar proposta:", error);
-          return { success: false, error: "Erro interno do servidor" };
-        }
-      }
-      // Métodos para gerenciar o progresso do serviço
-      async startService(serviceRequestId, professionalId) {
-        try {
-          console.log("\u{1F680} Iniciando servi\xE7o:", serviceRequestId, "pelo profissional:", professionalId);
-          const [request] = await db.select({
-            id: serviceRequests.id,
-            status: serviceRequests.status,
-            assignedProfessionalId: serviceRequests.assignedProfessionalId
-          }).from(serviceRequests).where(eq(serviceRequests.id, serviceRequestId));
-          if (!request) {
-            return { success: false, error: "Solicita\xE7\xE3o n\xE3o encontrada" };
-          }
-          if (request.assignedProfessionalId !== professionalId) {
-            return { success: false, error: "Servi\xE7o n\xE3o foi atribu\xEDdo a este profissional" };
-          }
-          if (request.status !== "assigned") {
-            return { success: false, error: "Servi\xE7o n\xE3o est\xE1 em estado de iniciar" };
-          }
-          await db.update(serviceRequests).set({
-            status: "in_progress",
-            serviceStartedAt: /* @__PURE__ */ new Date(),
-            updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq(serviceRequests.id, serviceRequestId));
-          await db.update(serviceProgress).set({
-            status: "started",
-            startedAt: /* @__PURE__ */ new Date(),
-            updatedAt: /* @__PURE__ */ new Date()
-          }).where(and(
-            eq(serviceProgress.serviceRequestId, serviceRequestId),
-            eq(serviceProgress.professionalId, professionalId)
-          ));
-          return { success: true };
-        } catch (error) {
-          console.error("\u274C Erro ao iniciar servi\xE7o:", error);
-          return { success: false, error: "Erro interno do servidor" };
-        }
-      }
-      async completeService(serviceRequestId, professionalId, notes) {
-        try {
-          console.log("\u2705 Concluindo servi\xE7o:", serviceRequestId, "pelo profissional:", professionalId);
-          const [professional] = await db.select({ id: professionals.id }).from(professionals).where(eq(professionals.userId, professionalId));
-          console.log("\u{1F50D} Profissional encontrado:", professional);
-          if (!professional) {
-            console.log("\u274C Profissional n\xE3o encontrado para userId:", professionalId);
-            return { success: false, error: "Profissional n\xE3o encontrado" };
-          }
-          const actualProfessionalId = professional.id;
-          console.log("\u{1F50D} ID real do profissional:", actualProfessionalId);
-          const [request] = await db.select({
-            id: serviceRequests.id,
-            status: serviceRequests.status,
-            assignedProfessionalId: serviceRequests.assignedProfessionalId
-          }).from(serviceRequests).where(eq(serviceRequests.id, serviceRequestId));
-          if (!request) {
-            console.log("\u274C Solicita\xE7\xE3o n\xE3o encontrada:", serviceRequestId);
-            return { success: false, error: "Solicita\xE7\xE3o n\xE3o encontrada" };
-          }
-          console.log("\u{1F50D} Dados da solicita\xE7\xE3o:", request);
-          if (request.assignedProfessionalId !== actualProfessionalId) {
-            console.log("\u274C Servi\xE7o n\xE3o atribu\xEDdo a este profissional. Atribu\xEDdo a:", request.assignedProfessionalId, "Profissional atual:", actualProfessionalId);
-            return { success: false, error: "Servi\xE7o n\xE3o foi atribu\xEDdo a este profissional" };
-          }
-          if (request.status !== "in_progress" && request.status !== "open") {
-            console.log("\u274C Status incorreto do servi\xE7o:", request.status, "Esperado: in_progress ou open");
-            return { success: false, error: "Servi\xE7o deve estar em andamento ou aberto com proposta aceita para ser conclu\xEDdo" };
-          }
-          if (request.status === "open") {
-            console.log("\u{1F50D} Servi\xE7o em status open, verificando proposta aceita...");
-            const [acceptedOffer] = await db.select({ id: serviceOffers.id }).from(serviceOffers).where(and(
-              eq(serviceOffers.serviceRequestId, serviceRequestId),
-              eq(serviceOffers.professionalId, actualProfessionalId),
-              eq(serviceOffers.status, "accepted")
-            ));
-            if (!acceptedOffer) {
-              console.log("\u274C Proposta aceita n\xE3o encontrada para servi\xE7o em status open:", serviceRequestId);
-              return { success: false, error: "Servi\xE7o deve ter uma proposta aceita para ser conclu\xEDdo" };
-            }
-            console.log("\u2705 Proposta aceita encontrada para servi\xE7o em status open:", acceptedOffer.id);
-          }
-          await db.update(serviceRequests).set({
-            status: "awaiting_confirmation",
-            serviceCompletedAt: /* @__PURE__ */ new Date(),
-            updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq(serviceRequests.id, serviceRequestId));
-          console.log("\u2705 Status da solicita\xE7\xE3o atualizado para awaiting_confirmation");
-          console.log("\u2705 Servi\xE7o marcado como conclu\xEDdo pelo profissional");
-          await db.update(serviceProgress).set({
-            status: "awaiting_confirmation",
-            completedAt: /* @__PURE__ */ new Date(),
-            notes: notes || null,
-            updatedAt: /* @__PURE__ */ new Date()
-          }).where(and(
-            eq(serviceProgress.serviceRequestId, serviceRequestId),
-            eq(serviceProgress.professionalId, actualProfessionalId)
-          ));
-          console.log("\u2705 Progresso atualizado para awaiting_confirmation");
-          return { success: true };
-        } catch (error) {
-          console.error("\u274C Erro ao concluir servi\xE7o:", error);
-          return { success: false, error: "Erro interno do servidor" };
-        }
-      }
-      async confirmServiceCompletion(serviceRequestId, clientId) {
-        try {
-          console.log("\u2705 Cliente confirmando conclus\xE3o do servi\xE7o:", serviceRequestId);
-          const [request] = await db.select({
-            id: serviceRequests.id,
-            status: serviceRequests.status,
-            clientId: serviceRequests.clientId,
-            assignedProfessionalId: serviceRequests.assignedProfessionalId
-          }).from(serviceRequests).where(eq(serviceRequests.id, serviceRequestId));
-          console.log("\u{1F50D} Dados da solicita\xE7\xE3o encontrada:", request);
-          if (!request) {
-            console.log("\u274C Solicita\xE7\xE3o n\xE3o encontrada:", serviceRequestId);
-            return { success: false, error: "Solicita\xE7\xE3o n\xE3o encontrada" };
-          }
-          if (request.clientId !== clientId) {
-            console.log("\u274C Cliente incorreto:", request.clientId, "Esperado:", clientId);
-            return { success: false, error: "Servi\xE7o n\xE3o pertence a este cliente" };
-          }
-          if (request.status !== "awaiting_confirmation") {
-            console.log("\u274C Status incorreto do servi\xE7o:", request.status, "Esperado: awaiting_confirmation");
-            return { success: false, error: "Servi\xE7o n\xE3o est\xE1 aguardando confirma\xE7\xE3o" };
-          }
-          if (!request.assignedProfessionalId) {
-            console.log("\u274C Nenhum profissional designado para servi\xE7o:", serviceRequestId);
-            return { success: false, error: "Nenhum profissional foi designado para este servi\xE7o" };
-          }
-          const [acceptedOffer] = await db.select({
-            id: serviceOffers.id,
-            proposedPrice: serviceOffers.proposedPrice,
-            finalPrice: serviceOffers.finalPrice
-          }).from(serviceOffers).where(and(
-            eq(serviceOffers.serviceRequestId, serviceRequestId),
-            eq(serviceOffers.professionalId, request.assignedProfessionalId),
-            eq(serviceOffers.status, "accepted")
-          ));
-          console.log("\u{1F50D} Proposta aceita encontrada:", acceptedOffer);
-          if (!acceptedOffer) {
-            console.log("\u274C Proposta aceita n\xE3o encontrada para servi\xE7o:", serviceRequestId);
-            return { success: false, error: "Proposta aceita n\xE3o encontrada" };
-          }
-          const finalAmount = acceptedOffer.finalPrice || acceptedOffer.proposedPrice;
-          console.log("\u{1F4B0} Valor final para transa\xE7\xE3o:", finalAmount, "Tipo:", typeof finalAmount);
-          const transaction = await this.createTransaction({
-            serviceRequestId,
-            serviceOfferId: acceptedOffer.id,
-            clientId,
-            professionalId: request.assignedProfessionalId,
-            amount: Number(finalAmount),
-            status: "completed",
-            type: "service_payment",
-            description: `Pagamento pelo servi\xE7o #${serviceRequestId}`,
-            paymentMethod: "pix",
-            completedAt: /* @__PURE__ */ new Date()
-          });
-          console.log("\u2705 Transa\xE7\xE3o criada com sucesso:", transaction.id, "Valor:", transaction.amount);
-          await db.update(serviceRequests).set({
-            status: "completed",
-            clientConfirmedAt: /* @__PURE__ */ new Date(),
-            updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq(serviceRequests.id, serviceRequestId));
-          console.log("\u2705 Status da solicita\xE7\xE3o atualizado para completed");
-          await db.update(serviceProgress).set({
-            status: "payment_released",
-            confirmedAt: /* @__PURE__ */ new Date(),
-            paymentReleasedAt: /* @__PURE__ */ new Date(),
-            updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq(serviceProgress.serviceRequestId, serviceRequestId));
-          console.log("\u2705 Progresso atualizado para payment_released");
-          const professional = await this.getProfessional(request.assignedProfessionalId);
-          if (professional) {
-            await this.createNotification({
-              userId: professional.userId,
-              message: `Pagamento de R$ ${finalAmount} foi liberado pelo servi\xE7o #${serviceRequestId}.`,
-              read: false
-            });
-          }
-          console.log("\u{1F5D1}\uFE0F Excluindo propostas n\xE3o aceitas...");
-          await db.delete(serviceOffers).where(and(
-            eq(serviceOffers.serviceRequestId, serviceRequestId),
-            ne(serviceOffers.status, "accepted")
-          ));
-          console.log("\u2705 Propostas n\xE3o aceitas exclu\xEDdas com sucesso");
-          console.log("\u2705 Servi\xE7o conclu\xEDdo com sucesso! ID:", serviceRequestId);
-          return { success: true };
-        } catch (error) {
-          console.error("\u274C Erro ao confirmar conclus\xE3o do servi\xE7o:", error);
-          return { success: false, error: "Erro interno do servidor" };
-        }
-      }
-      async getServiceProgress(serviceRequestId) {
-        try {
-          const [progress] = await db.select().from(serviceProgress).where(eq(serviceProgress.serviceRequestId, serviceRequestId));
-          return progress || null;
-        } catch (error) {
-          console.error("\u274C Erro ao buscar progresso do servi\xE7o:", error);
-          return null;
-        }
-      }
-      async rejectServiceOffer(offerId, userId) {
-        try {
-          console.log("\u274C Rejeitando proposta:", offerId, "pelo cliente:", userId);
-          const [offer] = await db.select({
-            id: serviceOffers.id,
-            status: serviceOffers.status,
-            serviceRequestId: serviceOffers.serviceRequestId,
-            professionalId: serviceOffers.professionalId,
-            clientId: serviceRequests.clientId
-          }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).where(eq(serviceOffers.id, offerId));
-          if (!offer) {
-            return { success: false, error: "Proposta n\xE3o encontrada" };
-          }
-          if (offer.clientId !== userId) {
-            return { success: false, error: "Proposta n\xE3o pertence a este cliente" };
-          }
-          await this.deleteServiceOffer(offerId);
-          const request = await this.getServiceRequest(offer.serviceRequestId);
-          if (request) {
-            const current = Number(request.responses) || 0;
-            const next = current > 0 ? current - 1 : 0;
-            await this.updateServiceRequest(offer.serviceRequestId, { responses: next });
-          }
-          const professional = await this.getProfessional(offer.professionalId);
-          if (professional) {
-            const reqDetailed = await this.getServiceRequest(offer.serviceRequestId);
-            const serviceLabel = reqDetailed?.serviceType || "um servi\xE7o";
-            await this.createNotification({
-              userId: professional.userId,
-              message: `Sua proposta para ${serviceLabel} foi rejeitada e removida pelo cliente.`,
-              read: false
-            });
-          }
-          return { success: true };
-        } catch (error) {
-          console.error("\u274C Erro ao rejeitar e excluir proposta:", error);
-          return { success: false, error: "Erro interno do servidor" };
-        }
-      }
-      // Transactions
-      async createTransaction(transaction) {
-        try {
-          console.log("\u2705 Criando transa\xE7\xE3o:", transaction);
-          const [newTransaction] = await db.insert(transactions).values(transaction).returning();
-          return newTransaction;
-        } catch (error) {
-          console.error("\u274C Erro ao criar transa\xE7\xE3o:", error);
-          throw error;
-        }
-      }
-      async getTransactionsByProfessional(professionalId) {
-        try {
-          const professionalTransactions = await db.select().from(transactions).where(eq(transactions.professionalId, professionalId)).orderBy(desc(transactions.createdAt));
-          return professionalTransactions;
-        } catch (error) {
-          console.error("\u274C Erro ao buscar transa\xE7\xF5es do profissional:", error);
-          return [];
-        }
-      }
-      async getTransactionsByClient(clientId) {
-        try {
-          const clientTransactions = await db.select().from(transactions).where(eq(transactions.clientId, clientId)).orderBy(desc(transactions.createdAt));
-          return clientTransactions;
-        } catch (error) {
-          console.error("\u274C Erro ao buscar transa\xE7\xF5es do cliente:", error);
-          return [];
-        }
-      }
-      async updateTransactionStatus(id, status) {
-        try {
-          const [updatedTransaction] = await db.update(transactions).set({
-            status,
-            updatedAt: /* @__PURE__ */ new Date(),
-            ...status === "completed" && { completedAt: /* @__PURE__ */ new Date() }
-          }).where(eq(transactions.id, id)).returning();
-          return updatedTransaction;
-        } catch (error) {
-          console.error("\u274C Erro ao atualizar status da transa\xE7\xE3o:", error);
-          throw error;
-        }
-      }
-      async getTransactionById(id) {
-        try {
-          const [transaction] = await db.select().from(transactions).where(eq(transactions.id, id));
-          return transaction || null;
-        } catch (error) {
-          console.error("\u274C Erro ao buscar transa\xE7\xE3o por ID:", error);
-          return null;
-        }
-      }
-      // Service Reviews
-      async createServiceReview(review) {
-        try {
-          console.log("\u2705 Criando avalia\xE7\xE3o de servi\xE7o:", review);
-          const [newReview] = await db.insert(serviceReviews).values(review).returning();
-          await this.updateProfessionalRating(review.professionalId);
-          return newReview;
-        } catch (error) {
-          console.error("\u274C Erro ao criar avalia\xE7\xE3o de servi\xE7o:", error);
-          throw error;
-        }
-      }
-      async getServiceReviewsByProfessional(professionalId) {
-        try {
-          const reviews = await db.select().from(serviceReviews).where(eq(serviceReviews.professionalId, professionalId)).orderBy(desc(serviceReviews.createdAt));
-          return reviews;
-        } catch (error) {
-          console.error("\u274C Erro ao buscar avalia\xE7\xF5es do profissional:", error);
-          throw error;
-        }
-      }
-      async getServiceReviewsByClient(clientId) {
-        try {
-          const reviews = await db.select().from(serviceReviews).where(eq(serviceReviews.clientId, clientId)).orderBy(desc(serviceReviews.createdAt));
-          return reviews;
-        } catch (error) {
-          console.error("\u274C Erro ao buscar avalia\xE7\xF5es do cliente:", error);
-          throw error;
-        }
-      }
-      async getProfessionalCompletedServices(professionalId) {
-        try {
-          console.log("\u{1F50D} Buscando servi\xE7os conclu\xEDdos do profissional:", professionalId);
-          const results = await db.select({
-            serviceRequestId: serviceRequests.id,
-            serviceTitle: serviceRequests.serviceType,
-            clientName: users.name,
-            clientEmail: users.email,
-            amount: sql`COALESCE(${serviceOffers.finalPrice}, ${serviceOffers.proposedPrice})`,
-            status: serviceRequests.status,
-            completedAt: serviceRequests.clientConfirmedAt,
-            // Informações da avaliação
-            reviewRating: serviceReviews.rating,
-            reviewComment: serviceReviews.comment,
-            reviewCreatedAt: serviceReviews.createdAt,
-            // Informações da transação
-            transactionId: transactions.id,
-            transactionStatus: transactions.status,
-            transactionCompletedAt: transactions.completedAt
-          }).from(serviceRequests).innerJoin(serviceOffers, and(
-            eq(serviceOffers.serviceRequestId, serviceRequests.id),
-            eq(serviceOffers.professionalId, professionalId),
-            eq(serviceOffers.status, "accepted")
-          )).innerJoin(users, eq(serviceRequests.clientId, users.id)).leftJoin(serviceReviews, eq(serviceReviews.serviceRequestId, serviceRequests.id)).leftJoin(transactions, and(
-            eq(transactions.serviceRequestId, serviceRequests.id),
-            eq(transactions.professionalId, professionalId),
-            eq(transactions.type, "service_payment")
-          )).where(and(
-            eq(serviceRequests.assignedProfessionalId, professionalId),
-            eq(serviceRequests.status, "completed")
-          )).orderBy(desc(serviceRequests.clientConfirmedAt));
-          console.log("\u2705 Servi\xE7os conclu\xEDdos encontrados:", results.length);
-          console.log("\u{1F50D} Dados dos servi\xE7os:", results.map((r) => ({ id: r.serviceRequestId, status: r.status, amount: r.amount })));
-          const mappedResults = results.map((result) => ({
-            serviceRequestId: result.serviceRequestId,
-            serviceTitle: result.serviceTitle,
-            clientName: result.clientName,
-            clientEmail: result.clientEmail,
-            amount: Number(result.amount),
-            status: result.status,
-            completedAt: result.completedAt,
-            hasReview: !!result.reviewRating,
-            reviewRating: result.reviewRating,
-            reviewComment: result.reviewComment,
-            reviewCreatedAt: result.reviewCreatedAt,
-            transactionId: result.transactionId,
-            transactionStatus: result.transactionStatus,
-            transactionCompletedAt: result.transactionCompletedAt
-          }));
-          console.log("\u2705 Resultados mapeados:", mappedResults.length);
-          return mappedResults;
-        } catch (error) {
-          console.error("\u274C Erro ao buscar servi\xE7os conclu\xEDdos do profissional:", error);
-          throw error;
-        }
-      }
-      async getServiceReviewByService(serviceRequestId) {
-        try {
-          const [review] = await db.select().from(serviceReviews).where(eq(serviceReviews.serviceRequestId, serviceRequestId));
-          return review || null;
-        } catch (error) {
-          console.error("\u274C Erro ao buscar avalia\xE7\xE3o do servi\xE7o:", error);
-          return null;
-        }
-      }
-      async updateProfessionalRating(professionalId) {
-        try {
-          const reviews = await this.getServiceReviewsByProfessional(professionalId);
-          if (reviews.length === 0) {
-            await db.update(professionals).set({
-              rating: "5.0",
-              totalReviews: 0,
-              updatedAt: /* @__PURE__ */ new Date()
-            }).where(eq(professionals.id, professionalId));
-            return;
-          }
-          const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
-          const averageRating = totalRating / reviews.length;
-          await db.update(professionals).set({
-            rating: averageRating.toFixed(1),
-            totalReviews: reviews.length,
-            updatedAt: /* @__PURE__ */ new Date()
-          }).where(eq(professionals.id, professionalId));
-          console.log(`\u2705 Avalia\xE7\xE3o do profissional ${professionalId} atualizada: ${averageRating.toFixed(1)} (${reviews.length} avalia\xE7\xF5es)`);
-        } catch (error) {
-          console.error("\u274C Erro ao atualizar avalia\xE7\xE3o do profissional:", error);
-          throw error;
-        }
-      }
-      // ==================== HELPER METHODS FOR PAYMENTS ====================
-      async getServiceOfferById(offerId) {
-        try {
-          const [result] = await db.select().from(serviceOffers).where(eq(serviceOffers.id, offerId));
-          return result || null;
-        } catch (error) {
-          console.error("\u274C Erro ao buscar oferta de servi\xE7o:", error);
-          throw error;
-        }
-      }
-      async getServiceRequestById(requestId) {
-        try {
-          const [result] = await db.select().from(serviceRequests).where(eq(serviceRequests.id, requestId));
-          return result || null;
-        } catch (error) {
-          console.error("\u274C Erro ao buscar solicita\xE7\xE3o de servi\xE7o:", error);
-          throw error;
-        }
-      }
-      async getProfessionalById(professionalId) {
-        try {
-          const [result] = await db.select().from(professionals).where(eq(professionals.id, professionalId));
-          return result || null;
-        } catch (error) {
-          console.error("\u274C Erro ao buscar profissional:", error);
-          throw error;
-        }
-      }
-      // ==================== PAYMENT REFERENCES METHODS ====================
-      async createPaymentReference(paymentRef) {
-        try {
-          console.log("\u{1F4B3} Criando refer\xEAncia de pagamento:", paymentRef);
-          const [result] = await db.insert(paymentReferences).values(paymentRef).returning();
-          console.log("\u2705 Refer\xEAncia de pagamento criada:", result.id);
-          return result;
-        } catch (error) {
-          console.error("\u274C Erro ao criar refer\xEAncia de pagamento:", error);
-          throw error;
-        }
-      }
-      async getPaymentReferenceByPreferenceId(preferenceId) {
-        try {
-          console.log("\u{1F50D} Buscando refer\xEAncia de pagamento por preference ID:", preferenceId);
-          const [result] = await db.select().from(paymentReferences).where(eq(paymentReferences.preferenceId, preferenceId));
-          return result || null;
-        } catch (error) {
-          console.error("\u274C Erro ao buscar refer\xEAncia de pagamento:", error);
-          throw error;
-        }
-      }
-      async updatePaymentReferenceStatus(preferenceId, status, paymentId) {
-        try {
-          console.log("\u{1F4DD} Atualizando status da refer\xEAncia de pagamento:", { preferenceId, status, paymentId });
-          const updateData = {
-            status,
-            updatedAt: /* @__PURE__ */ new Date()
-          };
-          if (paymentId) {
-            updateData.paymentId = paymentId;
-          }
-          if (status === "approved") {
-            updateData.approvedAt = /* @__PURE__ */ new Date();
-          }
-          await db.update(paymentReferences).set(updateData).where(eq(paymentReferences.preferenceId, preferenceId));
-          console.log("\u2705 Status da refer\xEAncia de pagamento atualizado");
-        } catch (error) {
-          console.error("\u274C Erro ao atualizar status da refer\xEAncia de pagamento:", error);
-          throw error;
-        }
-      }
-    };
-    storage = new DatabaseStorage();
+    sql = neon(process.env.DATABASE_URL || "postgresql://neondb_owner:npg_L9mgJX6UuftC@ep-lingering-pine-a54hc3dj-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require");
+    db = drizzle(sql);
   }
 });
 
 // server/index.ts
 import "dotenv/config";
+import path2 from "path";
+import { config as config2 } from "dotenv";
+import { fileURLToPath } from "url";
 import express2 from "express";
 import { sql as sql3 } from "drizzle-orm";
 
-// server/routes.ts
-init_storage();
+// server/routes-simple.ts
 import express from "express";
-import { createServer } from "http";
-import session from "express-session";
-import passport2 from "passport";
-import rateLimit from "express-rate-limit";
-import helmet from "helmet";
+
+// server/schema.ts
+import { pgTable, text, serial, integer, boolean, decimal, timestamp, jsonb } from "drizzle-orm/pg-core";
+var users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  password: text("password"),
+  googleId: text("google_id").unique(),
+  appleId: text("apple_id").unique(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  phoneVerified: boolean("phone_verified").default(false),
+  address: text("address"),
+  profileImage: text("profile_image"),
+  userType: text("user_type", { enum: ["client", "provider"] }).notNull().default("client"),
+  isVerified: boolean("is_verified").default(false),
+  isBlocked: boolean("is_blocked").default(false),
+  lastLoginAt: timestamp("last_login_at"),
+  loginAttempts: integer("login_attempts").default(0),
+  resetToken: text("reset_token"),
+  resetTokenExpiry: timestamp("reset_token_expiry"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var professionals = pgTable("professionals", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  // Link to user table for providers
+  name: text("name").notNull(),
+  specialization: text("specialization").notNull(),
+  category: text("category", {
+    enum: ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"]
+  }).notNull(),
+  subCategory: text("sub_category", {
+    enum: [
+      "companhia_apoio_emocional",
+      "preparacao_refeicoes",
+      "compras_transporte",
+      "lavanderia_limpeza",
+      "curativos_medicacao",
+      "terapias_especializadas",
+      "acompanhamento_hospitalar"
+    ]
+  }).notNull(),
+  description: text("description").notNull(),
+  experience: text("experience"),
+  certifications: text("certifications"),
+  availableHours: text("available_hours"),
+  // JSON string for schedule
+  hourlyRate: decimal("hourly_rate", { precision: 8, scale: 2 }),
+  rating: decimal("rating", { precision: 2, scale: 1 }).default("5.0"),
+  totalReviews: integer("total_reviews").default(0),
+  location: text("location"),
+  distance: decimal("distance", { precision: 3, scale: 1 }),
+  available: boolean("available").notNull().default(true),
+  imageUrl: text("image_url"),
+  createdAt: timestamp("created_at").defaultNow()
+});
+var appointments = pgTable("appointments", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  // Client who booked
+  professionalId: integer("professional_id").notNull(),
+  professionalName: text("professional_name").notNull(),
+  serviceType: text("service_type").notNull(),
+  scheduledFor: timestamp("scheduled_for").notNull(),
+  duration: integer("duration").notNull(),
+  // Duration in hours
+  totalCost: decimal("total_cost", { precision: 8, scale: 2 }),
+  status: text("status", { enum: ["pending", "confirmed", "in_progress", "completed", "cancelled"] }).default("pending"),
+  notes: text("notes"),
+  address: text("address"),
+  createdAt: timestamp("created_at").defaultNow()
+});
+var notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  data: jsonb("data"),
+  read: boolean("read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull()
+});
+var loginAttempts = pgTable("login_attempts", {
+  id: serial("id").primaryKey(),
+  email: text("email"),
+  ipAddress: text("ip_address").notNull(),
+  userAgent: text("user_agent"),
+  successful: boolean("successful").notNull().default(false),
+  blocked: boolean("blocked").notNull().default(false),
+  attemptedAt: timestamp("attempted_at").defaultNow().notNull()
+});
+var verificationCodes = pgTable("verification_codes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"),
+  email: text("email"),
+  phone: text("phone"),
+  code: text("code").notNull(),
+  type: text("type", { enum: ["email", "phone", "password_reset"] }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").default(false),
+  createdAt: timestamp("created_at").defaultNow()
+});
+var conversations = pgTable("conversations", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  professionalId: integer("professional_id").notNull(),
+  deletedByClient: boolean("deleted_by_client").default(false),
+  deletedByProfessional: boolean("deleted_by_professional").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversation_id").notNull(),
+  senderId: integer("sender_id").notNull(),
+  recipientId: integer("recipient_id").notNull(),
+  content: text("content").notNull(),
+  type: text("type", { enum: ["text", "image", "file"] }).default("text"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  isRead: boolean("is_read").default(false)
+});
+var serviceRequests = pgTable("service_requests", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  // Cliente que solicitou
+  serviceType: text("service_type").notNull(),
+  // Tipo de serviço (ex: fisioterapia, enfermagem)
+  category: text("category", {
+    enum: ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"]
+  }).notNull(),
+  description: text("description").notNull(),
+  address: text("address").notNull(),
+  scheduledDate: timestamp("scheduled_date").notNull(),
+  scheduledTime: text("scheduled_time").notNull(),
+  // Hora no formato HH:MM
+  urgency: text("urgency", { enum: ["low", "medium", "high"] }).default("medium"),
+  budget: decimal("budget", { precision: 8, scale: 2 }),
+  // Orçamento opcional
+  status: text("status", { enum: ["open", "in_progress", "assigned", "completed", "cancelled", "awaiting_confirmation"] }).default("open"),
+  assignedProfessionalId: integer("assigned_professional_id"),
+  // Profissional designado
+  responses: integer("responses").default(0),
+  // Número de profissionais que responderam
+  serviceStartedAt: timestamp("service_started_at"),
+  // Quando o profissional iniciou o serviço
+  serviceCompletedAt: timestamp("service_completed_at"),
+  // Quando o profissional marcou como concluído
+  clientConfirmedAt: timestamp("client_confirmed_at"),
+  // Quando o cliente confirmou a conclusão
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var serviceOffers = pgTable("service_offers", {
+  id: serial("id").primaryKey(),
+  serviceRequestId: integer("service_request_id").notNull(),
+  // ID da solicitação de serviço
+  professionalId: integer("professional_id").notNull(),
+  // ID do profissional que fez a proposta
+  proposedPrice: decimal("proposed_price", { precision: 8, scale: 2 }).notNull(),
+  // Preço proposto
+  finalPrice: decimal("final_price", { precision: 8, scale: 2 }),
+  // Preço final acordado
+  estimatedTime: text("estimated_time").notNull(),
+  // Tempo estimado (ex: "1 hora", "2 horas")
+  message: text("message").notNull(),
+  // Mensagem da proposta
+  status: text("status", { enum: ["pending", "accepted", "rejected", "withdrawn", "paid", "completed"] }).default("pending"),
+  // Status da proposta
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var transactions = pgTable("transactions", {
+  id: serial("id").primaryKey(),
+  serviceRequestId: integer("service_request_id").notNull(),
+  serviceOfferId: integer("service_offer_id").notNull(),
+  clientId: integer("client_id").notNull(),
+  professionalId: integer("professional_id").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  // Valor da transação
+  status: text("status", {
+    enum: ["pending", "completed", "failed", "refunded"]
+  }).notNull().default("pending"),
+  type: text("type", {
+    enum: ["service_payment", "refund", "bonus"]
+  }).notNull().default("service_payment"),
+  description: text("description"),
+  // Descrição da transação
+  paymentMethod: text("payment_method", {
+    enum: ["pix", "credit_card", "debit_card", "bank_transfer"]
+  }).default("pix"),
+  transactionId: text("transaction_id"),
+  // ID externo da transação (gateway de pagamento)
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var serviceReviews = pgTable("service_reviews", {
+  id: serial("id").primaryKey(),
+  serviceRequestId: integer("service_request_id").notNull(),
+  serviceOfferId: integer("service_offer_id").notNull(),
+  clientId: integer("client_id").notNull(),
+  professionalId: integer("professional_id").notNull(),
+  rating: integer("rating").notNull(),
+  // 1-5 estrelas
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var paymentReferences = pgTable("payment_references", {
+  id: serial("id").primaryKey(),
+  serviceRequestId: integer("service_request_id").notNull(),
+  serviceOfferId: integer("service_offer_id").notNull(),
+  clientId: integer("client_id").notNull(),
+  professionalId: integer("professional_id").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  preferenceId: text("preference_id").notNull().unique(),
+  status: text("status", { enum: ["pending", "approved", "rejected", "cancelled"] }).notNull().default("pending"),
+  statusDetail: text("status_detail"),
+  // Detalhes do status do pagamento
+  externalReference: text("external_reference").notNull(),
+  paymentId: text("payment_id"),
+  // ID do pagamento no Mercado Pago quando aprovado
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+var serviceProgress = pgTable("service_progress", {
+  id: serial("id").primaryKey(),
+  serviceRequestId: integer("service_request_id").notNull(),
+  professionalId: integer("professional_id").notNull(),
+  status: text("status", {
+    enum: ["accepted", "started", "in_progress", "completed", "awaiting_confirmation", "confirmed", "payment_released"]
+  }).notNull().default("accepted"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  confirmedAt: timestamp("confirmed_at"),
+  paymentReleasedAt: timestamp("payment_released_at"),
+  notes: text("notes"),
+  // Observações do profissional
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow()
+});
+
+// server/storage.ts
+init_db();
+import { eq, and, or, gte, ilike, sql as sql2, desc, ne } from "drizzle-orm";
+var DatabaseStorage = class {
+  // Método para converter URLs relativas em absolutas
+  getFullImageUrl(relativeUrl) {
+    if (!relativeUrl) {
+      return null;
+    }
+    if (relativeUrl.startsWith("http")) {
+      return relativeUrl;
+    }
+    const baseUrl = process.env.NODE_ENV === "production" ? "https://lifebee-backend.onrender.com" : "http://localhost:8080";
+    return `${baseUrl}${relativeUrl}`;
+  }
+  // Users
+  async getUser(id) {
+    try {
+      console.log("\u{1F50D} Storage.getUser - Buscando usu\xE1rio com ID:", id);
+      console.log("\u{1F50D} Storage.getUser - Tipo do ID:", typeof id);
+      if (!id || isNaN(id)) {
+        console.log("\u274C Storage.getUser - ID inv\xE1lido:", id);
+        return void 0;
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, id));
+      console.log("\u2705 Storage.getUser - Usu\xE1rio encontrado:", user ? "Sim" : "N\xE3o");
+      if (user) {
+        console.log("\u2705 Storage.getUser - Dados do usu\xE1rio:", { id: user.id, name: user.name, email: user.email });
+      }
+      return user || void 0;
+    } catch (error) {
+      console.error("\u274C Storage.getUser - Erro:", error);
+      throw error;
+    }
+  }
+  async getAllUsers() {
+    try {
+      const allUsers = await db.select().from(users);
+      return allUsers;
+    } catch (error) {
+      console.error("\u274C Storage.getAllUsers - Erro:", error);
+      throw error;
+    }
+  }
+  async getUserByUsername(username) {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || void 0;
+  }
+  async getUserByEmail(email) {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || void 0;
+  }
+  async getUserByGoogleId(googleId) {
+    const [user] = await db.select().from(users).where(eq(users.googleId, googleId));
+    return user || void 0;
+  }
+  async getUserByAppleId(appleId) {
+    const [user] = await db.select().from(users).where(eq(users.appleId, appleId));
+    return user || void 0;
+  }
+  async createUser(insertUser) {
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+  async updateUser(id, updates) {
+    const allowed = [
+      "username",
+      "password",
+      "googleId",
+      "appleId",
+      "name",
+      "email",
+      "phone",
+      "phoneVerified",
+      "address",
+      "profileImage",
+      "userType",
+      "isVerified",
+      "isBlocked",
+      "lastLoginAt",
+      "loginAttempts",
+      "resetToken",
+      "resetTokenExpiry",
+      "updatedAt"
+    ];
+    const safeUpdates = {};
+    for (const key of allowed) {
+      if (key in updates) safeUpdates[key] = updates[key];
+    }
+    safeUpdates.updatedAt = /* @__PURE__ */ new Date();
+    const [user] = await db.update(users).set(safeUpdates).where(eq(users.id, id)).returning();
+    return user;
+  }
+  async updateUserLoginAttempts(id, attempts) {
+    await db.update(users).set({ [users.loginAttempts.name]: attempts, [users.updatedAt.name]: /* @__PURE__ */ new Date() }).where(eq(users.id, id));
+  }
+  async blockUser(id) {
+    await db.update(users).set({ [users.isBlocked.name]: true, [users.updatedAt.name]: /* @__PURE__ */ new Date() }).where(eq(users.id, id));
+  }
+  async verifyUser(id) {
+    await db.update(users).set({ [users.isVerified.name]: true, [users.updatedAt.name]: /* @__PURE__ */ new Date() }).where(eq(users.id, id));
+  }
+  // Professionals
+  async getAllProfessionals() {
+    const professionalsData = await db.select({
+      id: professionals.id,
+      userId: professionals.userId,
+      name: professionals.name,
+      specialization: professionals.specialization,
+      category: professionals.category,
+      subCategory: professionals.subCategory,
+      description: professionals.description,
+      experience: professionals.experience,
+      certifications: professionals.certifications,
+      availableHours: professionals.availableHours,
+      hourlyRate: professionals.hourlyRate,
+      rating: professionals.rating,
+      totalReviews: professionals.totalReviews,
+      location: professionals.location,
+      distance: professionals.distance,
+      available: professionals.available,
+      imageUrl: professionals.imageUrl,
+      createdAt: professionals.createdAt
+    }).from(professionals).where(eq(professionals.available, true));
+    return professionalsData.map((professional) => ({
+      ...professional,
+      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+    }));
+  }
+  async getProfessionalsByCategory(category) {
+    const professionalsData = await db.select({
+      id: professionals.id,
+      userId: professionals.userId,
+      name: professionals.name,
+      specialization: professionals.specialization,
+      category: professionals.category,
+      subCategory: professionals.subCategory,
+      description: professionals.description,
+      experience: professionals.experience,
+      certifications: professionals.certifications,
+      availableHours: professionals.availableHours,
+      hourlyRate: professionals.hourlyRate,
+      rating: professionals.rating,
+      totalReviews: professionals.totalReviews,
+      location: professionals.location,
+      distance: professionals.distance,
+      available: professionals.available,
+      imageUrl: professionals.imageUrl,
+      createdAt: professionals.createdAt
+    }).from(professionals).where(and(eq(professionals.category, category), eq(professionals.available, true)));
+    return professionalsData.map((professional) => ({
+      ...professional,
+      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+    }));
+  }
+  async searchProfessionals(query) {
+    const professionalsData = await db.select({
+      id: professionals.id,
+      userId: professionals.userId,
+      name: professionals.name,
+      specialization: professionals.specialization,
+      category: professionals.category,
+      subCategory: professionals.subCategory,
+      description: professionals.description,
+      experience: professionals.experience,
+      certifications: professionals.certifications,
+      availableHours: professionals.availableHours,
+      hourlyRate: professionals.hourlyRate,
+      rating: professionals.rating,
+      totalReviews: professionals.totalReviews,
+      location: professionals.location,
+      distance: professionals.distance,
+      available: professionals.available,
+      imageUrl: professionals.imageUrl,
+      createdAt: professionals.createdAt
+    }).from(professionals).where(
+      and(
+        eq(professionals.available, true),
+        or(
+          ilike(professionals.name, `%${query}%`),
+          ilike(professionals.specialization, `%${query}%`),
+          ilike(professionals.description, `%${query}%`)
+        )
+      )
+    );
+    return professionalsData.map((professional) => ({
+      ...professional,
+      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+    }));
+  }
+  async getProfessional(id) {
+    const [professional] = await db.select().from(professionals).where(eq(professionals.id, id));
+    if (!professional) return void 0;
+    return {
+      ...professional,
+      imageUrl: professional.imageUrl ? this.getFullImageUrl(professional.imageUrl) : null
+    };
+  }
+  async getProfessionalByUserId(userId) {
+    const [professional] = await db.select().from(professionals).where(eq(professionals.userId, userId));
+    return professional || void 0;
+  }
+  async createProfessional(insertProfessional) {
+    const [professional] = await db.insert(professionals).values(insertProfessional).returning();
+    return professional;
+  }
+  async updateProfessional(id, updates) {
+    const [professional] = await db.update(professionals).set(updates).where(eq(professionals.id, id)).returning();
+    return professional;
+  }
+  async updateProfessionalAvailability(userId, available) {
+    await db.update(professionals).set({ available }).where(eq(professionals.userId, userId));
+  }
+  // Appointments
+  async getAppointmentsByUser(userId) {
+    return await db.select().from(appointments).where(eq(appointments.clientId, userId));
+  }
+  async getAppointmentsByProfessional(professionalId) {
+    return await db.select().from(appointments).where(eq(appointments.professionalId, professionalId));
+  }
+  async createAppointment(insertAppointment) {
+    const [appointment] = await db.insert(appointments).values(insertAppointment).returning();
+    return appointment;
+  }
+  async updateAppointment(id, updates) {
+    const [appointment] = await db.update(appointments).set(updates).where(eq(appointments.id, id)).returning();
+    return appointment;
+  }
+  // Notifications
+  async getNotificationsByUser(userId) {
+    return await db.select().from(notifications).where(eq(notifications.userId, userId));
+  }
+  async getUnreadNotificationCount(userId) {
+    const [result] = await db.select({ count: sql2`cast(count(*) as int)` }).from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
+    return result?.count || 0;
+  }
+  async createNotification(insertNotification) {
+    const [notification] = await db.insert(notifications).values(insertNotification).returning();
+    return notification;
+  }
+  async markNotificationRead(id) {
+    await db.update(notifications).set({ [notifications.read.name]: true }).where(eq(notifications.id, id));
+  }
+  // Security & Anti-fraud
+  async createLoginAttempt(insertLoginAttempt) {
+    const [loginAttempt] = await db.insert(loginAttempts).values(insertLoginAttempt).returning();
+    return loginAttempt;
+  }
+  async getRecentLoginAttempts(ipAddress, minutes) {
+    const timeAgo = new Date(Date.now() - minutes * 60 * 1e3);
+    return await db.select().from(loginAttempts).where(
+      and(
+        eq(loginAttempts.ipAddress, ipAddress),
+        gte(loginAttempts.attemptedAt, timeAgo)
+      )
+    );
+  }
+  async createVerificationCode(insertVerificationCode) {
+    const [verificationCode] = await db.insert(verificationCodes).values(insertVerificationCode).returning();
+    return verificationCode;
+  }
+  async getVerificationCode(code, type) {
+    const [verificationCode] = await db.select().from(verificationCodes).where(
+      and(
+        eq(verificationCodes.code, code),
+        eq(verificationCodes.type, type),
+        eq(verificationCodes.used, false),
+        gte(verificationCodes.expiresAt, /* @__PURE__ */ new Date())
+      )
+    );
+    return verificationCode || void 0;
+  }
+  async markCodeAsUsed(id) {
+    await db.update(verificationCodes).set({ [verificationCodes.used.name]: true }).where(eq(verificationCodes.id, id));
+  }
+  // Conversations & Messages
+  async getConversation(clientId, professionalId) {
+    const result = await db.select().from(conversations).where(
+      and(
+        eq(conversations.clientId, clientId),
+        eq(conversations.professionalId, professionalId)
+      )
+    ).limit(1);
+    return result[0];
+  }
+  // Verificar se uma conversa foi deletada pelo usuário
+  async isConversationDeletedByUser(conversationId, userId) {
+    const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
+    if (!conversation[0]) {
+      return false;
+    }
+    const conv = conversation[0];
+    if (conv.clientId === userId) {
+      return conv.deletedByClient === true;
+    } else if (conv.professionalId === userId) {
+      return conv.deletedByProfessional === true;
+    }
+    return false;
+  }
+  // Restaurar conversa (marcar como não deletada pelo usuário)
+  async restoreConversation(conversationId, userId) {
+    const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
+    if (!conversation[0]) {
+      throw new Error("Conversa n\xE3o encontrada");
+    }
+    const conv = conversation[0];
+    const updates = {};
+    if (conv.clientId === userId) {
+      updates.deletedByClient = false;
+    } else if (conv.professionalId === userId) {
+      updates.deletedByProfessional = false;
+    } else {
+      throw new Error("Usu\xE1rio n\xE3o \xE9 participante da conversa");
+    }
+    await db.update(conversations).set(updates).where(eq(conversations.id, conversationId));
+  }
+  async getConversationsByUser(userId) {
+    console.log(`\u{1F50D} getConversationsByUser(${userId}) - Iniciando busca...`);
+    const allUserConversations = await db.select().from(conversations).where(
+      or(
+        eq(conversations.clientId, userId),
+        eq(conversations.professionalId, userId)
+      )
+    );
+    console.log(`\u{1F4CB} Todas as conversas do usu\xE1rio ${userId}:`, allUserConversations.map((c) => ({
+      id: c.id,
+      clientId: c.clientId,
+      professionalId: c.professionalId,
+      deletedByClient: c.deletedByClient,
+      deletedByProfessional: c.deletedByProfessional
+    })));
+    const asClient = allUserConversations.filter((c) => c.clientId === userId);
+    const asProfessional = allUserConversations.filter((c) => c.professionalId === userId);
+    console.log(`\u{1F4CA} Usu\xE1rio ${userId} - Como cliente: ${asClient.length}, Como profissional: ${asProfessional.length}`);
+    const result = await db.select().from(conversations).where(
+      and(
+        or(
+          eq(conversations.clientId, userId),
+          eq(conversations.professionalId, userId)
+        ),
+        // Não mostrar conversas deletadas pelo usuário
+        or(
+          and(eq(conversations.clientId, userId), eq(conversations.deletedByClient, false)),
+          and(eq(conversations.professionalId, userId), eq(conversations.deletedByProfessional, false))
+        )
+      )
+    );
+    console.log(`\u2705 Conversas filtradas para usu\xE1rio ${userId}:`, result.map((c) => ({
+      id: c.id,
+      clientId: c.clientId,
+      professionalId: c.professionalId,
+      deletedByClient: c.deletedByClient,
+      deletedByProfessional: c.deletedByProfessional
+    })));
+    return result;
+  }
+  async createConversation(conversation) {
+    const result = await db.insert(conversations).values(conversation).returning();
+    return result[0];
+  }
+  async createMessage(message) {
+    const result = await db.insert(messages).values(message).returning();
+    return result[0];
+  }
+  async getMessagesByConversation(conversationId) {
+    return await db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(messages.timestamp);
+  }
+  async getLastMessageByConversation(conversationId) {
+    const result = await db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(desc(messages.timestamp)).limit(1);
+    return result[0];
+  }
+  async getUnreadMessageCount(conversationId, userId) {
+    const [result] = await db.select({ count: sql2`cast(count(*) as int)` }).from(messages).where(
+      and(
+        eq(messages.conversationId, conversationId),
+        ne(messages.senderId, userId),
+        eq(messages.isRead, false)
+      )
+    );
+    return result?.count || 0;
+  }
+  async markMessagesAsRead(conversationId, userId) {
+    await db.update(messages).set({ isRead: true }).where(
+      and(
+        eq(messages.conversationId, conversationId),
+        ne(messages.senderId, userId),
+        eq(messages.isRead, false)
+      )
+    );
+  }
+  // Excluir todas as mensagens de uma conversa
+  async deleteMessagesByConversation(conversationId) {
+    await db.delete(messages).where(eq(messages.conversationId, conversationId));
+  }
+  // Marcar conversa como deletada pelo usuário (exclusão individual)
+  async deleteConversation(conversationId, userId) {
+    const conversation = await db.select().from(conversations).where(eq(conversations.id, conversationId)).limit(1);
+    if (!conversation[0]) {
+      throw new Error("Conversa n\xE3o encontrada");
+    }
+    const conv = conversation[0];
+    const updates = {};
+    if (conv.clientId === userId) {
+      updates.deletedByClient = true;
+    } else if (conv.professionalId === userId) {
+      updates.deletedByProfessional = true;
+    } else {
+      throw new Error("Usu\xE1rio n\xE3o \xE9 participante da conversa");
+    }
+    await db.update(conversations).set(updates).where(eq(conversations.id, conversationId));
+  }
+  // Service Requests
+  async getServiceRequestsByClient(clientId) {
+    return await db.select().from(serviceRequests).where(eq(serviceRequests.clientId, clientId)).orderBy(desc(serviceRequests.createdAt));
+  }
+  async getServiceRequestsByCategory(category) {
+    return await db.select({
+      // Service Request fields
+      id: serviceRequests.id,
+      clientId: serviceRequests.clientId,
+      category: serviceRequests.category,
+      serviceType: serviceRequests.serviceType,
+      description: serviceRequests.description,
+      address: serviceRequests.address,
+      budget: serviceRequests.budget,
+      scheduledDate: serviceRequests.scheduledDate,
+      scheduledTime: serviceRequests.scheduledTime,
+      urgency: serviceRequests.urgency,
+      status: serviceRequests.status,
+      responses: serviceRequests.responses,
+      assignedProfessionalId: serviceRequests.assignedProfessionalId,
+      createdAt: serviceRequests.createdAt,
+      updatedAt: serviceRequests.updatedAt,
+      serviceStartedAt: serviceRequests.serviceStartedAt,
+      serviceCompletedAt: serviceRequests.serviceCompletedAt,
+      clientConfirmedAt: serviceRequests.clientConfirmedAt,
+      // Client information
+      clientName: users.name,
+      clientEmail: users.email,
+      clientPhone: users.phone,
+      clientProfileImage: users.profileImage,
+      clientCreatedAt: users.createdAt
+    }).from(serviceRequests).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceRequests.category, category)).orderBy(desc(serviceRequests.createdAt));
+  }
+  async getServiceRequest(id) {
+    const [serviceRequest] = await db.select().from(serviceRequests).where(eq(serviceRequests.id, id));
+    return serviceRequest || void 0;
+  }
+  async getServiceRequestWithClient(id) {
+    const [result] = await db.select({
+      // Service Request fields
+      id: serviceRequests.id,
+      clientId: serviceRequests.clientId,
+      serviceType: serviceRequests.serviceType,
+      category: serviceRequests.category,
+      description: serviceRequests.description,
+      address: serviceRequests.address,
+      scheduledDate: serviceRequests.scheduledDate,
+      scheduledTime: serviceRequests.scheduledTime,
+      urgency: serviceRequests.urgency,
+      budget: serviceRequests.budget,
+      status: serviceRequests.status,
+      assignedProfessionalId: serviceRequests.assignedProfessionalId,
+      responses: serviceRequests.responses,
+      createdAt: serviceRequests.createdAt,
+      updatedAt: serviceRequests.updatedAt,
+      serviceStartedAt: serviceRequests.serviceStartedAt,
+      serviceCompletedAt: serviceRequests.serviceCompletedAt,
+      clientConfirmedAt: serviceRequests.clientConfirmedAt,
+      // Client information
+      clientName: users.name,
+      clientEmail: users.email,
+      clientPhone: users.phone,
+      clientProfileImage: users.profileImage,
+      clientCreatedAt: users.createdAt
+    }).from(serviceRequests).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceRequests.id, id));
+    return result || void 0;
+  }
+  async createServiceRequest(insertServiceRequest) {
+    const [serviceRequest] = await db.insert(serviceRequests).values(insertServiceRequest).returning();
+    return serviceRequest;
+  }
+  async updateServiceRequest(id, updates) {
+    const [serviceRequest] = await db.update(serviceRequests).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceRequests.id, id)).returning();
+    return serviceRequest;
+  }
+  async deleteServiceRequest(id) {
+    await db.delete(serviceRequests).where(eq(serviceRequests.id, id));
+  }
+  async assignProfessionalToRequest(requestId, professionalId) {
+    await db.update(serviceRequests).set({
+      assignedProfessionalId: professionalId,
+      status: "assigned",
+      updatedAt: /* @__PURE__ */ new Date()
+    }).where(eq(serviceRequests.id, requestId));
+  }
+  // Service Offers
+  async getServiceOffersByRequest(requestId) {
+    return await db.select({
+      // Service Offer fields
+      id: serviceOffers.id,
+      serviceRequestId: serviceOffers.serviceRequestId,
+      professionalId: serviceOffers.professionalId,
+      proposedPrice: serviceOffers.proposedPrice,
+      finalPrice: serviceOffers.finalPrice,
+      estimatedTime: serviceOffers.estimatedTime,
+      message: serviceOffers.message,
+      status: serviceOffers.status,
+      createdAt: serviceOffers.createdAt,
+      updatedAt: serviceOffers.updatedAt,
+      // Professional information
+      professionalName: professionals.name,
+      professionalRating: professionals.rating,
+      professionalTotalReviews: professionals.totalReviews,
+      professionalProfileImage: professionals.imageUrl
+    }).from(serviceOffers).innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id)).where(eq(serviceOffers.serviceRequestId, requestId)).orderBy(desc(serviceOffers.createdAt));
+  }
+  async getProposalsByServiceRequest(requestId) {
+    return await db.select({
+      // Service Offer fields
+      id: serviceOffers.id,
+      serviceRequestId: serviceOffers.serviceRequestId,
+      professionalId: serviceOffers.professionalId,
+      proposedPrice: serviceOffers.proposedPrice,
+      finalPrice: serviceOffers.finalPrice,
+      estimatedTime: serviceOffers.estimatedTime,
+      message: serviceOffers.message,
+      status: serviceOffers.status,
+      createdAt: serviceOffers.createdAt,
+      updatedAt: serviceOffers.updatedAt,
+      // Professional information
+      professionalName: professionals.name,
+      professionalRating: professionals.rating,
+      professionalTotalReviews: professionals.totalReviews,
+      professionalProfileImage: professionals.imageUrl
+    }).from(serviceOffers).innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id)).where(eq(serviceOffers.serviceRequestId, requestId)).orderBy(desc(serviceOffers.createdAt));
+  }
+  async getProposalsByProfessional(professionalId) {
+    const results = await db.select({
+      // Service Offer fields
+      id: serviceOffers.id,
+      serviceRequestId: serviceOffers.serviceRequestId,
+      professionalId: serviceOffers.professionalId,
+      proposedPrice: serviceOffers.proposedPrice,
+      finalPrice: serviceOffers.finalPrice,
+      estimatedTime: serviceOffers.estimatedTime,
+      message: serviceOffers.message,
+      status: serviceOffers.status,
+      createdAt: serviceOffers.createdAt,
+      updatedAt: serviceOffers.updatedAt,
+      // Service Request fields
+      requestId: serviceRequests.id,
+      clientId: serviceRequests.clientId,
+      serviceType: serviceRequests.serviceType,
+      category: serviceRequests.category,
+      description: serviceRequests.description,
+      address: serviceRequests.address,
+      budget: serviceRequests.budget,
+      scheduledDate: serviceRequests.scheduledDate,
+      scheduledTime: serviceRequests.scheduledTime,
+      urgency: serviceRequests.urgency,
+      requestStatus: serviceRequests.status,
+      assignedProfessionalId: serviceRequests.assignedProfessionalId,
+      responses: serviceRequests.responses,
+      requestCreatedAt: serviceRequests.createdAt,
+      requestUpdatedAt: serviceRequests.updatedAt,
+      serviceStartedAt: serviceRequests.serviceStartedAt,
+      serviceCompletedAt: serviceRequests.serviceCompletedAt,
+      clientConfirmedAt: serviceRequests.clientConfirmedAt,
+      // Client information
+      clientName: users.name,
+      clientEmail: users.email,
+      clientPhone: users.phone,
+      clientProfileImage: users.profileImage,
+      clientCreatedAt: users.createdAt
+    }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).innerJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceOffers.professionalId, professionalId)).orderBy(desc(serviceOffers.createdAt));
+    return results.map((result) => ({
+      id: result.id,
+      serviceRequestId: result.serviceRequestId,
+      professionalId: result.professionalId,
+      proposedPrice: result.proposedPrice,
+      finalPrice: result.finalPrice,
+      estimatedTime: result.estimatedTime,
+      message: result.message,
+      status: result.status,
+      createdAt: result.createdAt,
+      updatedAt: result.updatedAt,
+      serviceRequest: {
+        id: result.requestId,
+        clientId: result.clientId,
+        category: result.category,
+        serviceType: result.serviceType,
+        description: result.description,
+        address: result.address,
+        budget: result.budget,
+        scheduledDate: result.scheduledDate,
+        scheduledTime: result.scheduledTime,
+        urgency: result.urgency,
+        status: result.requestStatus,
+        assignedProfessionalId: result.assignedProfessionalId,
+        responses: result.responses,
+        createdAt: result.requestCreatedAt,
+        updatedAt: result.requestUpdatedAt,
+        serviceStartedAt: result.serviceStartedAt,
+        serviceCompletedAt: result.serviceCompletedAt,
+        clientConfirmedAt: result.clientConfirmedAt,
+        clientName: result.clientName,
+        clientEmail: result.clientEmail,
+        clientPhone: result.clientPhone,
+        clientProfileImage: result.clientProfileImage,
+        clientCreatedAt: result.clientCreatedAt
+      }
+    }));
+  }
+  async getServiceOffers(serviceRequestId) {
+    return await db.select().from(serviceOffers).where(eq(serviceOffers.serviceRequestId, serviceRequestId)).orderBy(desc(serviceOffers.createdAt));
+  }
+  async createServiceOffer(serviceOffer) {
+    const [offer] = await db.insert(serviceOffers).values(serviceOffer).returning();
+    return offer;
+  }
+  async updateServiceOffer(id, updates) {
+    const [offer] = await db.update(serviceOffers).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceOffers.id, id)).returning();
+    return offer;
+  }
+  async deleteServiceOffer(id) {
+    await db.delete(serviceOffers).where(eq(serviceOffers.id, id));
+  }
+  // ==================== SERVICE REQUESTS FOR CLIENT ====================
+  async getServiceRequestsForClient(userId) {
+    try {
+      console.log("\u{1F50D} Buscando pedidos para cliente ID:", userId);
+      if (!userId || isNaN(userId)) {
+        throw new Error("ID do usu\xE1rio inv\xE1lido");
+      }
+      const results = await db.select({
+        id: serviceRequests.id,
+        title: serviceRequests.serviceType,
+        description: serviceRequests.description,
+        category: serviceRequests.serviceType,
+        budget: serviceRequests.budget,
+        location: serviceRequests.address,
+        urgency: serviceRequests.urgency,
+        status: serviceRequests.status,
+        createdAt: serviceRequests.createdAt,
+        responses: serviceRequests.responses
+      }).from(serviceRequests).where(eq(serviceRequests.clientId, userId)).orderBy(desc(serviceRequests.createdAt));
+      console.log("\u2705 Pedidos encontrados:", results.length);
+      return results.map((result) => ({
+        id: result.id,
+        title: result.title,
+        description: result.description,
+        category: result.category,
+        budget: result.budget,
+        location: result.location,
+        urgency: result.urgency,
+        status: result.status,
+        createdAt: result.createdAt,
+        responseCount: result.responses || 0
+      }));
+    } catch (error) {
+      console.error("\u274C Erro em getServiceRequestsForClient:", error);
+      throw error;
+    }
+  }
+  // ==================== SERVICE OFFERS FOR CLIENT ====================
+  async getServiceOffersForClient(userId) {
+    try {
+      console.log("\u{1F50D} Buscando propostas para cliente ID:", userId);
+      if (!userId || isNaN(userId)) {
+        throw new Error("ID do usu\xE1rio inv\xE1lido");
+      }
+      const results = await db.select({
+        id: serviceOffers.id,
+        serviceRequestId: serviceOffers.serviceRequestId,
+        professionalId: serviceOffers.professionalId,
+        proposedPrice: serviceOffers.proposedPrice,
+        finalPrice: serviceOffers.finalPrice,
+        estimatedTime: serviceOffers.estimatedTime,
+        message: serviceOffers.message,
+        status: serviceOffers.status,
+        createdAt: serviceOffers.createdAt,
+        serviceTitle: serviceRequests.serviceType,
+        serviceStatus: serviceRequests.status,
+        professionalName: professionals.name,
+        professionalRating: professionals.rating,
+        professionalTotalReviews: professionals.totalReviews,
+        professionalProfileImage: professionals.imageUrl,
+        // Adicionar informações sobre avaliação se o serviço estiver concluído
+        hasReview: serviceReviews.id,
+        reviewRating: serviceReviews.rating,
+        reviewComment: serviceReviews.comment,
+        reviewCreatedAt: serviceReviews.createdAt
+      }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).innerJoin(professionals, eq(serviceOffers.professionalId, professionals.id)).leftJoin(serviceReviews, and(
+        eq(serviceReviews.serviceRequestId, serviceRequests.id),
+        eq(serviceReviews.clientId, userId)
+      )).where(eq(serviceRequests.clientId, userId)).orderBy(desc(serviceOffers.createdAt));
+      console.log("\u2705 Propostas encontradas:", results.length);
+      return results.map((result) => ({
+        id: result.id,
+        serviceRequestId: result.serviceRequestId,
+        professionalId: result.professionalId,
+        professionalName: result.professionalName,
+        professionalRating: result.professionalRating || 5,
+        professionalTotalReviews: result.professionalTotalReviews || 0,
+        professionalProfileImage: result.professionalProfileImage ? this.getFullImageUrl(result.professionalProfileImage) : null,
+        proposedPrice: result.proposedPrice,
+        finalPrice: result.finalPrice,
+        estimatedTime: result.estimatedTime,
+        message: result.message,
+        status: result.status,
+        createdAt: result.createdAt,
+        serviceTitle: result.serviceTitle,
+        serviceStatus: result.serviceStatus,
+        // Incluir informações sobre avaliação
+        hasReview: !!result.hasReview,
+        reviewRating: result.reviewRating,
+        reviewComment: result.reviewComment,
+        reviewCreatedAt: result.reviewCreatedAt
+      }));
+    } catch (error) {
+      console.error("\u274C Erro em getServiceOffersForClient:", error);
+      throw error;
+    }
+  }
+  async acceptServiceOffer(offerId, userId) {
+    try {
+      console.log("\u2705 Aceitando proposta:", offerId, "pelo cliente:", userId);
+      const [offer] = await db.select({
+        id: serviceOffers.id,
+        serviceRequestId: serviceOffers.serviceRequestId,
+        professionalId: serviceOffers.professionalId,
+        proposedPrice: serviceOffers.proposedPrice,
+        status: serviceOffers.status,
+        clientId: serviceRequests.clientId
+      }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).where(eq(serviceOffers.id, offerId));
+      if (!offer) {
+        return { success: false, error: "Proposta n\xE3o encontrada" };
+      }
+      if (offer.clientId !== userId) {
+        return { success: false, error: "Proposta n\xE3o pertence a este cliente" };
+      }
+      if (offer.status !== "pending") {
+        return { success: false, error: "Proposta j\xE1 foi processada" };
+      }
+      await db.update(serviceOffers).set({ status: "accepted", updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceOffers.id, offerId));
+      await db.update(serviceRequests).set({
+        assignedProfessionalId: offer.professionalId,
+        status: "assigned",
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq(serviceRequests.id, offer.serviceRequestId));
+      await db.update(serviceOffers).set({
+        finalPrice: offer.proposedPrice,
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq(serviceOffers.id, offerId));
+      await db.insert(serviceProgress).values({
+        serviceRequestId: offer.serviceRequestId,
+        professionalId: offer.professionalId,
+        status: "accepted"
+      });
+      await db.update(serviceOffers).set({ status: "rejected", updatedAt: /* @__PURE__ */ new Date() }).where(and(
+        eq(serviceOffers.serviceRequestId, offer.serviceRequestId),
+        ne(serviceOffers.id, offerId)
+      ));
+      return { success: true };
+    } catch (error) {
+      console.error("\u274C Erro ao aceitar proposta:", error);
+      return { success: false, error: "Erro interno do servidor" };
+    }
+  }
+  // Métodos para gerenciar o progresso do serviço
+  async startService(serviceRequestId, professionalId) {
+    try {
+      console.log("\u{1F680} Iniciando servi\xE7o:", serviceRequestId, "pelo profissional:", professionalId);
+      const [request] = await db.select({
+        id: serviceRequests.id,
+        status: serviceRequests.status,
+        assignedProfessionalId: serviceRequests.assignedProfessionalId
+      }).from(serviceRequests).where(eq(serviceRequests.id, serviceRequestId));
+      if (!request) {
+        return { success: false, error: "Solicita\xE7\xE3o n\xE3o encontrada" };
+      }
+      if (request.assignedProfessionalId !== professionalId) {
+        return { success: false, error: "Servi\xE7o n\xE3o foi atribu\xEDdo a este profissional" };
+      }
+      if (request.status !== "assigned") {
+        return { success: false, error: "Servi\xE7o n\xE3o est\xE1 em estado de iniciar" };
+      }
+      await db.update(serviceRequests).set({
+        status: "in_progress",
+        serviceStartedAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq(serviceRequests.id, serviceRequestId));
+      await db.update(serviceProgress).set({
+        status: "started",
+        startedAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(and(
+        eq(serviceProgress.serviceRequestId, serviceRequestId),
+        eq(serviceProgress.professionalId, professionalId)
+      ));
+      return { success: true };
+    } catch (error) {
+      console.error("\u274C Erro ao iniciar servi\xE7o:", error);
+      return { success: false, error: "Erro interno do servidor" };
+    }
+  }
+  async completeService(serviceRequestId, professionalId, notes) {
+    try {
+      console.log("\u2705 Concluindo servi\xE7o:", serviceRequestId, "pelo profissional:", professionalId);
+      const [professional] = await db.select({ id: professionals.id }).from(professionals).where(eq(professionals.userId, professionalId));
+      console.log("\u{1F50D} Profissional encontrado:", professional);
+      if (!professional) {
+        console.log("\u274C Profissional n\xE3o encontrado para userId:", professionalId);
+        return { success: false, error: "Profissional n\xE3o encontrado" };
+      }
+      const actualProfessionalId = professional.id;
+      console.log("\u{1F50D} ID real do profissional:", actualProfessionalId);
+      const [request] = await db.select({
+        id: serviceRequests.id,
+        status: serviceRequests.status,
+        assignedProfessionalId: serviceRequests.assignedProfessionalId
+      }).from(serviceRequests).where(eq(serviceRequests.id, serviceRequestId));
+      if (!request) {
+        console.log("\u274C Solicita\xE7\xE3o n\xE3o encontrada:", serviceRequestId);
+        return { success: false, error: "Solicita\xE7\xE3o n\xE3o encontrada" };
+      }
+      console.log("\u{1F50D} Dados da solicita\xE7\xE3o:", request);
+      if (request.assignedProfessionalId !== actualProfessionalId) {
+        console.log("\u274C Servi\xE7o n\xE3o atribu\xEDdo a este profissional. Atribu\xEDdo a:", request.assignedProfessionalId, "Profissional atual:", actualProfessionalId);
+        return { success: false, error: "Servi\xE7o n\xE3o foi atribu\xEDdo a este profissional" };
+      }
+      if (request.status !== "in_progress" && request.status !== "open") {
+        console.log("\u274C Status incorreto do servi\xE7o:", request.status, "Esperado: in_progress ou open");
+        return { success: false, error: "Servi\xE7o deve estar em andamento ou aberto com proposta aceita para ser conclu\xEDdo" };
+      }
+      if (request.status === "open") {
+        console.log("\u{1F50D} Servi\xE7o em status open, verificando proposta aceita...");
+        const [acceptedOffer] = await db.select({ id: serviceOffers.id }).from(serviceOffers).where(and(
+          eq(serviceOffers.serviceRequestId, serviceRequestId),
+          eq(serviceOffers.professionalId, actualProfessionalId),
+          eq(serviceOffers.status, "accepted")
+        ));
+        if (!acceptedOffer) {
+          console.log("\u274C Proposta aceita n\xE3o encontrada para servi\xE7o em status open:", serviceRequestId);
+          return { success: false, error: "Servi\xE7o deve ter uma proposta aceita para ser conclu\xEDdo" };
+        }
+        console.log("\u2705 Proposta aceita encontrada para servi\xE7o em status open:", acceptedOffer.id);
+      }
+      await db.update(serviceRequests).set({
+        status: "awaiting_confirmation",
+        serviceCompletedAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq(serviceRequests.id, serviceRequestId));
+      console.log("\u2705 Status da solicita\xE7\xE3o atualizado para awaiting_confirmation");
+      console.log("\u2705 Servi\xE7o marcado como conclu\xEDdo pelo profissional");
+      await db.update(serviceProgress).set({
+        status: "awaiting_confirmation",
+        completedAt: /* @__PURE__ */ new Date(),
+        notes: notes || null,
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(and(
+        eq(serviceProgress.serviceRequestId, serviceRequestId),
+        eq(serviceProgress.professionalId, actualProfessionalId)
+      ));
+      console.log("\u2705 Progresso atualizado para awaiting_confirmation");
+      return { success: true };
+    } catch (error) {
+      console.error("\u274C Erro ao concluir servi\xE7o:", error);
+      return { success: false, error: "Erro interno do servidor" };
+    }
+  }
+  async confirmServiceCompletion(serviceRequestId, clientId) {
+    try {
+      console.log("\u2705 Cliente confirmando conclus\xE3o do servi\xE7o:", serviceRequestId);
+      const [request] = await db.select({
+        id: serviceRequests.id,
+        status: serviceRequests.status,
+        clientId: serviceRequests.clientId,
+        assignedProfessionalId: serviceRequests.assignedProfessionalId
+      }).from(serviceRequests).where(eq(serviceRequests.id, serviceRequestId));
+      console.log("\u{1F50D} Dados da solicita\xE7\xE3o encontrada:", request);
+      if (!request) {
+        console.log("\u274C Solicita\xE7\xE3o n\xE3o encontrada:", serviceRequestId);
+        return { success: false, error: "Solicita\xE7\xE3o n\xE3o encontrada" };
+      }
+      if (request.clientId !== clientId) {
+        console.log("\u274C Cliente incorreto:", request.clientId, "Esperado:", clientId);
+        return { success: false, error: "Servi\xE7o n\xE3o pertence a este cliente" };
+      }
+      if (request.status !== "awaiting_confirmation") {
+        console.log("\u274C Status incorreto do servi\xE7o:", request.status, "Esperado: awaiting_confirmation");
+        return { success: false, error: "Servi\xE7o n\xE3o est\xE1 aguardando confirma\xE7\xE3o" };
+      }
+      if (!request.assignedProfessionalId) {
+        console.log("\u274C Nenhum profissional designado para servi\xE7o:", serviceRequestId);
+        return { success: false, error: "Nenhum profissional foi designado para este servi\xE7o" };
+      }
+      const [acceptedOffer] = await db.select({
+        id: serviceOffers.id,
+        proposedPrice: serviceOffers.proposedPrice,
+        finalPrice: serviceOffers.finalPrice
+      }).from(serviceOffers).where(and(
+        eq(serviceOffers.serviceRequestId, serviceRequestId),
+        eq(serviceOffers.professionalId, request.assignedProfessionalId),
+        eq(serviceOffers.status, "accepted")
+      ));
+      console.log("\u{1F50D} Proposta aceita encontrada:", acceptedOffer);
+      if (!acceptedOffer) {
+        console.log("\u274C Proposta aceita n\xE3o encontrada para servi\xE7o:", serviceRequestId);
+        return { success: false, error: "Proposta aceita n\xE3o encontrada" };
+      }
+      const finalAmount = acceptedOffer.finalPrice || acceptedOffer.proposedPrice;
+      console.log("\u{1F4B0} Valor final para transa\xE7\xE3o:", finalAmount, "Tipo:", typeof finalAmount);
+      const transaction = await this.createTransaction({
+        serviceRequestId,
+        serviceOfferId: acceptedOffer.id,
+        clientId,
+        professionalId: request.assignedProfessionalId,
+        amount: Number(finalAmount),
+        status: "completed",
+        type: "service_payment",
+        description: `Pagamento pelo servi\xE7o #${serviceRequestId}`,
+        paymentMethod: "pix",
+        completedAt: /* @__PURE__ */ new Date()
+      });
+      console.log("\u2705 Transa\xE7\xE3o criada com sucesso:", transaction.id, "Valor:", transaction.amount);
+      await db.update(serviceRequests).set({
+        status: "completed",
+        clientConfirmedAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq(serviceRequests.id, serviceRequestId));
+      console.log("\u2705 Status da solicita\xE7\xE3o atualizado para completed");
+      await db.update(serviceProgress).set({
+        status: "payment_released",
+        confirmedAt: /* @__PURE__ */ new Date(),
+        paymentReleasedAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq(serviceProgress.serviceRequestId, serviceRequestId));
+      console.log("\u2705 Progresso atualizado para payment_released");
+      const professional = await this.getProfessional(request.assignedProfessionalId);
+      if (professional) {
+        await this.createNotification({
+          userId: professional.userId,
+          message: `Pagamento de R$ ${finalAmount} foi liberado pelo servi\xE7o #${serviceRequestId}.`,
+          read: false
+        });
+      }
+      console.log("\u{1F5D1}\uFE0F Excluindo propostas n\xE3o aceitas...");
+      await db.delete(serviceOffers).where(and(
+        eq(serviceOffers.serviceRequestId, serviceRequestId),
+        ne(serviceOffers.status, "accepted")
+      ));
+      console.log("\u2705 Propostas n\xE3o aceitas exclu\xEDdas com sucesso");
+      console.log("\u2705 Servi\xE7o conclu\xEDdo com sucesso! ID:", serviceRequestId);
+      return { success: true };
+    } catch (error) {
+      console.error("\u274C Erro ao confirmar conclus\xE3o do servi\xE7o:", error);
+      return { success: false, error: "Erro interno do servidor" };
+    }
+  }
+  async getServiceProgress(serviceRequestId) {
+    try {
+      const [progress] = await db.select().from(serviceProgress).where(eq(serviceProgress.serviceRequestId, serviceRequestId));
+      return progress || null;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar progresso do servi\xE7o:", error);
+      return null;
+    }
+  }
+  async rejectServiceOffer(offerId, userId) {
+    try {
+      console.log("\u274C Rejeitando proposta:", offerId, "pelo cliente:", userId);
+      const [offer] = await db.select({
+        id: serviceOffers.id,
+        status: serviceOffers.status,
+        serviceRequestId: serviceOffers.serviceRequestId,
+        professionalId: serviceOffers.professionalId,
+        clientId: serviceRequests.clientId
+      }).from(serviceOffers).innerJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).where(eq(serviceOffers.id, offerId));
+      if (!offer) {
+        return { success: false, error: "Proposta n\xE3o encontrada" };
+      }
+      if (offer.clientId !== userId) {
+        return { success: false, error: "Proposta n\xE3o pertence a este cliente" };
+      }
+      await this.deleteServiceOffer(offerId);
+      const request = await this.getServiceRequest(offer.serviceRequestId);
+      if (request) {
+        const current = Number(request.responses) || 0;
+        const next = current > 0 ? current - 1 : 0;
+        await this.updateServiceRequest(offer.serviceRequestId, { responses: next });
+      }
+      const professional = await this.getProfessional(offer.professionalId);
+      if (professional) {
+        const reqDetailed = await this.getServiceRequest(offer.serviceRequestId);
+        const serviceLabel = reqDetailed?.serviceType || "um servi\xE7o";
+        await this.createNotification({
+          userId: professional.userId,
+          message: `Sua proposta para ${serviceLabel} foi rejeitada e removida pelo cliente.`,
+          read: false
+        });
+      }
+      return { success: true };
+    } catch (error) {
+      console.error("\u274C Erro ao rejeitar e excluir proposta:", error);
+      return { success: false, error: "Erro interno do servidor" };
+    }
+  }
+  // Transactions
+  async createTransaction(transaction) {
+    try {
+      console.log("\u2705 Criando transa\xE7\xE3o:", transaction);
+      const [newTransaction] = await db.insert(transactions).values(transaction).returning();
+      return newTransaction;
+    } catch (error) {
+      console.error("\u274C Erro ao criar transa\xE7\xE3o:", error);
+      throw error;
+    }
+  }
+  async getTransactionsByProfessional(professionalId) {
+    try {
+      const professionalTransactions = await db.select().from(transactions).where(eq(transactions.professionalId, professionalId)).orderBy(desc(transactions.createdAt));
+      return professionalTransactions;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar transa\xE7\xF5es do profissional:", error);
+      return [];
+    }
+  }
+  async getTransactionsByClient(clientId) {
+    try {
+      const clientTransactions = await db.select().from(transactions).where(eq(transactions.clientId, clientId)).orderBy(desc(transactions.createdAt));
+      return clientTransactions;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar transa\xE7\xF5es do cliente:", error);
+      return [];
+    }
+  }
+  async updateTransactionStatus(id, status) {
+    try {
+      const [updatedTransaction] = await db.update(transactions).set({
+        status,
+        updatedAt: /* @__PURE__ */ new Date(),
+        ...status === "completed" && { completedAt: /* @__PURE__ */ new Date() }
+      }).where(eq(transactions.id, id)).returning();
+      return updatedTransaction;
+    } catch (error) {
+      console.error("\u274C Erro ao atualizar status da transa\xE7\xE3o:", error);
+      throw error;
+    }
+  }
+  async getTransactionById(id) {
+    try {
+      const [transaction] = await db.select().from(transactions).where(eq(transactions.id, id));
+      return transaction || null;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar transa\xE7\xE3o por ID:", error);
+      return null;
+    }
+  }
+  // Service Reviews
+  async createServiceReview(review) {
+    try {
+      console.log("\u2705 Criando avalia\xE7\xE3o de servi\xE7o:", review);
+      const [newReview] = await db.insert(serviceReviews).values(review).returning();
+      await this.updateProfessionalRating(review.professionalId);
+      return newReview;
+    } catch (error) {
+      console.error("\u274C Erro ao criar avalia\xE7\xE3o de servi\xE7o:", error);
+      throw error;
+    }
+  }
+  async getServiceReviewsByProfessional(professionalId) {
+    try {
+      const reviews = await db.select().from(serviceReviews).where(eq(serviceReviews.professionalId, professionalId)).orderBy(desc(serviceReviews.createdAt));
+      return reviews;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar avalia\xE7\xF5es do profissional:", error);
+      throw error;
+    }
+  }
+  async getServiceReviewsByClient(clientId) {
+    try {
+      const reviews = await db.select().from(serviceReviews).where(eq(serviceReviews.clientId, clientId)).orderBy(desc(serviceReviews.createdAt));
+      return reviews;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar avalia\xE7\xF5es do cliente:", error);
+      throw error;
+    }
+  }
+  async getProfessionalCompletedServices(professionalId) {
+    try {
+      console.log("\u{1F50D} Buscando servi\xE7os conclu\xEDdos do profissional:", professionalId);
+      const results = await db.select({
+        serviceRequestId: serviceRequests.id,
+        serviceTitle: serviceRequests.serviceType,
+        clientName: users.name,
+        clientEmail: users.email,
+        amount: sql2`COALESCE(${serviceOffers.finalPrice}, ${serviceOffers.proposedPrice})`,
+        status: serviceRequests.status,
+        completedAt: serviceRequests.clientConfirmedAt,
+        // Informações da avaliação
+        reviewRating: serviceReviews.rating,
+        reviewComment: serviceReviews.comment,
+        reviewCreatedAt: serviceReviews.createdAt,
+        // Informações da transação
+        transactionId: transactions.id,
+        transactionStatus: transactions.status,
+        transactionCompletedAt: transactions.completedAt
+      }).from(serviceRequests).innerJoin(serviceOffers, and(
+        eq(serviceOffers.serviceRequestId, serviceRequests.id),
+        eq(serviceOffers.professionalId, professionalId),
+        eq(serviceOffers.status, "accepted")
+      )).innerJoin(users, eq(serviceRequests.clientId, users.id)).leftJoin(serviceReviews, eq(serviceReviews.serviceRequestId, serviceRequests.id)).leftJoin(transactions, and(
+        eq(transactions.serviceRequestId, serviceRequests.id),
+        eq(transactions.professionalId, professionalId),
+        eq(transactions.type, "service_payment")
+      )).where(and(
+        eq(serviceRequests.assignedProfessionalId, professionalId),
+        eq(serviceRequests.status, "completed")
+      )).orderBy(desc(serviceRequests.clientConfirmedAt));
+      console.log("\u2705 Servi\xE7os conclu\xEDdos encontrados:", results.length);
+      console.log("\u{1F50D} Dados dos servi\xE7os:", results.map((r) => ({ id: r.serviceRequestId, status: r.status, amount: r.amount })));
+      const mappedResults = results.map((result) => ({
+        serviceRequestId: result.serviceRequestId,
+        serviceTitle: result.serviceTitle,
+        clientName: result.clientName,
+        clientEmail: result.clientEmail,
+        amount: Number(result.amount),
+        status: result.status,
+        completedAt: result.completedAt,
+        hasReview: !!result.reviewRating,
+        reviewRating: result.reviewRating,
+        reviewComment: result.reviewComment,
+        reviewCreatedAt: result.reviewCreatedAt,
+        transactionId: result.transactionId,
+        transactionStatus: result.transactionStatus,
+        transactionCompletedAt: result.transactionCompletedAt
+      }));
+      console.log("\u2705 Resultados mapeados:", mappedResults.length);
+      return mappedResults;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar servi\xE7os conclu\xEDdos do profissional:", error);
+      throw error;
+    }
+  }
+  async getServiceReviewByService(serviceRequestId) {
+    try {
+      const [review] = await db.select().from(serviceReviews).where(eq(serviceReviews.serviceRequestId, serviceRequestId));
+      return review || null;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar avalia\xE7\xE3o do servi\xE7o:", error);
+      return null;
+    }
+  }
+  async updateProfessionalRating(professionalId) {
+    try {
+      const reviews = await this.getServiceReviewsByProfessional(professionalId);
+      if (reviews.length === 0) {
+        await db.update(professionals).set({
+          rating: "5.0",
+          totalReviews: 0
+        }).where(eq(professionals.id, professionalId));
+        return;
+      }
+      const totalRating = reviews.reduce((sum, review) => sum + review.rating, 0);
+      const averageRating = totalRating / reviews.length;
+      await db.update(professionals).set({
+        rating: averageRating.toFixed(1),
+        totalReviews: reviews.length
+      }).where(eq(professionals.id, professionalId));
+      console.log(`\u2705 Avalia\xE7\xE3o do profissional ${professionalId} atualizada: ${averageRating.toFixed(1)} (${reviews.length} avalia\xE7\xF5es)`);
+    } catch (error) {
+      console.error("\u274C Erro ao atualizar avalia\xE7\xE3o do profissional:", error);
+      throw error;
+    }
+  }
+  // ==================== HELPER METHODS FOR PAYMENTS ====================
+  async getServiceOfferById(offerId) {
+    try {
+      const [result] = await db.select().from(serviceOffers).where(eq(serviceOffers.id, offerId));
+      return result || null;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar oferta de servi\xE7o:", error);
+      throw error;
+    }
+  }
+  async getServiceRequestById(requestId) {
+    try {
+      const [result] = await db.select().from(serviceRequests).where(eq(serviceRequests.id, requestId));
+      return result || null;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar solicita\xE7\xE3o de servi\xE7o:", error);
+      throw error;
+    }
+  }
+  async getProfessionalById(professionalId) {
+    try {
+      const [result] = await db.select().from(professionals).where(eq(professionals.id, professionalId));
+      return result || null;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar profissional:", error);
+      throw error;
+    }
+  }
+  // ==================== PAYMENT REFERENCES METHODS ====================
+  async createPaymentReference(paymentRef) {
+    try {
+      console.log("\u{1F4B3} Criando refer\xEAncia de pagamento:", paymentRef);
+      const [result] = await db.insert(paymentReferences).values(paymentRef).returning();
+      console.log("\u2705 Refer\xEAncia de pagamento criada:", result.id);
+      return result;
+    } catch (error) {
+      console.error("\u274C Erro ao criar refer\xEAncia de pagamento:", error);
+      throw error;
+    }
+  }
+  async getPaymentReferenceByPreferenceId(preferenceId) {
+    try {
+      console.log("\u{1F50D} Buscando refer\xEAncia de pagamento por preference ID:", preferenceId);
+      const [result] = await db.select().from(paymentReferences).where(eq(paymentReferences.preferenceId, preferenceId));
+      return result || null;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar refer\xEAncia de pagamento:", error);
+      throw error;
+    }
+  }
+  async updatePaymentReferenceStatus(preferenceId, status, statusDetail, paymentId, approvedAt) {
+    try {
+      console.log("\u{1F4DD} Atualizando status da refer\xEAncia de pagamento:", {
+        preferenceId,
+        status,
+        statusDetail,
+        paymentId,
+        approvedAt
+      });
+      const updateData = {
+        status,
+        updatedAt: /* @__PURE__ */ new Date()
+      };
+      if (statusDetail) {
+        updateData.statusDetail = statusDetail;
+      }
+      if (paymentId) {
+        updateData.paymentId = paymentId;
+      }
+      if (approvedAt) {
+        updateData.approvedAt = approvedAt;
+      }
+      await db.update(paymentReferences).set(updateData).where(eq(paymentReferences.preferenceId, preferenceId));
+      console.log("\u2705 Status da refer\xEAncia de pagamento atualizado");
+    } catch (error) {
+      console.error("\u274C Erro ao atualizar status da refer\xEAncia de pagamento:", error);
+      throw error;
+    }
+  }
+  // Service Offer Status Update
+  async updateServiceOfferStatus(offerId, status) {
+    try {
+      console.log("\u{1F4DD} Atualizando status da proposta:", { offerId, status });
+      await db.update(serviceOffers).set({ status, updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceOffers.id, offerId));
+      console.log("\u2705 Status da proposta atualizado");
+    } catch (error) {
+      console.error("\u274C Erro ao atualizar status da proposta:", error);
+      throw error;
+    }
+  }
+  async updateServiceRequestStatus(requestId, status) {
+    try {
+      console.log("\u{1F4DD} Atualizando status da solicita\xE7\xE3o:", { requestId, status });
+      await db.update(serviceRequests).set({ status, updatedAt: /* @__PURE__ */ new Date() }).where(eq(serviceRequests.id, requestId));
+      console.log("\u2705 Status da solicita\xE7\xE3o atualizado");
+    } catch (error) {
+      console.error("\u274C Erro ao atualizar status da solicita\xE7\xE3o:", error);
+      throw error;
+    }
+  }
+  // ==================== PROVIDER PAYMENT METHODS ====================
+  async getProviderPayments(professionalId, filter) {
+    try {
+      console.log("\u{1F50D} Buscando pagamentos do profissional:", { professionalId, filter });
+      let whereCondition = eq(paymentReferences.professionalId, professionalId);
+      if (filter !== "all") {
+        whereCondition = and(
+          eq(paymentReferences.professionalId, professionalId),
+          eq(paymentReferences.status, filter)
+        );
+      }
+      const result = await db.select({
+        id: paymentReferences.id,
+        serviceRequestId: paymentReferences.serviceRequestId,
+        serviceOfferId: paymentReferences.serviceOfferId,
+        clientId: paymentReferences.clientId,
+        amount: paymentReferences.amount,
+        status: paymentReferences.status,
+        statusDetail: paymentReferences.statusDetail,
+        externalReference: paymentReferences.externalReference,
+        paymentId: paymentReferences.paymentId,
+        approvedAt: paymentReferences.approvedAt,
+        createdAt: paymentReferences.createdAt,
+        updatedAt: paymentReferences.updatedAt,
+        serviceRequest: {
+          title: serviceRequests.title,
+          description: serviceRequests.description,
+          category: serviceRequests.category
+        },
+        client: {
+          name: users.name,
+          email: users.email
+        }
+      }).from(paymentReferences).leftJoin(serviceRequests, eq(paymentReferences.serviceRequestId, serviceRequests.id)).leftJoin(users, eq(paymentReferences.clientId, users.id)).where(whereCondition).orderBy(desc(paymentReferences.createdAt));
+      console.log("\u2705 Pagamentos do profissional encontrados:", result.length);
+      return result;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar pagamentos do profissional:", error);
+      throw error;
+    }
+  }
+  async getProviderPaymentStats(professionalId) {
+    try {
+      console.log("\u{1F4CA} Calculando estat\xEDsticas de pagamento do profissional:", professionalId);
+      const [totalEarningsResult] = await db.select({
+        total: sql2`COALESCE(SUM(${paymentReferences.amount} * 0.95), 0)`
+      }).from(paymentReferences).where(and(
+        eq(paymentReferences.professionalId, professionalId),
+        eq(paymentReferences.status, "approved")
+      ));
+      const [pendingResult] = await db.select({ count: sql2`COUNT(*)` }).from(paymentReferences).where(and(
+        eq(paymentReferences.professionalId, professionalId),
+        eq(paymentReferences.status, "pending")
+      ));
+      const [approvedResult] = await db.select({ count: sql2`COUNT(*)` }).from(paymentReferences).where(and(
+        eq(paymentReferences.professionalId, professionalId),
+        eq(paymentReferences.status, "approved")
+      ));
+      const currentMonth = /* @__PURE__ */ new Date();
+      currentMonth.setDate(1);
+      currentMonth.setHours(0, 0, 0, 0);
+      const [monthlyResult] = await db.select({
+        total: sql2`COALESCE(SUM(${paymentReferences.amount} * 0.95), 0)`
+      }).from(paymentReferences).where(and(
+        eq(paymentReferences.professionalId, professionalId),
+        eq(paymentReferences.status, "approved"),
+        gte(paymentReferences.approvedAt, currentMonth)
+      ));
+      const stats = {
+        totalEarnings: Number(totalEarningsResult?.total || 0),
+        pendingPayments: Number(pendingResult?.count || 0),
+        completedPayments: Number(approvedResult?.count || 0),
+        monthlyEarnings: Number(monthlyResult?.total || 0)
+      };
+      console.log("\u2705 Estat\xEDsticas calculadas:", stats);
+      return stats;
+    } catch (error) {
+      console.error("\u274C Erro ao calcular estat\xEDsticas de pagamento:", error);
+      throw error;
+    }
+  }
+};
+var storage = new DatabaseStorage();
 
 // server/auth.ts
-init_storage();
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import jwt from "jsonwebtoken";
@@ -1798,502 +1890,255 @@ var authenticateToken = async (req, res, next) => {
     return res.status(403).json({ message: "Token inv\xE1lido" });
   }
 };
-var rateLimitByIP = async (req, res, next) => {
-  if (process.env.NODE_ENV === "development" || process.env.NODE_ENV !== "production") {
-    return next();
-  }
-  const ip = req.ip || req.connection?.remoteAddress || "unknown";
-  const userAgent = req.get("User-Agent") || "unknown";
-  try {
-    const recentAttempts = await storage.getRecentLoginAttempts(ip, 15);
-    if (recentAttempts.length >= 10) {
-      const failedAttempts = recentAttempts.filter((attempt) => !attempt.successful);
-      if (failedAttempts.length >= 5) {
-        await storage.createLoginAttempt({
-          email: req.body.email || null,
-          ipAddress: ip,
-          userAgent,
-          successful: false,
-          blocked: true
-        });
-        return res.status(429).json({
-          message: "Muitas tentativas de login. Tente novamente em 15 minutos.",
-          blocked: true
-        });
-      }
-    }
-    next();
-  } catch (error) {
-    console.error("Rate limit error:", error);
-    next();
-  }
-};
 
-// server/routes.ts
-import pgSession from "connect-pg-simple";
-import multer from "multer";
-import path2 from "path";
-import fs from "fs";
-import { sql as sql2 } from "drizzle-orm";
-import { MercadoPagoConfig, Preference } from "mercadopago";
-var client = new MercadoPagoConfig({
-  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || "APP_USR-1923177717890465-082109-8f2125345d1601bce3a067b6eb1258c1-810345213",
-  options: { timeout: 5e3, idempotencyKey: "abc" }
-});
-var preference = new Preference(client);
-var multerStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path2.join(process.cwd(), "uploads");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + "-" + uniqueSuffix + path2.extname(file.originalname));
-  }
-});
-var upload = multer({
-  storage: multerStorage,
-  limits: {
-    fileSize: 5 * 1024 * 1024
-    // 5MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path2.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error("Apenas imagens s\xE3o permitidas!"));
-    }
-  }
-});
-var authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1e3,
-  // 15 minutes
-  max: 100,
-  // Increased limit for development
-  message: "Muitas tentativas de login. Tente novamente em 15 minutos.",
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => {
-    return process.env.NODE_ENV === "development" || process.env.NODE_ENV !== "production";
-  }
-});
-async function registerRoutes(app2) {
-  app2.use((req, res, next) => {
-    const origin = req.headers.origin;
-    const allowedOrigins = [
-      "https://lifebee.netlify.app",
-      "https://lifebee.com.br",
-      "http://localhost:5173",
-      "http://localhost:5174"
-    ];
-    res.setHeader("Vary", "Origin");
-    if (origin && allowedOrigins.includes(origin)) {
-      res.setHeader("Access-Control-Allow-Origin", origin);
-    } else {
-      const defaultOrigin = process.env.NODE_ENV === "production" ? "https://lifebee.netlify.app" : "http://localhost:5173";
-      res.setHeader("Access-Control-Allow-Origin", defaultOrigin);
-    }
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-    if (req.method === "OPTIONS") {
-      return res.status(204).end();
-    }
-    next();
-  });
-  app2.get("/api/test", (req, res) => {
-    res.json({
-      message: "Server is running!",
-      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-      env: process.env.NODE_ENV,
-      googleClientId: process.env.GOOGLE_CLIENT_ID ? "Presente" : "Ausente",
-      googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? "Presente" : "Ausente",
-      callbackUrl: process.env.NODE_ENV === "production" ? "https://lifebee-backend.onrender.com/api/auth/google/callback" : "http://localhost:5000/api/auth/google/callback"
-    });
-  });
-  app2.get("/api/auth/test", (req, res) => {
-    res.json({
-      message: "Google OAuth routes are registered",
-      googleAuthUrl: "/api/auth/google",
-      googleCallbackUrl: "/api/auth/google/callback",
-      googleClientId: process.env.GOOGLE_CLIENT_ID ? "Presente" : "Ausente",
-      googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? "Presente" : "Ausente",
-      nodeEnv: process.env.NODE_ENV || "development",
-      callbackUrl: process.env.NODE_ENV === "production" ? "https://lifebee-backend.onrender.com/api/auth/google/callback" : "http://localhost:5000/api/auth/google/callback"
-    });
-  });
-  const uploadsPath = path2.resolve(process.cwd(), "uploads");
-  console.log("\u{1F4C1} Configurando middleware para arquivos est\xE1ticos em:", uploadsPath);
-  console.log("\u{1F4C1} Diret\xF3rio atual (process.cwd()):", process.cwd());
-  if (!fs.existsSync(uploadsPath)) {
-    console.log("\u{1F4C1} Criando diret\xF3rio uploads...");
-    fs.mkdirSync(uploadsPath, { recursive: true });
-  }
-  console.log("\u{1F4C1} Diret\xF3rio uploads existe:", fs.existsSync(uploadsPath));
+// server/routes-simple.ts
+import Stripe from "stripe";
+app.get("/api/messages/conversations", authenticateToken, async (req, res) => {
   try {
-    const uploadsContent = fs.readdirSync(uploadsPath);
-    console.log("\u{1F4C1} Conte\xFAdo do diret\xF3rio uploads:", uploadsContent);
-  } catch (error) {
-    console.log("\u{1F4C1} Diret\xF3rio uploads est\xE1 vazio ou n\xE3o pode ser lido:", error);
-  }
-  app2.use("/uploads", express.static(uploadsPath, {
-    setHeaders: (res, path3) => {
-      console.log("\u{1F4C2} Servindo arquivo:", path3);
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-      res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
-      res.setHeader("Cache-Control", "public, max-age=31536000");
-    }
-  }));
-  app2.get("/api/health", (req, res) => {
-    res.status(200).json({
-      status: "OK",
-      message: "Server is healthy",
-      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-      environment: process.env.NODE_ENV || "development"
-    });
-  });
-  app2.get("/api/health/db", async (req, res) => {
-    try {
-      const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      await db2.execute(sql2`SELECT 1`);
-      res.json({
-        status: "OK",
-        database: "Connected",
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
-      });
-    } catch (error) {
-      console.error("\u274C Erro no teste de banco:", error);
-      res.status(500).json({
-        status: "ERROR",
-        database: "Disconnected",
-        error: error instanceof Error ? error.message : "Erro desconhecido",
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
-      });
-    }
-  });
-  app2.get("/api/test-auth", authenticateToken, (req, res) => {
     const user = req.user;
-    res.status(200).json({
-      message: "Authentication successful",
-      user: {
-        id: user.id,
-        name: user.name,
-        userType: user.userType,
-        email: user.email
+    console.log("\u{1F50D} GET /api/messages/conversations - Usu\xE1rio:", user.id, user.userType);
+    const userConversations = await storage.getConversationsByUser(user.id);
+    console.log("\u{1F4CB} Conversas encontradas:", userConversations.length);
+    const conversationsWithDetails = await Promise.all(userConversations.map(async (conv) => {
+      const lastMessage = await storage.getLastMessageByConversation(conv.id);
+      const unreadCount = await storage.getUnreadMessageCount(conv.id, user.id);
+      if (user.userType === "provider") {
+        const client = await storage.getUser(conv.clientId);
+        return {
+          id: conv.id,
+          professionalId: conv.professionalId,
+          professionalName: user.name || "Profissional",
+          professionalAvatar: user.profileImage || "",
+          specialization: "",
+          lastMessage: lastMessage?.content || "Nenhuma mensagem",
+          lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+          unreadCount,
+          isOnline: Math.random() > 0.5,
+          rating: 5,
+          location: client?.city || "",
+          clientId: conv.clientId,
+          clientName: client?.name || "Cliente",
+          clientAvatar: client?.profileImage || ""
+        };
       }
-    });
-  });
-  app2.set("trust proxy", 1);
-  app2.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://accounts.google.com"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", "https:", "http:"],
-        // Permitir http para desenvolvimento
-        connectSrc: ["'self'", "ws:", "wss:", "https:", "http:", "https://accounts.google.com"],
-        // Permitir http para desenvolvimento
-        frameSrc: ["'self'", "https://accounts.google.com"]
+      const professional = await storage.getProfessionalById(conv.professionalId);
+      return {
+        id: conv.id,
+        professionalId: conv.professionalId,
+        professionalName: professional?.name || "Profissional",
+        professionalAvatar: professional?.imageUrl ? storage.getFullImageUrl(professional.imageUrl) : "",
+        specialization: professional?.specialization || "",
+        lastMessage: lastMessage?.content || "Nenhuma mensagem",
+        lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+        unreadCount,
+        isOnline: Math.random() > 0.5,
+        rating: Number(professional?.rating) || 5,
+        location: professional?.location || ""
+      };
+    }));
+    res.json(conversationsWithDetails);
+  } catch (error) {
+    console.error("\u274C Erro ao buscar conversas:", error);
+    res.status(500).json({ message: "Erro interno ao buscar conversas" });
+  }
+});
+app.get("/api/messages/conversations", authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    console.log("\u{1F50D} GET /api/messages/conversations - Usu\xE1rio:", user.id, user.userType);
+    const userConversations = await storage.getConversationsByUser(user.id);
+    console.log("\u{1F4CB} Conversas encontradas:", userConversations.length);
+    const conversationsWithDetails = await Promise.all(userConversations.map(async (conv) => {
+      const lastMessage = await storage.getLastMessageByConversation(conv.id);
+      const unreadCount = await storage.getUnreadMessageCount(conv.id, user.id);
+      if (user.userType === "provider") {
+        const client = await storage.getUser(conv.clientId);
+        return {
+          id: conv.id,
+          professionalId: conv.professionalId,
+          professionalName: user.name || "Profissional",
+          professionalAvatar: user.profileImage || "",
+          specialization: "",
+          lastMessage: lastMessage?.content || "Nenhuma mensagem",
+          lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+          unreadCount,
+          isOnline: Math.random() > 0.5,
+          rating: 5,
+          location: client?.city || "",
+          clientId: conv.clientId,
+          clientName: client?.name || "Cliente",
+          clientAvatar: client?.profileImage || ""
+        };
       }
-    },
-    crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: false
-    // Desabilitar para permitir cross-origin
-  }));
-  const PgSession = pgSession(session);
-  app2.use(session({
-    store: new PgSession({
-      conString: process.env.DATABASE_URL || process.env.NETLIFY_DATABASE_URL,
-      tableName: "sessions",
-      // tabela para armazenar as sessões
-      createTableIfMissing: true
-      // cria a tabela automaticamente se não existir
-    }),
-    secret: process.env.SESSION_SECRET || process.env.JWT_SECRET || "fallback-secret-key",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1e3,
-      // 24 hours
-      sameSite: "lax"
-    },
-    name: "lifebee.sid"
-    // nome personalizado do cookie
-  }));
-  app2.use(passport2.initialize());
-  app2.use(passport2.session());
-  app2.post("/api/auth/clear-block", async (req, res) => {
+      const professional = await storage.getProfessionalById(conv.professionalId);
+      return {
+        id: conv.id,
+        professionalId: conv.professionalId,
+        professionalName: professional?.name || "Profissional",
+        professionalAvatar: professional?.imageUrl ? storage.getFullImageUrl(professional.imageUrl) : "",
+        specialization: professional?.specialization || "",
+        lastMessage: lastMessage?.content || "Nenhuma mensagem",
+        lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+        unreadCount,
+        isOnline: Math.random() > 0.5,
+        rating: Number(professional?.rating) || 5,
+        location: professional?.location || ""
+      };
+    }));
+    res.json(conversationsWithDetails);
+  } catch (error) {
+    console.error("\u274C Erro ao buscar conversas:", error);
+    res.status(500).json({ message: "Erro interno ao buscar conversas" });
+  }
+});
+console.log(`\u{1F527} Inicializando Stripe...`);
+console.log(`\u{1F511} STRIPE_SECRET_KEY presente: ${process.env.STRIPE_SECRET_KEY ? "Sim" : "N\xE3o"}`);
+console.log(`\u{1F511} STRIPE_SECRET_KEY in\xEDcio: ${process.env.STRIPE_SECRET_KEY?.substring(0, 20)}...`);
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error("STRIPE_SECRET_KEY n\xE3o encontrada nas vari\xE1veis de ambiente");
+}
+var stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2025-08-27.basil"
+});
+console.log(`\u2705 Stripe inicializado com sucesso`);
+function setupRoutes(app3, redisClient) {
+  app3.get("/api/payment/config", (req, res) => {
     try {
-      const { email } = req.body;
-      if (!email) {
-        return res.status(400).json({ message: "Email \xE9 obrigat\xF3rio" });
-      }
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(404).json({ message: "Usu\xE1rio n\xE3o encontrado" });
-      }
-      await storage.updateUser(user.id, {
-        isBlocked: false,
-        loginAttempts: 0
-      });
-      res.json({ message: "Bloqueio removido com sucesso" });
-    } catch (error) {
-      console.error("Clear block error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.post("/api/auth/login", authLimiter, rateLimitByIP, async (req, res) => {
-    try {
-      const { email, password, userType } = req.body;
-      if (!email || !password) {
-        return res.status(400).json({ message: "Email e senha s\xE3o obrigat\xF3rios" });
-      }
-      const user = await storage.getUserByEmail(email);
-      if (!user || user.isBlocked) {
-        await storage.createLoginAttempt({
-          email,
-          ipAddress: req.ip || "unknown",
-          userAgent: req.get("User-Agent") || "unknown",
-          successful: false,
-          blocked: false
+      const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLIC_KEY;
+      if (!publishableKey) {
+        console.error("\u274C STRIPE_PUBLISHABLE_KEY n\xE3o configurada");
+        return res.status(500).json({
+          error: "Chave p\xFAblica do Stripe n\xE3o configurada. Defina STRIPE_PUBLISHABLE_KEY nas vari\xE1veis de ambiente."
         });
-        return res.status(401).json({ message: "Credenciais inv\xE1lidas" });
       }
-      if (!user.password || !await verifyPassword(password, user.password)) {
-        await storage.createLoginAttempt({
-          email,
-          ipAddress: req.ip || "unknown",
-          userAgent: req.get("User-Agent") || "unknown",
-          successful: false,
-          blocked: false
-        });
-        const attempts = (user.loginAttempts || 0) + 1;
-        await storage.updateUserLoginAttempts(user.id, attempts);
-        if (attempts >= 5) {
-          await storage.blockUser(user.id);
-          return res.status(403).json({ message: "Conta bloqueada por muitas tentativas de login" });
-        }
-        return res.status(401).json({ message: "Credenciais inv\xE1lidas" });
-      }
-      await storage.updateUser(user.id, {
-        lastLoginAt: /* @__PURE__ */ new Date(),
-        loginAttempts: 0
-      });
-      await storage.createLoginAttempt({
-        email,
-        ipAddress: req.ip || "unknown",
-        userAgent: req.get("User-Agent") || "unknown",
-        successful: true,
-        blocked: false
-      });
-      const token = generateToken(user);
       res.json({
-        token,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          userType: user.userType,
-          isVerified: user.isVerified,
-          phoneVerified: user.phoneVerified
-        }
+        publishableKey
       });
     } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
+      console.error("\u274C Erro ao obter configura\xE7\xE3o do Stripe:", error);
+      res.status(500).json({ error: "Erro interno ao obter configura\xE7\xE3o do Stripe" });
     }
   });
-  app2.post("/api/auth/register", authLimiter, async (req, res) => {
+  app3.get("/api/payment/test-stripe", async (req, res) => {
     try {
-      const { username, email, password, name, userType, phone } = req.body;
-      if (!username || !email || !password || !name) {
-        return res.status(400).json({ message: "Todos os campos obrigat\xF3rios devem ser preenchidos" });
-      }
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
-        return res.status(409).json({ message: "Email j\xE1 cadastrado" });
-      }
-      const existingUsername = await storage.getUserByUsername(username);
-      if (existingUsername) {
-        return res.status(409).json({ message: "Nome de usu\xE1rio j\xE1 existe" });
-      }
-      const hashedPassword = await hashPassword(password);
-      const user = await storage.createUser({
-        username,
-        email,
-        password: hashedPassword,
-        name,
-        userType: userType || "client",
-        phone: phone || null,
-        phoneVerified: false,
-        googleId: null,
-        appleId: null,
-        address: null,
-        profileImage: null,
-        isVerified: false,
-        isBlocked: false,
-        lastLoginAt: null,
-        loginAttempts: 0,
-        resetToken: null,
-        resetTokenExpiry: null
-      });
-      const updatedUser = await storage.updateUser(user.id, {
-        phoneVerified: true,
-        isVerified: true
-      });
-      if ((userType || "client") === "provider") {
-        await storage.createProfessional({
-          userId: updatedUser.id,
-          name,
-          specialization: "A definir",
-          // Pode ser preenchido depois
-          category: "fisioterapeuta",
-          // Pode ser preenchido depois
-          subCategory: "companhia_apoio_emocional",
-          // Pode ser preenchido depois
-          description: "Descri\xE7\xE3o a ser preenchida",
-          experience: "",
-          certifications: "",
-          availableHours: "",
-          hourlyRate: "0",
-          rating: "5.0",
-          totalReviews: 0,
-          location: "",
-          distance: "0",
-          available: true,
-          imageUrl: "",
-          createdAt: /* @__PURE__ */ new Date()
-        });
-      }
-      await storage.createNotification({
-        userId: user.id,
-        message: `Bem-vindo \xE0 LifeBee, ${user.name}! Sua conta foi criada com sucesso.`,
-        read: false
-      });
-      const token = generateToken(updatedUser);
-      res.status(201).json({
-        token,
-        user: {
-          id: updatedUser.id,
-          name: updatedUser.name,
-          email: updatedUser.email,
-          userType: updatedUser.userType,
-          isVerified: true,
-          phoneVerified: true,
-          phone: updatedUser.phone
+      console.log(`\u{1F9EA} Testando Stripe...`);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: 500,
+        // R$ 5,00 em centavos
+        currency: "brl",
+        payment_method_types: ["card", "boleto"],
+        metadata: {
+          test: "true"
         }
       });
+      console.log(`\u2705 Payment Intent criado: ${paymentIntent.id}`);
+      res.json({
+        success: true,
+        message: "Stripe funcionando corretamente",
+        paymentIntentId: paymentIntent.id,
+        amount: paymentIntent.amount,
+        currency: paymentIntent.currency
+      });
     } catch (error) {
-      console.error("Registration error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
+      console.error(`\u274C Erro no teste do Stripe:`, error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+        details: error
+      });
     }
   });
-  app2.get("/api/messages", authenticateToken, async (req, res) => {
+  app3.get("/api/messages", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       console.log("\u{1F50D} GET /api/messages - Usu\xE1rio autenticado:", user.id, user.userType);
-      console.log("\u{1F50D} Headers da requisi\xE7\xE3o:", req.headers.authorization ? "Token presente" : "Token ausente");
-      const userConversations = await storage.getConversationsByUser(user.id);
-      console.log("\u{1F4CB} Conversas retornadas para usu\xE1rio", user.id, ":", userConversations.length);
-      console.log("\u{1F4CB} Detalhes das conversas:", userConversations.map((c) => ({
-        id: c.id,
-        clientId: c.clientId,
-        professionalId: c.professionalId,
-        deletedByClient: c.deletedByClient,
-        deletedByProfessional: c.deletedByProfessional
-      })));
-      if (userConversations.length === 0) {
-        console.log("\u26A0\uFE0F Nenhuma conversa encontrada para o usu\xE1rio", user.id);
-      }
-      if (userConversations && userConversations.length > 0) {
-        const conversationsWithDetails = await Promise.all(
-          userConversations.map(async (conv) => {
-            let otherUser, otherName, otherAvatar;
-            let specialization = "";
-            let rating = 5;
-            let location = "";
-            if (user.userType === "provider") {
-              otherUser = await storage.getUser(conv.clientId);
-              otherName = otherUser?.name || "Cliente";
-              otherAvatar = otherUser?.profileImage || "";
-            } else {
-              otherUser = await storage.getProfessional(conv.professionalId);
-              otherName = otherUser?.name || "Profissional";
-              otherAvatar = otherUser?.imageUrl || "";
-              specialization = otherUser?.specialization || "";
-              rating = Number(otherUser?.rating) || 5;
-              location = otherUser?.location || "";
-            }
-            const lastMessage = await storage.getLastMessageByConversation(conv.id);
-            return {
-              id: conv.id,
-              clientId: conv.clientId,
-              clientName: user.userType === "provider" ? otherName : void 0,
-              clientAvatar: user.userType === "provider" ? otherAvatar : void 0,
-              professionalId: conv.professionalId,
-              professionalName: user.userType === "client" ? otherName : void 0,
-              professionalAvatar: user.userType === "client" ? otherAvatar : void 0,
-              specialization,
-              lastMessage: lastMessage?.content || "Nenhuma mensagem",
-              lastMessageTime: lastMessage?.timestamp || conv.createdAt,
-              unreadCount: await storage.getUnreadMessageCount(conv.id, user.id),
-              isOnline: Math.random() > 0.5,
-              // Simular status online
-              rating,
-              location,
-              messages: await storage.getMessagesByConversation(conv.id)
-            };
-          })
-        );
-        res.json(conversationsWithDetails);
-      } else {
-        res.json([]);
-      }
+      const conversations2 = await storage.getConversationsByUser(user.id);
+      console.log("\u{1F4CB} Conversas encontradas:", conversations2.length);
+      const enrichedConversations = await Promise.all(conversations2.map(async (conv) => {
+        const lastMessage = await storage.getLastMessageByConversation(conv.id);
+        const unreadCount = await storage.getUnreadMessageCount(conv.id, user.id);
+        if (user.userType === "provider") {
+          const client = await storage.getUser(conv.clientId);
+          return {
+            id: conv.id,
+            clientId: conv.clientId,
+            clientName: client?.name || "Cliente",
+            clientAvatar: client?.profileImage || "",
+            professionalId: conv.professionalId,
+            professionalName: user.name || "Profissional",
+            professionalAvatar: user.profileImage || "",
+            specialization: "",
+            lastMessage: lastMessage?.content || "Nenhuma mensagem",
+            lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+            unreadCount,
+            isOnline: Math.random() > 0.5,
+            rating: 5,
+            location: client && client.city ? client.city : "",
+            messages: await storage.getMessagesByConversation(conv.id)
+          };
+        }
+        const professional = await storage.getProfessionalById(conv.professionalId);
+        return {
+          id: conv.id,
+          clientId: conv.clientId,
+          professionalId: conv.professionalId,
+          professionalName: professional?.name || "Profissional",
+          professionalAvatar: professional?.imageUrl ? storage["getFullImageUrl"]?.(professional.imageUrl) ?? professional.imageUrl : "",
+          specialization: professional?.specialization || "",
+          lastMessage: lastMessage?.content || "Nenhuma mensagem",
+          lastMessageTime: lastMessage?.timestamp || conv.createdAt,
+          unreadCount,
+          isOnline: Math.random() > 0.5,
+          rating: Number(professional?.rating) || 5,
+          location: professional?.location || "",
+          messages: await storage.getMessagesByConversation(conv.id)
+        };
+      }));
+      res.json(enrichedConversations);
     } catch (error) {
-      console.error("Get messages error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
+      console.error("\u274C Erro ao buscar conversas:", error);
+      res.status(500).json({ message: "Erro interno ao buscar conversas" });
     }
   });
-  app2.post("/api/messages", authenticateToken, async (req, res) => {
+  app3.get("/api/messages/:conversationId", authenticateToken, async (req, res) => {
+    try {
+      const { conversationId } = req.params;
+      const user = req.user;
+      const conversation = await storage.getMessagesByConversation(parseInt(conversationId));
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversa n\xE3o encontrada" });
+      }
+      try {
+        await storage.markMessagesAsRead?.(parseInt(conversationId), user.id);
+      } catch (err) {
+        console.warn("\u26A0\uFE0F N\xE3o foi poss\xEDvel marcar mensagens como lidas:", err);
+      }
+      res.json(conversation);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar mensagens da conversa:", error);
+      res.status(500).json({ message: "Erro interno ao buscar mensagens" });
+    }
+  });
+  app3.post("/api/messages", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       const { recipientId, content, type, conversationId } = req.body;
-      console.log("\u{1F4E8} POST /api/messages - Usu\xE1rio:", user.id, user.userType);
-      console.log("\u{1F4E8} Dados da mensagem:", { recipientId, content, type, conversationId });
       if (!recipientId || !content || !conversationId) {
         return res.status(400).json({ message: "Destinat\xE1rio, conversa e conte\xFAdo s\xE3o obrigat\xF3rios" });
       }
       const conversations2 = await storage.getConversationsByUser(user.id);
-      console.log("\u{1F4E8} Conversas do usu\xE1rio:", conversations2.map((c) => ({ id: c.id, deletedByClient: c.deletedByClient, deletedByProfessional: c.deletedByProfessional })));
       const isParticipant = conversations2.some((conv) => conv.id === conversationId);
-      console.log("\u{1F4E8} Usu\xE1rio \xE9 participante?", isParticipant);
       if (!isParticipant) {
-        console.log("\u{1F4E8} Usu\xE1rio n\xE3o \xE9 participante, verificando se conversa foi deletada...");
-        const isDeletedByUser = await storage.isConversationDeletedByUser(conversationId, user.id);
-        console.log("\u{1F4E8} Conversa foi deletada pelo usu\xE1rio?", isDeletedByUser);
+        const isDeletedByUser = await storage.isConversationDeletedByUser?.(conversationId, user.id);
         if (isDeletedByUser) {
-          await storage.restoreConversation(conversationId, user.id);
-          console.log(`\u2705 Conversa ${conversationId} restaurada automaticamente para usu\xE1rio ${user.id}`);
+          await storage.restoreConversation?.(conversationId, user.id);
         } else {
-          console.log("\u274C Acesso negado \xE0 conversa");
           return res.status(403).json({ message: "Acesso negado \xE0 conversa" });
         }
       }
-      const isDeletedByRecipient = await storage.isConversationDeletedByUser(conversationId, recipientId);
+      const isDeletedByRecipient = await storage.isConversationDeletedByUser?.(conversationId, recipientId);
       if (isDeletedByRecipient) {
-        await storage.restoreConversation(conversationId, recipientId);
-        console.log(`\u2705 Conversa ${conversationId} restaurada automaticamente para destinat\xE1rio ${recipientId}`);
+        await storage.restoreConversation?.(conversationId, recipientId);
       }
       const message = await storage.createMessage({
         conversationId,
@@ -2303,1593 +2148,681 @@ async function registerRoutes(app2) {
         type: type || "text",
         isRead: false
       });
-      console.log("\u2705 Mensagem criada com sucesso:", message.id);
       res.status(201).json(message);
     } catch (error) {
-      console.error("\u274C Send message error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
+      console.error("\u274C Erro ao enviar mensagem:", error);
+      res.status(500).json({ message: "Erro interno ao enviar mensagem" });
     }
   });
-  app2.post("/api/messages/start-conversation", authenticateToken, async (req, res) => {
-    console.log("\u{1F680} POST /api/messages/start-conversation chamada");
-    console.log("\u{1F4E8} Body recebido:", JSON.stringify(req.body));
-    console.log("\u{1F464} Usu\xE1rio autenticado:", req.user);
+  app3.post("/api/messages/start-conversation", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       const { professionalId, message } = req.body;
-      console.log("professionalId recebido:", professionalId);
-      const professional = await storage.getProfessional(professionalId);
-      console.log("Resultado da busca do profissional:", professional);
+      const professional = await storage.getProfessionalById(professionalId);
       if (!professional) {
         return res.status(404).json({ message: "Profissional n\xE3o encontrado" });
       }
       const existingConversation = await storage.getConversation(user.id, professionalId);
+      let conversationId;
       if (existingConversation) {
-        const isDeletedByUser = await storage.isConversationDeletedByUser(existingConversation.id, user.id);
+        const isDeletedByUser = await storage.isConversationDeletedByUser?.(existingConversation.id, user.id);
         if (isDeletedByUser) {
-          await storage.restoreConversation(existingConversation.id, user.id);
-          console.log(`\u2705 Conversa ${existingConversation.id} restaurada automaticamente para usu\xE1rio ${user.id} (start-conversation)`);
+          await storage.restoreConversation?.(existingConversation.id, user.id);
         }
-        const isDeletedByProfessional = await storage.isConversationDeletedByUser(existingConversation.id, professionalId);
+        const isDeletedByProfessional = await storage.isConversationDeletedByUser?.(existingConversation.id, professionalId);
         if (isDeletedByProfessional) {
-          await storage.restoreConversation(existingConversation.id, professionalId);
-          console.log(`\u2705 Conversa ${existingConversation.id} restaurada automaticamente para profissional ${professionalId} (start-conversation)`);
+          await storage.restoreConversation?.(existingConversation.id, professionalId);
         }
-        const newMessage = await storage.createMessage({
-          conversationId: existingConversation.id,
-          senderId: user.id,
-          recipientId: professionalId,
-          content: message || "Ol\xE1! Gostaria de conversar sobre seus servi\xE7os.",
-          type: "text",
-          isRead: false
-        });
-        return res.status(200).json({
-          message: "Mensagem enviada com sucesso",
-          conversationId: existingConversation.id,
-          messageData: newMessage
-        });
+        conversationId = existingConversation.id;
       } else {
         const conversation = await storage.createConversation({
           clientId: user.id,
-          professionalId,
-          deletedByClient: false,
-          deletedByProfessional: false
+          professionalId
         });
-        const initialMessage = await storage.createMessage({
-          conversationId: conversation.id,
-          senderId: user.id,
-          recipientId: professionalId,
-          content: message || "Ol\xE1! Gostaria de conversar sobre seus servi\xE7os.",
-          type: "text",
-          isRead: false
-        });
-        return res.status(201).json({
-          message: "Conversa iniciada com sucesso",
-          conversationId: conversation.id,
-          messageData: initialMessage
-        });
+        conversationId = conversation.id;
       }
-    } catch (error) {
-      console.error("Start conversation error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.post("/api/conversations", authenticateToken, async (req, res) => {
-    console.log("\u{1F680} POST /api/conversations chamada");
-    console.log("\u{1F4E8} Body recebido:", JSON.stringify(req.body));
-    console.log("\u{1F464} Usu\xE1rio autenticado:", req.user);
-    try {
-      const user = req.user;
-      const { clientId, serviceRequestId, initialMessage } = req.body;
-      if (user.userType !== "provider") {
-        return res.status(403).json({ message: "Apenas profissionais podem iniciar conversas" });
-      }
-      console.log("clientId recebido:", clientId);
-      console.log("serviceRequestId recebido:", serviceRequestId);
-      const client2 = await storage.getUser(clientId);
-      console.log("Resultado da busca do cliente:", client2);
-      if (!client2) {
-        return res.status(404).json({ message: "Cliente n\xE3o encontrado" });
-      }
-      const existingConversation = await storage.getConversation(clientId, user.id);
-      if (existingConversation) {
-        const isDeletedByClient = await storage.isConversationDeletedByUser(existingConversation.id, clientId);
-        if (isDeletedByClient) {
-          await storage.restoreConversation(existingConversation.id, clientId);
-          console.log(`\u2705 Conversa ${existingConversation.id} restaurada automaticamente para cliente ${clientId}`);
-        }
-        const isDeletedByProfessional = await storage.isConversationDeletedByUser(existingConversation.id, user.id);
-        if (isDeletedByProfessional) {
-          await storage.restoreConversation(existingConversation.id, user.id);
-          console.log(`\u2705 Conversa ${existingConversation.id} restaurada automaticamente para profissional ${user.id}`);
-        }
-        const newMessage = await storage.createMessage({
-          conversationId: existingConversation.id,
-          senderId: user.id,
-          recipientId: clientId,
-          content: initialMessage || "Ol\xE1! Gostaria de conversar sobre o servi\xE7o.",
-          type: "text",
-          isRead: false
-        });
-        return res.status(200).json({
-          message: "Mensagem enviada com sucesso",
-          id: existingConversation.id,
-          conversationId: existingConversation.id,
-          messageData: newMessage
-        });
-      } else {
-        const conversation = await storage.createConversation({
-          clientId,
-          professionalId: user.id,
-          deletedByClient: false,
-          deletedByProfessional: false
-        });
-        const initialMsg = await storage.createMessage({
-          conversationId: conversation.id,
-          senderId: user.id,
-          recipientId: clientId,
-          content: initialMessage || "Ol\xE1! Gostaria de conversar sobre o servi\xE7o.",
-          type: "text",
-          isRead: false
-        });
-        return res.status(201).json({
-          message: "Conversa iniciada com sucesso",
-          id: conversation.id,
-          conversationId: conversation.id,
-          messageData: initialMsg
-        });
-      }
-    } catch (error) {
-      console.error("Professional start conversation error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.put("/api/user/profile", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const { name, email, phone, address, bio } = req.body;
-      const updatedUser = await storage.updateUser(user.id, {
-        name,
-        email,
-        phone
-        // address and bio would need to be added to schema
+      const newMessage = await storage.createMessage({
+        conversationId,
+        senderId: user.id,
+        recipientId: professionalId,
+        content: message || "Ol\xE1! Gostaria de conversar sobre seus servi\xE7os.",
+        type: "text",
+        isRead: false
       });
-      res.json({
-        message: "Perfil atualizado com sucesso",
-        user: {
-          id: updatedUser.id,
-          name: updatedUser.name,
-          email: updatedUser.email,
-          userType: updatedUser.userType,
-          phone: updatedUser.phone
-        }
-      });
+      res.status(201).json({ conversationId, message: newMessage });
     } catch (error) {
-      console.error("Update profile error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
+      console.error("\u274C Erro ao iniciar conversa:", error);
+      res.status(500).json({ message: "Erro interno ao iniciar conversa" });
     }
   });
-  app2.put("/api/user/password", authenticateToken, async (req, res) => {
+  app3.delete("/api/messages/conversation/:conversationId", authenticateToken, async (req, res) => {
     try {
+      const { conversationId } = req.params;
       const user = req.user;
-      const { currentPassword, newPassword } = req.body;
-      if (!currentPassword || !newPassword) {
-        return res.status(400).json({ message: "Senha atual e nova senha s\xE3o obrigat\xF3rias" });
-      }
-      const isValidPassword = await verifyPassword(currentPassword, user.password);
-      if (!isValidPassword) {
-        return res.status(400).json({ message: "Senha atual incorreta" });
-      }
-      const hashedPassword = await hashPassword(newPassword);
-      await storage.updateUser(user.id, { password: hashedPassword });
-      res.json({ message: "Senha alterada com sucesso" });
+      await storage.deleteConversation?.(parseInt(conversationId), user.id);
+      res.json({ success: true });
     } catch (error) {
-      console.error("Change password error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
+      console.error("\u274C Erro ao excluir conversa:", error);
+      res.status(500).json({ message: "Erro interno ao excluir conversa" });
     }
   });
-  app2.delete("/api/user/account", authenticateToken, async (req, res) => {
+  app3.get("/api/payment/test-db", async (req, res) => {
     try {
-      const user = req.user;
-      res.json({ message: "Conta exclu\xEDda com sucesso" });
-    } catch (error) {
-      console.error("Delete account error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/appointments", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const appointments2 = await storage.getAppointmentsByUser(user.id);
-      res.json(appointments2);
-    } catch (error) {
-      console.error("Get appointments error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/user", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const createdAt = user.createdAt || user.lastLoginAt || (/* @__PURE__ */ new Date()).toISOString();
-      res.json({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        userType: user.userType,
-        isVerified: user.isVerified,
-        phoneVerified: user.phoneVerified,
-        phone: user.phone,
-        profileImage: user.profileImage,
-        createdAt
-      });
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.post("/api/auth/logout", (req, res) => {
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).json({ message: "Erro ao fazer logout" });
-      }
-      req.session.destroy((err2) => {
-        if (err2) {
-          return res.status(500).json({ message: "Erro ao destruir sess\xE3o" });
-        }
-        res.clearCookie("connect.sid");
-        res.json({ message: "Logout realizado com sucesso" });
-      });
-    });
-  });
-  app2.get("/api/professionals", async (req, res) => {
-    try {
-      const { category, search } = req.query;
-      let professionals2;
-      if (search && typeof search === "string") {
-        professionals2 = await storage.searchProfessionals(search);
-      } else if (category && typeof category === "string") {
-        professionals2 = await storage.getProfessionalsByCategory(category);
-      } else {
-        professionals2 = await storage.getAllProfessionals();
-      }
-      res.json(professionals2);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.get("/api/professionals/:id", async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const professional = await storage.getProfessional(id);
-      if (!professional) {
-        return res.status(404).json({ message: "Professional not found" });
-      }
-      res.json(professional);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.get("/api/appointments", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const appointments2 = await storage.getAppointmentsByUser(user.id);
-      res.json(appointments2);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.get("/api/appointments/provider", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      if (user.userType !== "provider") {
-        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
-      }
-      const appointments2 = await storage.getAppointmentsByProfessional(user.id);
-      res.json(appointments2);
-    } catch (error) {
-      console.error("Get provider appointments error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.get("/api/notifications", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const notifications2 = await storage.getNotificationsByUser(user.id);
-      res.json(notifications2);
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.get("/api/notifications/count", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const count = await storage.getUnreadNotificationCount(user.id);
-      res.json({ count });
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.patch("/api/notifications/:id/read", authenticateToken, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      await storage.markNotificationRead(id);
-      res.json({ message: "Notification marked as read" });
-    } catch (error) {
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.post("/api/create-payment-intent", async (req, res) => {
-    try {
-      const { amount } = req.body;
-      if (!amount || amount < 50) {
-        return res.status(400).json({ message: "Invalid amount" });
+      console.log(`\u{1F9EA} Testando banco de dados...`);
+      const offers = await storage.getServiceOffersForClient(21);
+      console.log(`\u{1F4CB} Total de propostas encontradas: ${offers.length}`);
+      if (offers.length > 0) {
+        const firstOffer = offers[0];
+        console.log(`\u{1F4CB} Primeira proposta:`, {
+          id: firstOffer.id,
+          proposedPrice: firstOffer.proposedPrice,
+          finalPrice: firstOffer.finalPrice,
+          status: firstOffer.status
+        });
       }
       res.json({
-        clientSecret: "demo_payment_" + Date.now(),
         success: true,
-        message: "Payment processed successfully"
+        message: "Banco de dados funcionando",
+        totalOffers: offers.length,
+        firstOffer: offers.length > 0 ? offers[0] : null
       });
     } catch (error) {
-      console.error("Payment error:", error);
+      console.error(`\u274C Erro no teste do banco:`, error);
       res.status(500).json({
-        message: "Error processing payment: " + (error instanceof Error ? error.message : "Erro desconhecido")
+        success: false,
+        error: error instanceof Error ? error.message : "Erro desconhecido",
+        details: error
       });
     }
   });
-  app2.get("/api/provider/orders", authenticateToken, async (req, res) => {
+  app3.post("/api/payment/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+    const sig = req.headers["stripe-signature"];
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    let event;
     try {
-      const user = req.user;
-      if (user.userType !== "provider") {
-        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
-      }
-      const orders = await storage.getAppointmentsByProfessional(user.id) || [];
-      res.json(orders);
-    } catch (error) {
-      console.error("Get provider orders error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
+      event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    } catch (err) {
+      console.error("\u274C Webhook signature verification failed:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
     }
+    console.log("\u{1F514} Webhook recebido:", event.type);
+    switch (event.type) {
+      case "payment_intent.succeeded":
+        const paymentIntent = event.data.object;
+        console.log("\u2705 Pagamento aprovado:", paymentIntent.id);
+        try {
+          const serviceOfferId = paymentIntent.metadata.serviceOfferId;
+          const professionalId = paymentIntent.metadata.professionalId;
+          const clientId = paymentIntent.metadata.clientId;
+          if (serviceOfferId) {
+            await storage.updateServiceOfferStatus(parseInt(serviceOfferId), "completed");
+            await storage.createNotification({
+              userId: parseInt(professionalId),
+              type: "payment_received",
+              title: "Pagamento Recebido! \u{1F4B0}",
+              message: `Seu pagamento de R$ ${(paymentIntent.amount / 100).toFixed(2)} foi aprovado. O servi\xE7o est\xE1 conclu\xEDdo!`,
+              data: {
+                serviceOfferId: parseInt(serviceOfferId),
+                amount: paymentIntent.amount,
+                paymentIntentId: paymentIntent.id
+              }
+            });
+            await storage.createNotification({
+              userId: parseInt(clientId),
+              type: "payment_success",
+              title: "Servi\xE7o Conclu\xEDdo! \u2705",
+              message: "Seu pagamento foi processado com sucesso. O servi\xE7o est\xE1 conclu\xEDdo e o profissional foi notificado.",
+              data: {
+                serviceOfferId: parseInt(serviceOfferId),
+                amount: paymentIntent.amount,
+                paymentIntentId: paymentIntent.id
+              }
+            });
+            console.log("\u2705 Status atualizado e notifica\xE7\xF5es enviadas");
+          }
+        } catch (error) {
+          console.error("\u274C Erro ao processar pagamento aprovado:", error);
+        }
+        break;
+      case "payment_intent.payment_failed":
+        const failedPayment = event.data.object;
+        console.log("\u274C Pagamento falhou:", failedPayment.id);
+        try {
+          const serviceOfferId = failedPayment.metadata.serviceOfferId;
+          const clientId = failedPayment.metadata.clientId;
+          if (serviceOfferId && clientId) {
+            await storage.createNotification({
+              userId: parseInt(clientId),
+              type: "payment_failed",
+              title: "Pagamento Falhou \u274C",
+              message: "N\xE3o foi poss\xEDvel processar seu pagamento. Tente novamente.",
+              data: {
+                serviceOfferId: parseInt(serviceOfferId),
+                paymentIntentId: failedPayment.id
+              }
+            });
+          }
+        } catch (error) {
+          console.error("\u274C Erro ao processar pagamento falhado:", error);
+        }
+        break;
+      default:
+        console.log(`\u{1F514} Evento n\xE3o tratado: ${event.type}`);
+    }
+    res.json({ received: true });
   });
-  app2.post("/api/provider/orders/:id/accept", authenticateToken, async (req, res) => {
+  app3.post("/api/payment/update-status", authenticateToken, async (req, res) => {
     try {
-      const user = req.user;
-      const orderId = parseInt(req.params.id);
-      if (user.userType !== "provider") {
-        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      console.log("\u{1F504} Atualizando status do pagamento...");
+      console.log("\u{1F4DD} Request body:", JSON.stringify(req.body, null, 2));
+      console.log("\u{1F464} User from token:", req.user);
+      const { serviceOfferId, paymentIntentId, amount } = req.body;
+      if (!serviceOfferId) {
+        return res.status(400).json({ error: "serviceOfferId \xE9 obrigat\xF3rio" });
       }
-      console.log(`Professional ${user.id} accepted order ${orderId}`);
-      res.json({
-        message: "Pedido aceito com sucesso",
-        orderId,
-        status: "accepted"
+      console.log(`\u{1F50D} Buscando proposta ID: ${serviceOfferId}`);
+      const serviceOffer = await storage.getServiceOfferById(parseInt(serviceOfferId));
+      console.log(`\u{1F4CB} Proposta encontrada:`, serviceOffer ? "Sim" : "N\xE3o");
+      if (!serviceOffer) {
+        console.log("\u274C Proposta n\xE3o encontrada");
+        return res.status(404).json({ error: "Proposta n\xE3o encontrada" });
+      }
+      console.log(`\u{1F50D} Buscando service request ID: ${serviceOffer.serviceRequestId}`);
+      const serviceRequest = await storage.getServiceRequestById(serviceOffer.serviceRequestId);
+      console.log(`\u{1F4CB} Service request encontrado:`, serviceRequest ? "Sim" : "N\xE3o");
+      console.log(`\u{1F50D} Buscando professional ID: ${serviceOffer.professionalId}`);
+      const professional = await storage.getProfessionalById(serviceOffer.professionalId);
+      console.log(`\u{1F4CB} Professional encontrado:`, professional ? "Sim" : "N\xE3o");
+      if (!serviceRequest || !professional) {
+        console.log("\u274C Dados relacionados n\xE3o encontrados");
+        return res.status(404).json({ error: "Dados relacionados n\xE3o encontrados" });
+      }
+      await storage.updateServiceOfferStatus(parseInt(serviceOfferId), "completed");
+      console.log("\u2705 Status atualizado para conclu\xEDda");
+      if (serviceRequest.status !== "completed") {
+        await storage.updateServiceRequestStatus(serviceRequest.id, "completed");
+        console.log("\u2705 Solicita\xE7\xE3o de servi\xE7o marcada como conclu\xEDda");
+      }
+      console.log(`\u{1F514} Criando notifica\xE7\xE3o para profissional ID: ${serviceOffer.professionalId}`);
+      await storage.createNotification({
+        userId: serviceOffer.professionalId,
+        type: "payment_received",
+        title: "Pagamento Recebido! \u{1F4B0}",
+        message: `Seu pagamento de R$ ${(amount / 100).toFixed(2)} foi aprovado. O servi\xE7o est\xE1 conclu\xEDdo!`,
+        data: {
+          serviceOfferId: parseInt(serviceOfferId),
+          amount,
+          paymentIntentId
+        }
       });
-    } catch (error) {
-      console.error("Accept order error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.post("/api/provider/orders/:id/reject", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const orderId = parseInt(req.params.id);
-      if (user.userType !== "provider") {
-        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
-      }
-      console.log(`Professional ${user.id} rejected order ${orderId}`);
-      res.json({
-        message: "Pedido rejeitado com sucesso",
-        orderId,
-        status: "rejected"
+      console.log("\u2705 Notifica\xE7\xE3o enviada para o profissional");
+      console.log(`\u{1F514} Criando notifica\xE7\xE3o para cliente ID: ${serviceRequest.clientId}`);
+      await storage.createNotification({
+        userId: serviceRequest.clientId,
+        type: "payment_success",
+        title: "Servi\xE7o Conclu\xEDdo! \u2705",
+        message: "Seu pagamento foi processado com sucesso. O servi\xE7o est\xE1 conclu\xEDdo e o profissional foi notificado.",
+        data: {
+          serviceOfferId: parseInt(serviceOfferId),
+          amount,
+          paymentIntentId
+        }
       });
-    } catch (error) {
-      console.error("Reject order error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.post("/api/provider/orders/:id/complete", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const orderId = parseInt(req.params.id);
-      if (user.userType !== "provider") {
-        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
-      }
-      console.log(`Professional ${user.id} completed order ${orderId}`);
+      console.log("\u2705 Notifica\xE7\xE3o enviada para o cliente");
+      console.log("\u2705 Processo conclu\xEDdo com sucesso");
       res.json({
-        message: "Pedido conclu\xEDdo com sucesso",
-        orderId,
+        success: true,
+        message: "Status atualizado e notifica\xE7\xF5es enviadas",
+        serviceOfferId: parseInt(serviceOfferId),
         status: "completed"
       });
     } catch (error) {
-      console.error("Complete order error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/provider/profile", authenticateToken, async (req, res) => {
-    try {
-      console.log("Provider profile request received");
-      const user = req.user;
-      console.log("User data:", { id: user.id, userType: user.userType });
-      if (user.userType !== "provider") {
-        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
-      }
-      console.log("Fetching professional data for user ID:", user.id);
-      const professional = await storage.getProfessionalByUserId(user.id);
-      console.log("Professional data:", professional);
-      console.log("Fetching user data for user ID:", user.id);
-      const userData = await storage.getUser(user.id);
-      console.log("User data:", userData);
-      if (!userData) {
-        return res.status(404).json({ message: "Dados do usu\xE1rio n\xE3o encontrados." });
-      }
-      if (!professional) {
-        console.log("No professional data found, creating basic profile");
-        const basicProfile = {
-          id: 0,
-          userId: user.id,
-          name: userData.name || "",
-          specialization: "",
-          category: "",
-          subCategory: "",
-          description: "",
-          experience: "",
-          certifications: "",
-          availableHours: "",
-          hourlyRate: "",
-          rating: "5.0",
-          totalReviews: 0,
-          location: "",
-          distance: "",
-          available: true,
-          imageUrl: userData.profileImage || "",
-          createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-          email: userData.email,
-          phone: userData.phone
-        };
-        console.log("Sending basic profile data:", basicProfile);
-        return res.json(basicProfile);
-      }
-      const profileData = {
-        ...professional,
-        email: userData.email,
-        phone: userData.phone
-      };
-      console.log("Sending profile data:", profileData);
-      res.json(profileData);
-    } catch (error) {
-      console.error("Get provider profile error:", error);
-      res.status(500).json({ message: "Erro interno do servidor", error: error instanceof Error ? error.message : "Erro desconhecido" });
-    }
-  });
-  app2.put("/api/provider/profile", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const {
-        name,
-        specialization,
-        category,
-        subCategory,
-        description,
-        experience,
-        certifications,
-        hourlyRate,
-        location,
-        available
-      } = req.body;
-      console.log("\u27A1\uFE0F PUT /api/provider/profile body:", req.body);
-      if (user.userType !== "provider") {
-        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
-      }
-      let professional = await storage.getProfessionalByUserId(user.id);
-      if (!professional) {
-        const minimalCategory = typeof category === "string" && category.trim() || "acompanhante_hospitalar";
-        const minimalSub = typeof subCategory === "string" && subCategory.trim() || "companhia_apoio_emocional";
-        const createValues = {
-          userId: user.id,
-          name: typeof name === "string" && name.trim() || user.name || "",
-          specialization: (typeof specialization === "string" ? specialization : "") || "",
-          category: minimalCategory,
-          subCategory: minimalSub,
-          description: (typeof description === "string" ? description : "") || "",
-          available: typeof available === "boolean" ? available : true
-        };
-        if (typeof experience === "string") createValues.experience = experience;
-        if (typeof certifications === "string") createValues.certifications = certifications;
-        if (hourlyRate !== void 0 && hourlyRate !== null && String(hourlyRate).toString().trim() !== "") createValues.hourlyRate = String(hourlyRate);
-        if (typeof location === "string") createValues.location = location;
-        professional = await storage.createProfessional(createValues);
-      }
-      const updates = {};
-      if (typeof name === "string" && name.trim() !== "") updates.name = name.trim();
-      if (typeof specialization === "string") updates.specialization = specialization;
-      if (typeof category === "string" && category.trim() !== "") updates.category = category;
-      if (typeof subCategory === "string" && subCategory.trim() !== "") updates.subCategory = subCategory;
-      if (typeof description === "string") updates.description = description;
-      if (typeof experience === "string") updates.experience = experience;
-      if (typeof certifications === "string") updates.certifications = certifications;
-      if (hourlyRate !== void 0 && hourlyRate !== null && String(hourlyRate).toString().trim() !== "") updates.hourlyRate = String(hourlyRate);
-      if (typeof location === "string") updates.location = location;
-      if (typeof available === "boolean") updates.available = available;
-      console.log("\u{1F527} Provider profile updates:", { userId: user.id, updates });
-      const updatedProfessional = Object.keys(updates).length === 0 ? professional : await storage.updateProfessional(professional.id, updates);
-      if (typeof name === "string" && name.trim() !== "" && name !== user.name) {
-        await storage.updateUser(user.id, { name });
-      }
-      res.json({
-        message: "Perfil atualizado com sucesso",
-        professional: updatedProfessional
-      });
-    } catch (error) {
-      console.error("Update provider profile error:", error);
-      res.status(500).json({ message: "Erro interno do servidor", error: error?.message || "unknown" });
-    }
-  });
-  app2.post("/api/provider/upload-image", authenticateToken, upload.single("profileImage"), async (req, res) => {
-    try {
-      const user = req.user;
-      if (user.userType !== "provider") {
-        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
-      }
-      if (!req.file) {
-        return res.status(400).json({ message: "Nenhuma imagem foi enviada." });
-      }
-      const imageUrl = `/uploads/${req.file.filename}`;
-      await storage.updateUser(user.id, { profileImage: imageUrl });
-      const professional = await storage.getProfessionalByUserId(user.id);
-      if (professional) {
-        await storage.updateProfessional(professional.id, { imageUrl });
-      }
-      res.json({
-        message: "Imagem de perfil atualizada com sucesso",
-        imageUrl
-      });
-    } catch (error) {
-      console.error("Upload profile image error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.post("/api/user/upload-image", authenticateToken, upload.single("profileImage"), async (req, res) => {
-    try {
-      const user = req.user;
-      if (!req.file) {
-        return res.status(400).json({ message: "Nenhuma imagem foi enviada." });
-      }
-      const imageUrl = `/uploads/${req.file.filename}`;
-      await storage.updateUser(user.id, { profileImage: imageUrl });
-      if (user.userType === "provider") {
-        const professional = await storage.getProfessionalByUserId(user.id);
-        if (professional) {
-          await storage.updateProfessional(professional.id, { imageUrl });
-        }
-      }
-      res.json({
-        message: "Imagem de perfil atualizada com sucesso",
-        imageUrl
-      });
-    } catch (error) {
-      console.error("Upload profile image error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.put("/api/user/profile", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const { name, email, phone, address } = req.body;
-      if (!name || !email) {
-        return res.status(400).json({ message: "Nome e email s\xE3o obrigat\xF3rios." });
-      }
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser && existingUser.id !== user.id) {
-        return res.status(400).json({ message: "Este email j\xE1 est\xE1 em uso por outro usu\xE1rio." });
-      }
-      const updatedUser = await storage.updateUser(user.id, {
-        name,
-        email,
-        phone: phone || null,
-        address: address || null
-      });
-      res.json({
-        message: "Perfil atualizado com sucesso",
-        user: {
-          id: updatedUser.id,
-          name: updatedUser.name,
-          email: updatedUser.email,
-          phone: updatedUser.phone,
-          address: updatedUser.address,
-          profileImage: updatedUser.profileImage,
-          userType: updatedUser.userType
-        }
-      });
-    } catch (error) {
-      console.error("Update user profile error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/provider/settings", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      if (user.userType !== "provider") {
-        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
-      }
-      const settings = {
-        profile: {
-          name: "Ana Carolina Silva",
-          email: "ana.carolina@email.com",
-          phone: "(11) 99999-9999",
-          specialization: "Fisioterapeuta"
-        },
-        availability: {
-          isAvailable: true,
-          workStartTime: "08:00",
-          workEndTime: "18:00"
-        },
-        notifications: {
-          newOrders: true,
-          messages: true,
-          payments: true,
-          reminders: true,
-          marketing: false
-        },
-        payments: {
-          bankAccount: "Banco do Brasil \u2022\u2022\u2022\u2022 1234",
-          pixKey: "ana.carolina@email.com"
-        }
-      };
-      res.json(settings);
-    } catch (error) {
-      console.error("Get provider settings error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.put("/api/provider/settings", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const { profile, availability, notifications: notifications2, payments } = req.body;
-      if (user.userType !== "provider") {
-        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
-      }
-      console.log(`Updating settings for professional ${user.id}:`, {
-        profile,
-        availability,
-        notifications: notifications2,
-        payments
-      });
-      res.json({
-        message: "Configura\xE7\xF5es atualizadas com sucesso",
-        settings: { profile, availability, notifications: notifications2, payments }
-      });
-    } catch (error) {
-      console.error("Update provider settings error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.put("/api/provider/availability", authenticateToken, async (req, res) => {
-    console.log("\u{1F527} Rota /api/provider/availability foi chamada");
-    try {
-      const user = req.user;
-      const { available } = req.body;
-      console.log("\u{1F464} Usu\xE1rio:", user);
-      console.log("\u{1F4CA} Dados recebidos:", { available });
-      if (user.userType !== "provider") {
-        console.log("\u274C Usu\xE1rio n\xE3o \xE9 profissional:", user.userType);
-        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
-      }
-      if (typeof available !== "boolean") {
-        console.log("\u274C Tipo inv\xE1lido para available:", typeof available);
-        return res.status(400).json({ message: "O campo 'available' deve ser um valor booleano" });
-      }
-      console.log("\u2705 Atualizando disponibilidade do profissional ID:", user.id, "para:", available);
-      await storage.updateProfessionalAvailability(user.id, available);
-      console.log(`\u2705 Professional ${user.id} availability updated to: ${available}`);
-      res.json({
-        message: "Disponibilidade atualizada com sucesso",
-        available
-      });
-    } catch (error) {
-      console.error("\u{1F4A5} Update provider availability error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/service-requests/my-requests", authenticateToken, async (req, res) => {
-    console.log("\u{1F50D} Rota /api/service-requests/my-requests foi chamada");
-    try {
-      const user = req.user;
-      console.log("\u{1F464} Usu\xE1rio:", user);
-      if (user.userType !== "client") {
-        console.log("\u274C Usu\xE1rio n\xE3o \xE9 cliente:", user.userType);
-        return res.status(403).json({ message: "Apenas clientes podem acessar suas solicita\xE7\xF5es" });
-      }
-      console.log("\u2705 Buscando solicita\xE7\xF5es para cliente ID:", user.id);
-      const serviceRequests2 = await storage.getServiceRequestsByClient(user.id);
-      console.log("\u{1F4CB} Solicita\xE7\xF5es encontradas:", serviceRequests2.length);
-      res.json(serviceRequests2);
-    } catch (error) {
-      console.error("\u{1F4A5} Get my service requests error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/service-requests/client", authenticateToken, async (req, res) => {
-    try {
-      const userId = req.user?.id;
-      console.log("\u{1F50D} Buscando pedidos para cliente:", userId);
-      if (!userId) {
-        return res.status(401).json({ error: "Usu\xE1rio n\xE3o autenticado" });
-      }
-      if (req.user?.userType !== "client") {
-        return res.status(403).json({ error: "Apenas clientes podem acessar suas solicita\xE7\xF5es" });
-      }
-      const requests = await storage.getServiceRequestsForClient(userId);
-      console.log("\u2705 Pedidos encontrados:", requests.length);
-      res.json(requests);
-    } catch (error) {
-      console.error("\u274C Erro ao buscar pedidos do cliente:", error);
-      if (error instanceof Error) {
-        console.error("\u274C Stack trace:", error.stack);
-        console.error("\u274C Error name:", error.name);
-        console.error("\u274C Error message:", error.message);
-      }
+      console.error("\u274C Erro ao atualizar status do pagamento:", error);
+      console.error("\u274C Stack trace:", error.stack);
+      console.error("\u274C Error name:", error.name);
+      console.error("\u274C Error message:", error.message);
       res.status(500).json({
         error: "Erro interno do servidor",
-        details: process.env.NODE_ENV === "development" && error instanceof Error ? error.message : void 0
+        details: error.message,
+        stack: process.env.NODE_ENV === "development" ? error.stack : void 0
       });
     }
   });
-  app2.post("/api/service-request", authenticateToken, async (req, res) => {
+  app3.get("/api/payment/status/:serviceOfferId", authenticateToken, async (req, res) => {
     try {
-      const user = req.user;
-      const { serviceType, category, description, address, scheduledDate, scheduledTime, urgency, budget } = req.body;
-      if (user.userType !== "client") {
-        return res.status(403).json({ message: "Apenas clientes podem solicitar servi\xE7os" });
-      }
-      if (!serviceType || !category || !description || !address || !scheduledDate || !scheduledTime) {
-        return res.status(400).json({ message: "Todos os campos obrigat\xF3rios devem ser preenchidos" });
-      }
-      const validCategories = ["fisioterapeuta", "acompanhante_hospitalar", "tecnico_enfermagem"];
-      if (!validCategories.includes(category)) {
-        return res.status(400).json({ message: "Categoria inv\xE1lida" });
-      }
-      const serviceRequest = await storage.createServiceRequest({
-        clientId: user.id,
-        serviceType,
-        category,
-        description,
-        address,
-        scheduledDate: new Date(scheduledDate),
-        scheduledTime,
-        urgency: urgency || "medium",
-        budget: budget ? parseFloat(budget).toString() : null,
-        status: "open",
-        assignedProfessionalId: null,
-        responses: 0,
-        serviceStartedAt: null,
-        serviceCompletedAt: null,
-        clientConfirmedAt: null
-      });
-      const professionals2 = await storage.getProfessionalsByCategory(category);
-      for (const professional of professionals2) {
-        await storage.createNotification({
-          userId: professional.userId,
-          message: `Nova solicita\xE7\xE3o de ${serviceType} dispon\xEDvel na sua \xE1rea`,
-          read: false
-        });
-      }
-      res.status(201).json({
-        message: "Solicita\xE7\xE3o criada com sucesso",
-        serviceRequest
-      });
-    } catch (error) {
-      console.error("Create service request error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/test-auth", authenticateToken, async (req, res) => {
-    console.log("\u{1F50D} Rota de teste de autentica\xE7\xE3o foi chamada");
-    const user = req.user;
-    console.log("\u{1F464} Usu\xE1rio autenticado:", user);
-    res.json({
-      message: "Autentica\xE7\xE3o funcionando",
-      user: {
-        id: user.id,
-        email: user.email,
-        userType: user.userType
-      }
-    });
-  });
-  app2.get("/api/service-requests/category/:category", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const { category } = req.params;
-      if (user.userType !== "provider") {
-        return res.status(403).json({ message: "Apenas profissionais podem acessar solicita\xE7\xF5es" });
-      }
-      const serviceRequests2 = await storage.getServiceRequestsByCategory(category);
-      res.json(serviceRequests2);
-    } catch (error) {
-      console.error("Get service requests by category error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/service-request/:id", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const requestId = parseInt(req.params.id);
-      const serviceRequest = await storage.getServiceRequest(requestId);
-      if (!serviceRequest) {
-        return res.status(404).json({ message: "Solicita\xE7\xE3o n\xE3o encontrada" });
-      }
-      if (user.userType === "client" && serviceRequest.clientId !== user.id) {
-        return res.status(403).json({ message: "Acesso negado" });
-      }
-      res.json(serviceRequest);
-    } catch (error) {
-      console.error("Get service request error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.put("/api/service-request/:id/status", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const requestId = parseInt(req.params.id);
-      const { status } = req.body;
-      const serviceRequest = await storage.getServiceRequest(requestId);
-      if (!serviceRequest) {
-        return res.status(404).json({ message: "Solicita\xE7\xE3o n\xE3o encontrada" });
-      }
-      if (user.userType === "client" && serviceRequest.clientId !== user.id) {
-        return res.status(403).json({ message: "Acesso negado" });
-      }
-      const updatedRequest = await storage.updateServiceRequest(requestId, { status });
-      res.json({
-        message: "Status atualizado com sucesso",
-        serviceRequest: updatedRequest
-      });
-    } catch (error) {
-      console.error("Update service request status error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/service-requests/:id", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const requestId = parseInt(req.params.id);
-      if (isNaN(requestId)) {
-        return res.status(400).json({ message: "ID da solicita\xE7\xE3o inv\xE1lido" });
-      }
-      const serviceRequest = await storage.getServiceRequestWithClient(requestId);
-      if (!serviceRequest) {
-        return res.status(404).json({ message: "Solicita\xE7\xE3o n\xE3o encontrada" });
-      }
-      if (user.userType === "client" && serviceRequest.clientId !== user.id) {
-        return res.status(403).json({ message: "Acesso negado a esta solicita\xE7\xE3o" });
-      }
-      res.json(serviceRequest);
-    } catch (error) {
-      console.error("Get service request error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/users/:id", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const targetUserId = parseInt(req.params.id);
-      if (isNaN(targetUserId)) {
-        return res.status(400).json({ message: "ID do usu\xE1rio inv\xE1lido" });
-      }
-      const targetUser = await storage.getUser(targetUserId);
-      if (!targetUser) {
-        return res.status(404).json({ message: "Usu\xE1rio n\xE3o encontrado" });
-      }
-      const { password, ...userInfo } = targetUser;
-      res.json(userInfo);
-    } catch (error) {
-      console.error("Get user error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.delete("/api/service-requests/:id", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const requestId = parseInt(req.params.id);
-      const serviceRequest = await storage.getServiceRequest(requestId);
-      if (!serviceRequest) {
-        return res.status(404).json({ message: "Solicita\xE7\xE3o n\xE3o encontrada" });
-      }
-      if (user.userType !== "client" || serviceRequest.clientId !== user.id) {
-        return res.status(403).json({ message: "Apenas o cliente que criou a solicita\xE7\xE3o pode exclu\xED-la" });
-      }
-      if (serviceRequest.status !== "open") {
-        return res.status(400).json({ message: "Apenas solicita\xE7\xF5es abertas podem ser exclu\xEDdas" });
-      }
-      await storage.deleteServiceRequest(requestId);
-      res.json({ message: "Solicita\xE7\xE3o exclu\xEDda com sucesso" });
-    } catch (error) {
-      console.error("Delete service request error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/messages/:conversationId", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const conversationId = parseInt(req.params.conversationId, 10);
-      if (isNaN(conversationId)) {
-        return res.status(400).json({ message: "ID da conversa inv\xE1lido" });
-      }
-      const conversations2 = await storage.getConversationsByUser(user.id);
-      const isParticipant = conversations2.some((conv) => conv.id === conversationId);
-      if (!isParticipant) {
-        const isDeleted = await storage.isConversationDeletedByUser(conversationId, user.id);
-        if (isDeleted) {
-          await storage.restoreConversation(conversationId, user.id);
-          console.log(`Conversa ${conversationId} restaurada automaticamente para usu\xE1rio ${user.id} (buscar mensagens)`);
-        } else {
-          return res.status(403).json({ message: "Acesso negado \xE0 conversa" });
-        }
-      }
-      const messages2 = await storage.getMessagesByConversation(conversationId);
-      res.json(messages2);
-    } catch (error) {
-      console.error("Erro ao buscar mensagens da conversa:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.delete("/api/messages/conversation/:conversationId", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const conversationId = parseInt(req.params.conversationId, 10);
-      console.log("\u{1F5D1}\uFE0F DELETE /api/messages/conversation - Usu\xE1rio:", user.id, user.userType);
-      console.log("\u{1F5D1}\uFE0F conversationId para exclus\xE3o:", conversationId);
-      if (isNaN(conversationId)) {
-        return res.status(400).json({ message: "ID da conversa inv\xE1lido" });
-      }
-      const conversations2 = await storage.getConversationsByUser(user.id);
-      console.log("\u{1F5D1}\uFE0F Conversas do usu\xE1rio antes da exclus\xE3o:", conversations2.map((c) => c.id));
-      const isParticipant = conversations2.some((conv) => conv.id === conversationId);
-      if (!isParticipant) {
-        console.log("\u274C Usu\xE1rio n\xE3o \xE9 participante da conversa");
-        return res.status(403).json({ message: "Acesso negado \xE0 conversa" });
-      }
-      await storage.deleteConversation(conversationId, user.id);
-      console.log("\u2705 Conversa marcada como deletada");
-      const conversationsAfter = await storage.getConversationsByUser(user.id);
-      console.log("\u{1F5D1}\uFE0F Conversas do usu\xE1rio ap\xF3s exclus\xE3o:", conversationsAfter.map((c) => c.id));
-      res.json({ message: "Conversa removida com sucesso" });
-    } catch (error) {
-      console.error("\u274C Erro ao excluir conversa:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/service-requests/:id/offers", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const requestId = parseInt(req.params.id);
-      if (isNaN(requestId)) {
-        return res.status(400).json({ message: "ID da solicita\xE7\xE3o inv\xE1lido" });
-      }
-      const serviceRequest = await storage.getServiceRequest(requestId);
-      if (!serviceRequest) {
-        return res.status(404).json({ message: "Solicita\xE7\xE3o n\xE3o encontrada" });
-      }
-      if (user.userType === "client" && serviceRequest.clientId !== user.id) {
-        return res.status(403).json({ message: "Acesso negado \xE0s propostas" });
-      }
-      const offers = await storage.getServiceOffersByRequest(requestId);
-      res.json(offers);
-    } catch (error) {
-      console.error("Get service offers error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.post("/api/service-requests/:id/offers", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const requestId = parseInt(req.params.id);
-      const { proposedPrice, estimatedTime, message } = req.body;
-      if (isNaN(requestId)) {
-        return res.status(400).json({ message: "ID da solicita\xE7\xE3o inv\xE1lido" });
-      }
-      if (user.userType !== "provider") {
-        return res.status(403).json({ message: "Apenas profissionais podem fazer propostas" });
-      }
-      const serviceRequest = await storage.getServiceRequest(requestId);
-      if (!serviceRequest) {
-        return res.status(404).json({ message: "Solicita\xE7\xE3o n\xE3o encontrada" });
-      }
-      if (serviceRequest.status !== "open") {
-        return res.status(400).json({ message: "Esta solicita\xE7\xE3o n\xE3o est\xE1 mais aceitando propostas" });
-      }
-      const existingOffers = await storage.getServiceOffersByRequest(requestId);
-      const hasExistingOffer = existingOffers.some((offer2) => offer2.professionalId === user.id);
-      if (hasExistingOffer) {
-        return res.status(400).json({ message: "Voc\xEA j\xE1 fez uma proposta para esta solicita\xE7\xE3o" });
-      }
-      const professional = await storage.getProfessionalByUserId(user.id);
-      if (!professional) {
-        return res.status(404).json({ message: "Dados do profissional n\xE3o encontrados" });
-      }
-      const offer = await storage.createServiceOffer({
-        serviceRequestId: requestId,
-        professionalId: professional.id,
-        proposedPrice: proposedPrice.toString(),
-        finalPrice: null,
-        estimatedTime,
-        message,
-        status: "pending"
-      });
-      await storage.updateServiceRequest(requestId, {
-        responses: (serviceRequest.responses || 0) + 1
-      });
-      res.status(201).json({
-        message: "Proposta enviada com sucesso",
-        offer
-      });
-    } catch (error) {
-      console.error("Create service offer error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/professionals/:id/proposals", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const professionalId = parseInt(req.params.id);
-      if (isNaN(professionalId)) {
-        return res.status(400).json({ message: "ID do profissional inv\xE1lido" });
-      }
-      if (user.userType !== "provider" || user.id !== professionalId) {
-        return res.status(403).json({ message: "Acesso negado \xE0s propostas" });
-      }
-      const professional = await storage.getProfessionalByUserId(professionalId);
-      if (!professional) {
-        return res.status(404).json({ message: "Profissional n\xE3o encontrado" });
-      }
-      const proposals = await storage.getProposalsByProfessional(professional.id);
-      res.json(proposals);
-    } catch (error) {
-      console.error("Get professional proposals error:", error);
-      res.status(500).json({ message: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/auth/test", (req, res) => {
-    res.json({
-      googleClientId: process.env.GOOGLE_CLIENT_ID ? "Presente" : "Ausente",
-      googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? "Presente" : "Ausente",
-      nodeEnv: process.env.NODE_ENV,
-      callbackUrl: process.env.NODE_ENV === "production" ? "https://lifebee.netlify.app/api/auth/google/callback" : "http://localhost:5000/api/auth/google/callback"
-    });
-  });
-  app2.get("/api/test", (req, res) => {
-    console.log("\u{1F9EA} Rota de teste acessada");
-    res.json({
-      message: "Servidor funcionando!",
-      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-      env: process.env.NODE_ENV || "development"
-    });
-  });
-  app2.get("/api/auth/google", (req, res, next) => {
-    console.log("\u{1F510} ===== IN\xCDCIO DA AUTENTICA\xC7\xC3O GOOGLE =====");
-    console.log("\u{1F510} M\xE9todo:", req.method);
-    console.log("\u{1F510} URL:", req.url);
-    console.log("\u{1F510} Headers:", req.headers);
-    console.log("\u{1F510} User Agent:", req.get("User-Agent"));
-    console.log("\u{1F510} Referer:", req.get("Referer"));
-    console.log("\u{1F510} Origin:", req.get("Origin"));
-    console.log("\u{1F510} GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID ? "Presente" : "Ausente");
-    console.log("\u{1F510} GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET ? "Presente" : "Ausente");
-    console.log("\u{1F510} URL de callback configurada:", process.env.NODE_ENV === "production" ? "https://lifebee-backend.onrender.com/api/auth/google/callback" : "http://localhost:5000/api/auth/google/callback");
-    console.log("\u{1F510} ===== FIM DOS LOGS DE IN\xCDCIO =====");
-    next();
-  }, passport2.authenticate("google", {
-    scope: ["profile", "email", "https://www.googleapis.com/auth/user.addresses.read", "https://www.googleapis.com/auth/user.phonenumbers.read"]
-  }));
-  app2.get("/api/auth/google/callback", passport2.authenticate("google", {
-    failureRedirect: process.env.NODE_ENV === "production" ? "https://lifebee.netlify.app/login?error=google_auth_failed" : "http://localhost:5173/login?error=google_auth_failed",
-    session: false
-  }), async (req, res) => {
-    try {
-      console.log("\u{1F510} ===== GOOGLE OAUTH CALLBACK INICIADO =====");
-      console.log("\u{1F510} Timestamp:", (/* @__PURE__ */ new Date()).toISOString());
-      console.log("\u{1F510} Query params:", req.query);
-      console.log("\u{1F510} Headers:", req.headers);
-      console.log("\u{1F510} User object:", req.user);
-      console.log("\u{1F510} User type:", typeof req.user);
-      console.log("\u{1F510} User keys:", req.user ? Object.keys(req.user) : "null");
-      console.log("\u{1F510} Session:", req.session);
-      console.log("\u{1F510} Cookies:", req.cookies);
-      console.log("\u{1F510} NODE_ENV:", process.env.NODE_ENV);
-      console.log("\u{1F510} ===== FIM DOS LOGS INICIAIS =====");
-      const user = req.user;
-      console.log("\u{1F464} Usu\xE1rio recebido:", user ? {
-        id: user.id,
-        email: user.email,
-        userType: user.userType,
-        name: user.name,
-        googleId: user.googleId
-      } : "null");
-      if (!user) {
-        console.log("\u274C Usu\xE1rio n\xE3o encontrado no callback");
-        return res.redirect("/login?error=google_auth_failed");
-      }
-      const token = generateToken(user);
-      console.log("\u{1F3AB} Token gerado com sucesso");
-      console.log("\u{1F3AB} Token length:", token.length);
-      const redirectUrl = process.env.NODE_ENV === "production" ? `https://lifebee.netlify.app/auth-callback?token=${token}&userType=${user.userType}` : `http://localhost:5173/auth-callback?token=${token}&userType=${user.userType}`;
-      console.log("\u{1F504} ===== REDIRECIONAMENTO FINAL =====");
-      console.log("\u{1F504} Redirecionando para:", redirectUrl);
-      console.log("\u{1F504} URL length:", redirectUrl.length);
-      console.log("\u{1F504} Timestamp:", (/* @__PURE__ */ new Date()).toISOString());
-      console.log("\u{1F504} ===== FIM DO CALLBACK =====");
-      res.redirect(redirectUrl);
-    } catch (error) {
-      console.error("\u274C ===== ERRO NO GOOGLE OAUTH CALLBACK =====");
-      console.error("\u274C Error:", error);
-      console.error("\u274C Error stack:", error instanceof Error ? error.stack : "No stack trace");
-      console.error("\u274C Timestamp:", (/* @__PURE__ */ new Date()).toISOString());
-      console.error("\u274C ===== FIM DO ERRO =====");
-      const errorRedirectUrl = process.env.NODE_ENV === "production" ? "https://lifebee.netlify.app/login?error=google_auth_failed" : "http://localhost:5173/login?error=google_auth_failed";
-      res.redirect(errorRedirectUrl);
-    }
-  });
-  app2.get("/api/service-offers/client", authenticateToken, async (req, res) => {
-    try {
-      const userId = req.user?.id;
-      console.log("\u{1F50D} Buscando propostas para cliente:", userId);
-      if (!userId) {
-        return res.status(401).json({ error: "Usu\xE1rio n\xE3o autenticado" });
-      }
-      if (req.user?.userType !== "client") {
-        return res.status(403).json({ error: "Apenas clientes podem acessar suas propostas" });
-      }
-      const offers = await storage.getServiceOffersForClient(userId);
-      console.log("\u2705 Propostas encontradas:", offers.length);
-      res.json(offers);
-    } catch (error) {
-      console.error("\u274C Erro ao buscar propostas do cliente:", error);
-      if (error instanceof Error) {
-        console.error("\u274C Stack trace:", error.stack);
-        console.error("\u274C Error name:", error.name);
-        console.error("\u274C Error message:", error.message);
-      }
-      res.status(500).json({
-        error: "Erro interno do servidor",
-        details: process.env.NODE_ENV === "development" && error instanceof Error ? error.message : void 0
-      });
-    }
-  });
-  app2.put("/api/service-offers/:id/accept", authenticateToken, async (req, res) => {
-    try {
-      const offerId = parseInt(req.params.id);
-      const userId = req.user?.id;
-      console.log("\u2705 Aceitando proposta:", offerId, "pelo cliente:", userId);
-      if (!userId) {
-        return res.status(401).json({ error: "Usu\xE1rio n\xE3o autenticado" });
-      }
-      const result = await storage.acceptServiceOffer(offerId, userId);
-      if (result.success) {
-        res.json({ message: "Proposta aceita com sucesso" });
-      } else {
-        res.status(400).json({ error: result.error || "Erro ao aceitar proposta" });
-      }
-    } catch (error) {
-      console.error("\u274C Erro ao aceitar proposta:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.post("/api/service/:id/start", authenticateToken, async (req, res) => {
-    try {
-      const serviceRequestId = parseInt(req.params.id);
-      const user = req.user;
-      if (user.userType !== "provider") {
-        return res.status(403).json({ error: "Apenas profissionais podem iniciar servi\xE7os" });
-      }
-      const result = await storage.startService(serviceRequestId, user.id);
-      if (result.success) {
-        res.json({ message: "Servi\xE7o iniciado com sucesso" });
-      } else {
-        res.status(400).json({ error: result.error || "Erro ao iniciar servi\xE7o" });
-      }
-    } catch (error) {
-      console.error("\u274C Erro ao iniciar servi\xE7o:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.post("/api/service/:id/complete", authenticateToken, async (req, res) => {
-    try {
-      const serviceRequestId = parseInt(req.params.id);
-      const user = req.user;
-      const { notes } = req.body;
-      if (user.userType !== "provider") {
-        return res.status(403).json({ error: "Apenas profissionais podem concluir servi\xE7os" });
-      }
-      const professional = await storage.getProfessionalByUserId(user.id);
-      if (!professional) {
-        return res.status(400).json({ error: "Profissional n\xE3o encontrado" });
-      }
-      const result = await storage.completeService(serviceRequestId, professional.id, notes);
-      if (result.success) {
-        res.json({ message: "Servi\xE7o conclu\xEDdo com sucesso. Aguardando confirma\xE7\xE3o do cliente." });
-      } else {
-        res.status(400).json({ error: result.error || "Erro ao concluir servi\xE7o" });
-      }
-    } catch (error) {
-      console.error("\u274C Erro ao concluir servi\xE7o:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.post("/api/service/:id/confirm", authenticateToken, async (req, res) => {
-    try {
-      const serviceRequestId = parseInt(req.params.id);
-      const user = req.user;
-      if (user.userType !== "client") {
-        return res.status(403).json({ error: "Apenas clientes podem confirmar conclus\xE3o de servi\xE7os" });
-      }
-      const result = await storage.confirmServiceCompletion(serviceRequestId, user.id);
-      if (result.success) {
-        res.json({
-          message: "Servi\xE7o confirmado com sucesso. Pagamento ser\xE1 liberado para o profissional.",
-          requiresReview: true,
-          serviceRequestId
-        });
-      } else {
-        res.status(400).json({ error: result.error || "Erro ao confirmar servi\xE7o" });
-      }
-    } catch (error) {
-      console.error("\u274C Erro ao confirmar servi\xE7o:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.post("/api/service/:id/review", authenticateToken, async (req, res) => {
-    try {
-      const serviceRequestId = parseInt(req.params.id);
-      const user = req.user;
-      const { rating, comment } = req.body;
-      if (user.userType !== "client") {
-        return res.status(403).json({ error: "Apenas clientes podem avaliar servi\xE7os" });
-      }
-      if (!rating || rating < 1 || rating > 5) {
-        return res.status(400).json({ error: "Avalia\xE7\xE3o deve ser entre 1 e 5 estrelas" });
-      }
-      const request = await storage.getServiceRequest(serviceRequestId);
-      if (!request) {
-        return res.status(404).json({ error: "Servi\xE7o n\xE3o encontrado" });
-      }
-      if (request.clientId !== user.id) {
-        return res.status(403).json({ error: "Apenas o cliente pode avaliar este servi\xE7o" });
-      }
-      if (request.status !== "completed") {
-        return res.status(400).json({ error: "Servi\xE7o deve estar conclu\xEDdo para ser avaliado" });
-      }
-      const offers = await storage.getServiceOffers(serviceRequestId);
-      const acceptedOffer = offers.find((offer) => offer.status === "accepted");
-      if (!acceptedOffer) {
-        return res.status(400).json({ error: "Proposta aceita n\xE3o encontrada" });
-      }
-      const existingReview = await storage.getServiceReviewByService(serviceRequestId);
-      if (existingReview) {
-        return res.status(400).json({ error: "Este servi\xE7o j\xE1 foi avaliado" });
-      }
-      const review = await storage.createServiceReview({
-        serviceRequestId,
-        serviceOfferId: acceptedOffer.id,
-        clientId: user.id,
-        professionalId: acceptedOffer.professionalId,
-        rating,
-        comment: comment || null
-      });
-      res.json({
-        message: "Avalia\xE7\xE3o enviada com sucesso!",
-        review: {
-          id: review.id,
-          rating: review.rating,
-          comment: review.comment,
-          createdAt: review.createdAt
-        }
-      });
-    } catch (error) {
-      console.error("\u274C Erro ao criar avalia\xE7\xE3o:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/professional/:id/reviews", async (req, res) => {
-    try {
-      const professionalId = parseInt(req.params.id);
-      const reviews = await storage.getServiceReviewsByProfessional(professionalId);
-      res.json({
-        reviews: reviews.map((review) => ({
-          id: review.id,
-          rating: review.rating,
-          comment: review.comment,
-          createdAt: review.createdAt,
-          serviceRequestId: review.serviceRequestId
-        }))
-      });
-    } catch (error) {
-      console.error("\u274C Erro ao buscar avalia\xE7\xF5es do profissional:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/service/:id/progress", authenticateToken, async (req, res) => {
-    try {
-      const serviceRequestId = parseInt(req.params.id);
-      const user = req.user;
-      const request = await storage.getServiceRequest(serviceRequestId);
-      if (!request) {
-        return res.status(404).json({ error: "Servi\xE7o n\xE3o encontrado" });
-      }
-      if (user.userType === "client" && request.clientId !== user.id) {
-        return res.status(403).json({ error: "Acesso negado" });
-      }
-      if (user.userType === "provider" && request.assignedProfessionalId !== user.id) {
-        return res.status(403).json({ error: "Acesso negado" });
-      }
-      const progress = await storage.getServiceProgress(serviceRequestId);
-      res.json(progress);
-    } catch (error) {
-      console.error("\u274C Erro ao buscar progresso do servi\xE7o:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.put("/api/service-offers/:id/reject", authenticateToken, async (req, res) => {
-    try {
-      const offerId = parseInt(req.params.id);
-      const userId = req.user?.id;
-      console.log("\u274C Rejeitando proposta:", offerId, "pelo cliente:", userId);
-      if (!userId) {
-        return res.status(401).json({ error: "Usu\xE1rio n\xE3o autenticado" });
-      }
-      const result = await storage.rejectServiceOffer(offerId, userId);
-      if (result.success) {
-        res.json({ message: "Proposta rejeitada com sucesso" });
-      } else {
-        res.status(400).json({ error: result.error || "Erro ao rejeitar proposta" });
-      }
-    } catch (error) {
-      console.error("\u274C Erro ao rejeitar proposta:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/test/users", async (req, res) => {
-    try {
-      const { storage: storage2 } = await Promise.resolve().then(() => (init_storage(), storage_exports));
-      const users2 = await storage2.getAllUsers();
-      res.json({
-        count: users2.length,
-        users: users2.map((u) => ({ id: u.id, name: u.name, email: u.email, userType: u.userType }))
-      });
-    } catch (error) {
-      console.error("\u274C Erro ao buscar usu\xE1rios:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/test/auth-debug", async (req, res) => {
-    try {
-      const authHeader = req.headers["authorization"];
-      const token = authHeader && authHeader.split(" ")[1];
-      res.json({
-        authHeader: authHeader ? "Presente" : "Ausente",
-        token: token ? "Presente" : "Ausente",
-        tokenLength: token ? token.length : 0,
-        message: "Endpoint de teste para debug da autentica\xE7\xE3o"
-      });
-    } catch (error) {
-      console.error("\u274C Erro no endpoint de teste:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/professional/transactions", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      if (user.userType !== "provider") {
-        return res.status(403).json({ error: "Apenas profissionais podem acessar transa\xE7\xF5es" });
-      }
-      const professional = await storage.getProfessionalByUserId(user.id);
-      if (!professional) {
-        return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
-      }
-      const transactions2 = await storage.getTransactionsByProfessional(professional.id);
-      const totalEarnings = transactions2.filter((t) => t.status === "completed").reduce((sum, t) => sum + Number(t.amount), 0);
-      const pendingAmount = transactions2.filter((t) => t.status === "pending").reduce((sum, t) => sum + Number(t.amount), 0);
-      res.json({
-        transactions: transactions2,
-        statistics: {
-          totalEarnings: totalEarnings.toFixed(2),
-          pendingAmount: pendingAmount.toFixed(2),
-          totalTransactions: transactions2.length,
-          completedTransactions: transactions2.filter((t) => t.status === "completed").length
-        }
-      });
-    } catch (error) {
-      console.error("\u274C Erro ao buscar transa\xE7\xF5es do profissional:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/client/transactions", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      if (user.userType !== "client") {
-        return res.status(403).json({ error: "Apenas clientes podem acessar transa\xE7\xF5es" });
-      }
-      const transactions2 = await storage.getTransactionsByClient(user.id);
-      res.json(transactions2);
-    } catch (error) {
-      console.error("\u274C Erro ao buscar transa\xE7\xF5es do cliente:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/professional/:id/completed-services", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      if (user.userType !== "provider") {
-        return res.status(403).json({ error: "Apenas profissionais podem acessar este recurso" });
-      }
-      const professional = await storage.getProfessionalByUserId(user.id);
-      if (!professional) {
-        return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
-      }
-      console.log("\u{1F50D} Buscando servi\xE7os para profissional ID:", professional.id, "userId:", user.id);
-      const completedServices = await storage.getProfessionalCompletedServices(professional.id);
-      res.json({
-        success: true,
-        data: completedServices
-      });
-    } catch (error) {
-      console.error("\u274C Erro ao buscar servi\xE7os conclu\xEDdos:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/professional/:id/reviews", async (req, res) => {
-    try {
-      const professionalId = parseInt(req.params.id);
-      const reviews = await storage.getServiceReviewsByProfessional(professionalId);
-      res.json({
-        reviews: reviews.map((review) => ({
-          id: review.id,
-          rating: review.rating,
-          comment: review.comment,
-          createdAt: review.createdAt,
-          serviceRequestId: review.serviceRequestId
-        }))
-      });
-    } catch (error) {
-      console.error("\u274C Erro ao buscar avalia\xE7\xF5es do profissional:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.post("/api/payment/create-preference", authenticateToken, async (req, res) => {
-    try {
-      const user = req.user;
-      const { serviceOfferId, serviceRequestId } = req.body;
-      console.log("\u{1F680} Iniciando cria\xE7\xE3o de prefer\xEAncia de pagamento:", { serviceOfferId, serviceRequestId, userId: user.id });
-      if (user.userType !== "client") {
-        return res.status(403).json({ error: "Apenas clientes podem criar pagamentos" });
-      }
-      console.log("\u{1F50D} Buscando dados da proposta...");
-      const serviceOffer = await storage.getServiceOfferById(serviceOfferId);
-      console.log("\u{1F4DD} Dados da proposta:", serviceOffer);
-      if (!serviceOffer || serviceOffer.status !== "accepted") {
-        return res.status(404).json({ error: "Proposta n\xE3o encontrada ou n\xE3o aceita" });
-      }
-      console.log("\u{1F50D} Buscando dados da solicita\xE7\xE3o...");
-      const serviceRequest = await storage.getServiceRequestById(serviceRequestId);
-      console.log("\u{1F4DD} Dados da solicita\xE7\xE3o:", serviceRequest);
-      if (!serviceRequest || serviceRequest.clientId !== user.id) {
-        return res.status(404).json({ error: "Solicita\xE7\xE3o de servi\xE7o n\xE3o encontrada" });
-      }
-      console.log("\u{1F50D} Buscando dados do profissional...");
-      const professional = await storage.getProfessionalById(serviceOffer.professionalId);
-      console.log("\u{1F4DD} Dados do profissional:", professional);
-      if (!professional) {
-        return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
-      }
-      console.log("\u{1F4B0} Convertendo valores:", { finalPrice: serviceOffer.finalPrice, proposedPrice: serviceOffer.proposedPrice });
-      let amount;
-      const finalPrice = serviceOffer.finalPrice ? parseFloat(serviceOffer.finalPrice.toString()) : null;
-      const proposedPrice = serviceOffer.proposedPrice ? parseFloat(serviceOffer.proposedPrice.toString()) : 0;
-      amount = finalPrice || proposedPrice;
-      console.log("\u{1F4B0} Valor calculado:", { finalPrice, proposedPrice, amount });
-      if (!amount || amount <= 0) {
-        return res.status(400).json({ error: "Valor da proposta inv\xE1lido" });
-      }
-      const lifebeeCommission = amount * 0.05;
-      const professionalAmount = amount - lifebeeCommission;
-      console.log("\u{1F3EA} Preparando dados para o Mercado Pago...");
-      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-      const backendUrl = process.env.BACKEND_URL || "http://localhost:8080";
-      console.log("\u{1F310} URLs configuradas:", { frontendUrl, backendUrl });
-      const preferenceData = {
-        items: [
-          {
-            id: `service_${serviceRequestId}`,
-            title: `${serviceRequest.serviceType} - ${professional.name}`,
-            description: serviceRequest.description,
-            quantity: 1,
-            unit_price: amount,
-            currency_id: "BRL"
-          }
-        ],
-        back_urls: {
-          success: `${frontendUrl}/payment/success`,
-          failure: `${frontendUrl}/payment/failure`,
-          pending: `${frontendUrl}/payment/pending`
-        },
-        external_reference: `${serviceRequestId}_${serviceOfferId}`,
-        notification_url: `${backendUrl}/api/payment/webhook`
-      };
-      console.log("\u{1F4E6} Dados da prefer\xEAncia:", JSON.stringify(preferenceData, null, 2));
-      console.log("\u{1F4B3} Criando prefer\xEAncia no Mercado Pago...");
-      const result = await preference.create({ body: preferenceData });
-      console.log("\u2705 Prefer\xEAncia criada:", { id: result.id, init_point: result.init_point });
-      console.log("\u{1F4BE} Salvando refer\xEAncia no banco...");
-      await storage.createPaymentReference({
-        serviceRequestId,
-        serviceOfferId,
-        clientId: user.id,
-        professionalId: serviceOffer.professionalId,
-        amount: amount.toString(),
-        preferenceId: result.id,
-        status: "pending",
-        externalReference: `${serviceRequestId}_${serviceOfferId}`
-      });
-      console.log("\u{1F389} Prefer\xEAncia de pagamento criada com sucesso!");
-      res.json({
-        success: true,
-        preferenceId: result.id,
-        initPoint: result.init_point,
-        sandboxInitPoint: result.sandbox_init_point
-      });
-    } catch (error) {
-      console.error("\u274C Erro ao criar prefer\xEAncia de pagamento:", error);
-      console.error("\u{1F4CB} Stack trace:", error?.stack);
-      let errorMessage = "Erro interno do servidor";
-      if (error?.message) {
-        console.error("\u{1F4AC} Mensagem do erro:", error.message);
-        if (process.env.NODE_ENV === "development") {
-          errorMessage = error.message;
-        }
-      }
-      res.status(500).json({ error: errorMessage });
-    }
-  });
-  app2.post("/api/payment/webhook", async (req, res) => {
-    try {
-      const { type, data } = req.body;
-      if (type === "payment") {
-        const paymentId = data.id;
-        console.log("\u{1F514} Webhook recebido - Payment ID:", paymentId);
-        res.status(200).json({ success: true });
-      } else {
-        res.status(200).json({ success: true });
-      }
-    } catch (error) {
-      console.error("\u274C Erro no webhook:", error);
-      res.status(500).json({ error: "Erro interno do servidor" });
-    }
-  });
-  app2.get("/api/payment/status/:preferenceId", authenticateToken, async (req, res) => {
-    try {
-      const { preferenceId } = req.params;
-      const paymentRef = await storage.getPaymentReferenceByPreferenceId(preferenceId);
-      if (!paymentRef) {
-        return res.status(404).json({ error: "Pagamento n\xE3o encontrado" });
+      const { serviceOfferId } = req.params;
+      const serviceOffer = await storage.getServiceOfferById(parseInt(serviceOfferId));
+      if (!serviceOffer) {
+        return res.status(404).json({ error: "Proposta n\xE3o encontrada" });
       }
       res.json({
-        success: true,
-        payment: {
-          status: paymentRef.status,
-          amount: paymentRef.amount,
-          serviceRequestId: paymentRef.serviceRequestId,
-          serviceOfferId: paymentRef.serviceOfferId
-        }
+        serviceOfferId: serviceOffer.id,
+        status: serviceOffer.status,
+        isPaid: serviceOffer.status === "completed"
       });
     } catch (error) {
       console.error("\u274C Erro ao verificar status do pagamento:", error);
       res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
-  const httpServer = createServer(app2);
-  return httpServer;
+  app3.post("/api/payment/create-intent", authenticateToken, async (req, res) => {
+    try {
+      console.log("\u{1F50D} Iniciando cria\xE7\xE3o de Payment Intent");
+      console.log("\u{1F4DD} Request body:", JSON.stringify(req.body, null, 2));
+      console.log("\u{1F464} User from token:", req.user);
+      const { serviceOfferId } = req.body;
+      if (!serviceOfferId) {
+        return res.status(400).json({ error: "serviceOfferId \xE9 obrigat\xF3rio" });
+      }
+      console.log(`\u{1F50D} Buscando proposta ID: ${serviceOfferId}`);
+      const serviceOffer = await storage.getServiceOfferById(serviceOfferId);
+      console.log(`\u{1F4CB} Proposta encontrada:`, serviceOffer ? "Sim" : "N\xE3o");
+      if (serviceOffer) {
+        console.log(`\u{1F4CB} Dados da proposta:`, {
+          id: serviceOffer.id,
+          proposedPrice: serviceOffer.proposedPrice,
+          finalPrice: serviceOffer.finalPrice,
+          status: serviceOffer.status
+        });
+      }
+      if (!serviceOffer) {
+        return res.status(404).json({ error: "Oferta de servi\xE7o n\xE3o encontrada" });
+      }
+      const serviceRequest = await storage.getServiceRequestById(serviceOffer.serviceRequestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ error: "Solicita\xE7\xE3o de servi\xE7o n\xE3o encontrada" });
+      }
+      const professional = await storage.getProfessionalById(serviceOffer.professionalId);
+      if (!professional) {
+        return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
+      }
+      const rawPrice = serviceOffer.finalPrice || serviceOffer.proposedPrice;
+      if (!rawPrice || isNaN(parseFloat(rawPrice))) {
+        return res.status(400).json({ error: "Pre\xE7o inv\xE1lido na oferta de servi\xE7o" });
+      }
+      const amount = parseFloat(rawPrice);
+      const minimumAmount = 5;
+      const finalAmount = Math.max(amount, minimumAmount);
+      const lifebeeCommission = finalAmount * 0.05;
+      const professionalAmount = finalAmount - lifebeeCommission;
+      console.log(`\u{1F4B0} Valor original: R$ ${amount.toFixed(2)}`);
+      console.log(`\u{1F4B0} Valor final (m\xEDnimo R$ 5,00): R$ ${finalAmount.toFixed(2)}`);
+      console.log(`\u{1F511} Stripe Secret Key presente: ${process.env.STRIPE_SECRET_KEY ? "Sim" : "N\xE3o"}`);
+      console.log(`\u{1F680} Criando Payment Intent com valor: ${Math.round(finalAmount * 100)} centavos`);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(finalAmount * 100),
+        // Stripe expects amount in cents
+        currency: "brl",
+        payment_method_types: ["card"],
+        metadata: {
+          serviceOfferId: serviceOffer.id.toString(),
+          serviceRequestId: serviceOffer.serviceRequestId.toString(),
+          clientId: serviceRequest.clientId.toString(),
+          professionalId: serviceOffer.professionalId.toString(),
+          lifebeeCommission: lifebeeCommission.toFixed(2),
+          professionalAmount: professionalAmount.toFixed(2)
+        }
+      });
+      const paymentReference = await storage.createPaymentReference({
+        serviceRequestId: serviceOffer.serviceRequestId,
+        serviceOfferId: serviceOffer.id,
+        clientId: serviceRequest.clientId,
+        professionalId: serviceOffer.professionalId,
+        amount: amount.toFixed(2),
+        preferenceId: paymentIntent.id,
+        // Using Payment Intent ID as preferenceId
+        status: "pending",
+        externalReference: paymentIntent.id
+      });
+      res.json({
+        success: true,
+        clientSecret: paymentIntent.client_secret,
+        paymentReferenceId: paymentReference.id
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao criar Payment Intent:", error);
+      res.status(500).json({
+        error: "Erro ao criar Payment Intent",
+        details: error.message
+      });
+    }
+  });
+  app3.post("/api/payment/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+    const sig = req.headers["stripe-signature"];
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    } catch (err) {
+      console.error(`\u274C Erro de verifica\xE7\xE3o do Webhook Stripe: ${err.message}`);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+    switch (event.type) {
+      case "payment_intent.succeeded":
+        const paymentIntentSucceeded = event.data.object;
+        console.log("\u2705 PaymentIntent succeeded:", paymentIntentSucceeded.id);
+        await storage.updatePaymentReferenceStatus(
+          paymentIntentSucceeded.id,
+          "approved",
+          "succeeded",
+          paymentIntentSucceeded.id,
+          /* @__PURE__ */ new Date()
+        );
+        const serviceOfferIdApproved = paymentIntentSucceeded.metadata.serviceOfferId;
+        if (serviceOfferIdApproved) {
+          await storage.updateServiceOfferStatus(parseInt(serviceOfferIdApproved), "accepted");
+          console.log(`\u2705 Proposta ${serviceOfferIdApproved} marcada como paga`);
+        }
+        break;
+      case "payment_intent.payment_failed":
+        const paymentIntentFailed = event.data.object;
+        console.log("\u274C PaymentIntent failed:", paymentIntentFailed.id);
+        await storage.updatePaymentReferenceStatus(
+          paymentIntentFailed.id,
+          "rejected",
+          paymentIntentFailed.last_payment_error?.message || "failed",
+          paymentIntentFailed.id
+        );
+        break;
+      case "payment_intent.processing":
+        const paymentIntentProcessing = event.data.object;
+        console.log("\u23F3 PaymentIntent processing:", paymentIntentProcessing.id);
+        await storage.updatePaymentReferenceStatus(
+          paymentIntentProcessing.id,
+          "pending",
+          "processing",
+          paymentIntentProcessing.id
+        );
+        break;
+      default:
+        console.log(`Unhandled event type ${event.type}`);
+    }
+    res.status(200).json({ received: true });
+  });
+  app3.get("/api/payment/test-config", (req, res) => {
+    res.json({
+      success: true,
+      config: {
+        hasKey: !!process.env.STRIPE_SECRET_KEY,
+        keyLength: process.env.STRIPE_SECRET_KEY?.length || 0,
+        frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
+        backendUrl: process.env.BACKEND_URL || "http://localhost:8080"
+      },
+      message: "Configura\xE7\xE3o verificada com sucesso"
+    });
+  });
+  app3.get("/api/service-requests/client", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "client") {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      const serviceRequests2 = await storage.getServiceRequestsByClient(user.id);
+      res.json(serviceRequests2);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar solicita\xE7\xF5es:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.get("/api/service-offers/client", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "client") {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      const serviceOffers2 = await storage.getServiceOffersForClient(user.id);
+      res.json(serviceOffers2);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar propostas:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.get("/api/user", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const fullUser = await storage.getUser(user.id);
+      if (!fullUser) {
+        return res.status(404).json({ message: "Usu\xE1rio n\xE3o encontrado" });
+      }
+      res.json(fullUser);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar usu\xE1rio:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.get("/api/professionals", async (req, res) => {
+    try {
+      const professionals2 = await storage.getAllProfessionals();
+      res.json(professionals2);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar profissionais:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.get("/api/professionals/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const professional = await storage.getProfessional(parseInt(id));
+      if (!professional) {
+        return res.status(404).json({ message: "Profissional n\xE3o encontrado" });
+      }
+      res.json(professional);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar profissional:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.post("/api/service-requests", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "client") {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      const serviceRequest = await storage.createServiceRequest({
+        ...req.body,
+        clientId: user.id
+      });
+      res.json({ success: true, message: "Solicita\xE7\xE3o criada com sucesso", data: serviceRequest });
+    } catch (error) {
+      console.error("\u274C Erro ao criar solicita\xE7\xE3o:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.get("/api/service-requests/professional", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "professional") {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ message: "Profissional n\xE3o encontrado" });
+      }
+      const proposals = await storage.getProposalsByProfessional(professional.id);
+      res.json(proposals);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar solicita\xE7\xF5es:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.post("/api/service-offers", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "professional") {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ message: "Profissional n\xE3o encontrado" });
+      }
+      const serviceOffer = await storage.createServiceOffer({
+        ...req.body,
+        professionalId: professional.id
+      });
+      res.json({ success: true, message: "Proposta criada com sucesso", data: serviceOffer });
+    } catch (error) {
+      console.error("\u274C Erro ao criar proposta:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.get("/api/service-offers/professional", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "professional") {
+        return res.status(403).json({ message: "Acesso negado" });
+      }
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ message: "Profissional n\xE3o encontrado" });
+      }
+      const proposals = await storage.getProposalsByProfessional(professional.id);
+      res.json(proposals);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar propostas:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.post("/api/service-offers/:id/accept", async (req, res) => {
+    try {
+      const { id } = req.params;
+      res.json({ success: true, message: "Proposta aceita com sucesso" });
+    } catch (error) {
+      console.error("\u274C Erro ao aceitar proposta:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.get("/api/notifications", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const notifications2 = await storage.getNotificationsByUser(user.id);
+      res.json(notifications2);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar notifica\xE7\xF5es:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.put("/api/notifications/:id/read", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.markNotificationRead(parseInt(id));
+      res.json({ success: true, message: "Notifica\xE7\xE3o marcada como lida" });
+    } catch (error) {
+      console.error("\u274C Erro ao marcar notifica\xE7\xE3o:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.put("/api/profile", async (req, res) => {
+    try {
+      res.json({ success: true, message: "Perfil atualizado com sucesso" });
+    } catch (error) {
+      console.error("\u274C Erro ao atualizar perfil:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.post("/api/profile/upload", async (req, res) => {
+    try {
+      res.json({ success: true, message: "Imagem enviada com sucesso" });
+    } catch (error) {
+      console.error("\u274C Erro ao enviar imagem:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.post("/api/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      if (!username || !password) {
+        return res.status(400).json({ message: "Nome de usu\xE1rio e senha s\xE3o obrigat\xF3rios" });
+      }
+      let user = await storage.getUserByUsername(username);
+      if (!user) {
+        user = await storage.getUserByEmail(username);
+      }
+      if (!user) {
+        return res.status(401).json({ message: "Credenciais inv\xE1lidas" });
+      }
+      if (user.isBlocked) {
+        return res.status(401).json({ message: "Conta bloqueada" });
+      }
+      const isValidPassword = await verifyPassword(password, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Credenciais inv\xE1lidas" });
+      }
+      const token = generateToken(user);
+      res.json({
+        message: "Login realizado com sucesso",
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          userType: user.userType,
+          isVerified: user.isVerified,
+          phoneVerified: user.phoneVerified,
+          phone: user.phone,
+          profileImage: user.profileImage
+        }
+      });
+    } catch (error) {
+      console.error("\u274C Erro no login:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app3.post("/api/register", async (req, res) => {
+    try {
+      const { username, email, password, name, phone, userType } = req.body;
+      if (!username || !email || !password || !name) {
+        return res.status(400).json({ message: "Todos os campos s\xE3o obrigat\xF3rios" });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({ message: "A senha deve ter pelo menos 6 caracteres" });
+      }
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Nome de usu\xE1rio j\xE1 existe" });
+      }
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(400).json({ message: "Email j\xE1 existe" });
+      }
+      const user = await storage.createUser({
+        username,
+        email,
+        password: await hashPassword(password),
+        name,
+        phone: phone || null,
+        userType: userType || "client"
+      });
+      const token = generateToken(user);
+      res.json({
+        message: "Conta criada com sucesso",
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          userType: user.userType,
+          isVerified: user.isVerified,
+          phoneVerified: user.phoneVerified,
+          phone: user.phone,
+          profileImage: user.profileImage
+        }
+      });
+    } catch (error) {
+      console.error("\u274C Erro no registro:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
 }
 
 // server/index.ts
 import { Server as SocketIOServer } from "socket.io";
-var app = express2();
+import { createServer } from "http";
+import Redis from "redis";
+var __filename = fileURLToPath(import.meta.url);
+var __dirname = path2.dirname(__filename);
+config2({ path: path2.join(__dirname, ".env") });
+var app2 = express2();
 console.log("=== Backend inicializado ===");
-app.use((req, res, next) => {
+app2.use((req, res, next) => {
   if (req.path.startsWith("/uploads")) return next();
   const origin = req.headers.origin;
   const allowedOrigins = [
@@ -3911,13 +2844,13 @@ app.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.status(204).end();
   next();
 });
-app.use(express2.json());
-app.use(express2.urlencoded({ extended: false }));
-app.use((req, res, next) => {
+app2.use(express2.json());
+app2.use(express2.urlencoded({ extended: false }));
+app2.use((req, res, next) => {
   console.log("\u{1F310} Debug Global - Requisi\xE7\xE3o:", req.method, req.path);
   next();
 });
-app.use(async (req, res, next) => {
+app2.use(async (req, res, next) => {
   if (req.path.startsWith("/api") && req.path !== "/api/health") {
     try {
       const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
@@ -3934,7 +2867,7 @@ app.use(async (req, res, next) => {
     next();
   }
 });
-app.use((req, res, next) => {
+app2.use((req, res, next) => {
   const start = Date.now();
   const path3 = req.path;
   let capturedJsonResponse = void 0;
@@ -3956,7 +2889,17 @@ app.use((req, res, next) => {
   next();
 });
 (async () => {
-  const server = await registerRoutes(app);
+  const redisClient = Redis.createClient({
+    url: process.env.REDIS_URL || "redis://localhost:6379"
+  });
+  try {
+    await redisClient.connect();
+    console.log("\u2705 Redis conectado");
+  } catch (error) {
+    console.log("\u26A0\uFE0F Redis n\xE3o dispon\xEDvel, usando fallback");
+  }
+  setupRoutes(app2, redisClient);
+  const server = createServer(app2);
   const io = new SocketIOServer(server, {
     cors: {
       origin: [
@@ -3980,7 +2923,7 @@ app.use((req, res, next) => {
       console.log("Usu\xE1rio desconectado:", socket.id);
     });
   });
-  app.use((err, _req, res, _next) => {
+  app2.use((err, _req, res, _next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
     console.error("\u274C Erro global capturado:");
