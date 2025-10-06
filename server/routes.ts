@@ -132,6 +132,28 @@ export function setupRoutes(app: Express, redisClient: Redis.RedisClientType) {
 
   // ==================== STRIPE PAYMENT ROUTES ====================
   
+  // Retorna a chave pública do Stripe (necessária para o cliente)
+  app.get('/api/payment/config', async (req, res) => {
+    try {
+      const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY;
+      
+      if (!publishableKey) {
+        console.error('❌ STRIPE_PUBLISHABLE_KEY não configurada');
+        return res.status(500).json({ 
+          error: 'Chave pública do Stripe não configurada no servidor' 
+        });
+      }
+      
+      res.json({
+        publishableKey,
+        success: true
+      });
+    } catch (error) {
+      console.error('❌ Erro ao obter configuração do Stripe:', error);
+      res.status(500).json({ error: 'Erro interno do servidor' });
+    }
+  });
+  
   // Teste de configuração do Stripe
   app.get('/api/payment/test-config', async (req, res) => {
     try {
@@ -260,6 +282,93 @@ export function setupRoutes(app: Express, redisClient: Redis.RedisClientType) {
       });
     } catch (error) {
       console.error('❌ Erro ao criar Payment Intent:', error);
+      res.status(500).json({ 
+        error: 'Erro interno do servidor',
+        details: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
+  });
+
+  // Atualizar status do pagamento manualmente (fallback se webhook falhar)
+  app.post('/api/payment/update-status', authenticateToken, async (req, res) => {
+    try {
+      const { serviceOfferId, paymentIntentId, amount } = req.body;
+      
+      if (!serviceOfferId || !paymentIntentId) {
+        return res.status(400).json({ error: 'serviceOfferId e paymentIntentId são obrigatórios' });
+      }
+      
+      console.log('🔄 Atualizando status do pagamento:', { serviceOfferId, paymentIntentId });
+      
+      // Buscar a referência do pagamento no banco
+      const paymentRef = await storage.getPaymentReferenceByPreferenceId(paymentIntentId);
+      
+      if (!paymentRef) {
+        console.log('❌ Referência de pagamento não encontrada');
+        return res.status(404).json({ error: 'Pagamento não encontrado' });
+      }
+      
+      // Verificar o status do pagamento no Stripe
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      
+      if (paymentIntent.status !== 'succeeded') {
+        return res.status(400).json({ 
+          error: 'Pagamento ainda não foi confirmado',
+          status: paymentIntent.status 
+        });
+      }
+      
+      // Atualizar o status do pagamento
+      await storage.updatePaymentReferenceStatus(
+        paymentRef.preferenceId,
+        'approved',
+        'manual_update',
+        paymentIntentId,
+        new Date()
+      );
+
+      // Atualizar o status da proposta para 'accepted'
+      await storage.updateServiceOfferStatus(paymentRef.serviceOfferId, 'accepted');
+      console.log('✅ Proposta marcada como paga');
+
+      // Notificar o cliente sobre o pagamento aprovado
+      await storage.createNotification({
+        userId: paymentRef.clientId,
+        type: 'payment_approved',
+        title: 'Pagamento Aprovado!',
+        message: `Seu pagamento de R$ ${paymentRef.amount} foi aprovado. O profissional foi notificado e entrará em contato em breve.`,
+        data: {
+          serviceRequestId: paymentRef.serviceRequestId,
+          serviceOfferId: paymentRef.serviceOfferId,
+          amount: paymentRef.amount,
+          paymentId: paymentIntentId
+        }
+      });
+
+      // Notificar o profissional sobre o pagamento recebido
+      await storage.createNotification({
+        userId: paymentRef.professionalId,
+        type: 'payment_received',
+        title: 'Pagamento Recebido!',
+        message: `Você recebeu um pagamento de R$ ${(Number(paymentRef.amount) * 0.95).toFixed(2)} (após taxa de 5%). O cliente está aguardando o início do serviço.`,
+        data: {
+          serviceRequestId: paymentRef.serviceRequestId,
+          serviceOfferId: paymentRef.serviceOfferId,
+          amount: paymentRef.amount,
+          netAmount: (Number(paymentRef.amount) * 0.95).toFixed(2),
+          paymentId: paymentIntentId
+        }
+      });
+
+      console.log('✅ Status atualizado e notificações enviadas');
+      
+      res.json({
+        success: true,
+        message: 'Pagamento confirmado com sucesso',
+        status: 'completed'
+      });
+    } catch (error) {
+      console.error('❌ Erro ao atualizar status do pagamento:', error);
       res.status(500).json({ 
         error: 'Erro interno do servidor',
         details: error instanceof Error ? error.message : 'Erro desconhecido'
