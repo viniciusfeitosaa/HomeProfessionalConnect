@@ -73,7 +73,10 @@ export const appointments = pgTable("appointments", {
 export const notifications = pgTable("notifications", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  type: text("type").notNull().default('info'),
+  title: text("title").notNull(),
   message: text("message").notNull(),
+  actionUrl: text("action_url"),
   read: boolean("read").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

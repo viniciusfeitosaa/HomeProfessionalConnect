@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Send, Phone, Video, MoreVertical, Search, Paperclip, Smile, Check, CheckCheck, Calendar, MapPin, Star, Camera, MessageSquare, UserIcon, Home, Trash2 } from "lucide-react";
+import { ArrowLeft, Send, Phone, Video, Search, Paperclip, Check, CheckCheck, MapPin, Star, Camera, MessageSquare, UserIcon, Home, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { getApiUrl } from "@/lib/api-config";
@@ -41,6 +41,10 @@ export default function MessagesProvider({ params }: { params?: { conversationId
   const { toast } = useToast();
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -176,6 +180,109 @@ export default function MessagesProvider({ params }: { params?: { conversationId
       hour: '2-digit', 
       minute: '2-digit' 
     });
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!selectedConv) return;
+    
+    setIsUploading(true);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast({
+        title: "Erro de autenticação",
+        description: "Faça login para enviar arquivos",
+        variant: "destructive",
+      });
+      setIsUploading(false);
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('conversationId', selectedConv.id.toString());
+      formData.append('messageType', file.type.startsWith('image/') ? 'image' : 'file');
+
+      const response = await fetch(`${getApiUrl()}/api/messages/upload`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const newMsg: Message = {
+          id: Date.now(),
+          senderId: user?.id || 0,
+          content: file.type.startsWith('image/') ? '📷 Imagem enviada' : `📎 ${file.name}`,
+          timestamp: new Date(),
+          isRead: false,
+          type: file.type.startsWith('image/') ? 'image' : 'file',
+          attachmentUrl: data.attachmentUrl,
+          fileName: file.name
+        };
+        setMessages(prev => [...prev, newMsg]);
+        toast({
+          title: "Arquivo enviado",
+          description: "Seu arquivo foi enviado com sucesso",
+        });
+      } else {
+        throw new Error('Erro ao enviar arquivo');
+      }
+    } catch (error) {
+      console.error('Erro ao enviar arquivo:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível enviar o arquivo",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validar tamanho do arquivo (máximo 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "Arquivo muito grande",
+          description: "O arquivo deve ter no máximo 10MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Validar tipos de arquivo
+      const allowedTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+        'application/pdf', 'text/plain', 'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+      
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          title: "Tipo de arquivo não suportado",
+          description: "Apenas imagens, PDFs e documentos são permitidos",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      handleFileUpload(file);
+    }
+  };
+
+  const handleCameraClick = () => {
+    cameraInputRef.current?.click();
+  };
+
+  const handleAttachmentClick = () => {
+    fileInputRef.current?.click();
   };
 
   const sendMessage = async () => {
@@ -424,14 +531,6 @@ export default function MessagesProvider({ params }: { params?: { conversationId
         <div className="p-4 border-b border-gray-200 bg-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="lg:hidden p-2"
-                onClick={() => setLocation('/messages')}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
               <div className="relative">
                 <Avatar className="w-10 h-10">
                   <AvatarImage src={selectedConv?.clientAvatar ? `${getApiUrl()}${selectedConv.clientAvatar}` : undefined} alt={selectedConv?.clientName} />
@@ -456,14 +555,6 @@ export default function MessagesProvider({ params }: { params?: { conversationId
                   )}
                 </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button variant="ghost" size="sm">
-                <Calendar className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
             </div>
           </div>
         </div>
@@ -514,10 +605,22 @@ export default function MessagesProvider({ params }: { params?: { conversationId
         {/* Message Input */}
         <div className="fixed bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white z-40">
           <div className="flex items-center gap-2 max-w-4xl mx-auto">
-            <Button variant="ghost" size="sm">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleAttachmentClick}
+              disabled={isUploading}
+              title="Enviar arquivo"
+            >
               <Paperclip className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleCameraClick}
+              disabled={isUploading}
+              title="Tirar foto"
+            >
               <Camera className="h-4 w-4" />
             </Button>
             <div className="flex-1 relative">
@@ -528,13 +631,6 @@ export default function MessagesProvider({ params }: { params?: { conversationId
                 onKeyPress={handleKeyPress}
                 className="pr-10"
               />
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="absolute right-1 top-1/2 transform -translate-y-1/2"
-              >
-                <Smile className="h-4 w-4" />
-              </Button>
             </div>
             <Button 
               onClick={sendMessage}
@@ -546,6 +642,23 @@ export default function MessagesProvider({ params }: { params?: { conversationId
           </div>
         </div>
       </div>
+      {/* Hidden file inputs */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+        accept="image/*,.pdf,.txt,.doc,.docx"
+        style={{ display: 'none' }}
+      />
+      <input
+        type="file"
+        ref={cameraInputRef}
+        onChange={handleFileSelect}
+        accept="image/*"
+        capture="environment"
+        style={{ display: 'none' }}
+      />
+      
       <ProviderNavbar />
     </div>
   );

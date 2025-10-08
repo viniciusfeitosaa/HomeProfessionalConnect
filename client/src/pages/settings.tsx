@@ -7,10 +7,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { 
   User, 
-  Bell, 
   Shield, 
-  Moon, 
-  Sun, 
   ArrowLeft, 
   Edit3, 
   Camera,
@@ -21,14 +18,12 @@ import {
   Eye,
   EyeOff
 } from "lucide-react";
-import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { LifeBeeLogo } from "@/components/lifebee-logo";
 import { apiRequest } from "@/lib/queryClient";
 
 export default function Settings() {
-  const { theme, setTheme } = useTheme();
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
@@ -54,15 +49,6 @@ export default function Settings() {
     current: false,
     new: false,
     confirm: false
-  });
-  
-  // Notification settings
-  const [notifications, setNotifications] = useState({
-    appointments: true,
-    messages: true,
-    promotions: false,
-    emailUpdates: true,
-    smsAlerts: true
   });
 
   const handleSaveProfile = async () => {
@@ -258,102 +244,6 @@ export default function Settings() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Notifications Section */}
-        <Card>
-          <CardHeader className="pb-3 sm:pb-4">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" />
-              Notificações
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 sm:space-y-4">
-            <div className="space-y-3 sm:space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">Agendamentos</h4>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Receber notificações sobre consultas</p>
-                </div>
-                <Switch
-                  checked={notifications.appointments}
-                  onCheckedChange={(checked) => 
-                    setNotifications({...notifications, appointments: checked})
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">Mensagens</h4>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Notificações de novas mensagens</p>
-                </div>
-                <Switch
-                  checked={notifications.messages}
-                  onCheckedChange={(checked) => 
-                    setNotifications({...notifications, messages: checked})
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">Promoções</h4>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Ofertas e descontos especiais</p>
-                </div>
-                <Switch
-                  checked={notifications.promotions}
-                  onCheckedChange={(checked) => 
-                    setNotifications({...notifications, promotions: checked})
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">Email</h4>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Receber atualizações por email</p>
-                </div>
-                <Switch
-                  checked={notifications.emailUpdates}
-                  onCheckedChange={(checked) => 
-                    setNotifications({...notifications, emailUpdates: checked})
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">SMS</h4>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Alertas importantes via SMS</p>
-                </div>
-                <Switch
-                  checked={notifications.smsAlerts}
-                  onCheckedChange={(checked) => 
-                    setNotifications({...notifications, smsAlerts: checked})
-                  }
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Appearance Section */}
-        <Card>
-          <CardHeader className="pb-3 sm:pb-4">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              {theme === 'dark' ? <Moon className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" /> : <Sun className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" />}
-              Aparência
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <h4 className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">Modo Escuro</h4>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Alternar entre tema claro e escuro</p>
-              </div>
-              <Switch
-                checked={theme === 'dark'}
-                onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-              />
-            </div>
           </CardContent>
         </Card>
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Bell, Search, Briefcase, User as UserIcon, Star, MapPin, Phone, MessageSquare, Home as HomeIcon } from "lucide-react";
+import { NotificationButton } from "@/components/notifications";
 import { useLocation } from "wouter";
 import { getApiUrl } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
@@ -213,12 +214,7 @@ export default function Home() {
           <p className="font-semibold text-base sm:text-lg text-gray-900">{user?.name || "Usuário"}</p>
         </div>
         <div className="flex gap-2 sm:gap-3 items-center">
-          <div className="relative">
-            <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600" />
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center font-bold">
-              3
-            </span>
-          </div>
+          <NotificationButton />
           <div 
             className="w-8 h-8 sm:w-10 sm:h-10 bg-yellow-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-yellow-600 transition-colors"
             onClick={() => setLocation("/profile")}

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Bell, Settings, Search, Home as HomeIcon, MessageCircle, Briefcase, User as UserIcon } from "lucide-react";
+import { NotificationButton } from "@/components/notifications";
 import { useLocation } from "wouter";
 import type { Professional, User } from "@shared/schema";
 
@@ -17,11 +18,6 @@ export default function Home() {
     queryKey: ["/api/professionals"],
   });
 
-  const { data: notificationData } = useQuery<{ count: number }>({
-    queryKey: ["/api/notifications/count"],
-  });
-
-  const notificationCount = notificationData?.count || 0;
   const topProfessional = professionals.find(prof => prof.rating && parseFloat(prof.rating) >= 4.8);
 
   const services = [
@@ -63,14 +59,7 @@ export default function Home() {
           <p className="font-semibold text-lg">{user?.name || "Usuário"}</p>
         </div>
         <div className="flex gap-4 items-center">
-          <div className="relative">
-            <Bell className="h-6 w-6 text-gray-300 hover:text-white cursor-pointer" />
-            {notificationCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                {notificationCount}
-              </span>
-            )}
-          </div>
+          <NotificationButton />
           <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
             <UserIcon className="h-5 w-5 text-black" />
           </div>

@@ -2587,6 +2587,204 @@ export class DatabaseStorage implements IStorage {
       throw error;
     }
   }
+
+  // ==================== NOTIFICATION FUNCTIONS ====================
+
+  async getUnreadNotificationCount(userId: number): Promise<number> {
+    try {
+      const result = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(notifications)
+        .where(and(
+          eq(notifications.userId, userId),
+          eq(notifications.read, false)
+        ));
+      
+      return Number(result[0]?.count || 0);
+    } catch (error) {
+      console.error('❌ Erro em getUnreadNotificationCount:', error);
+      throw error;
+    }
+  }
+
+  async getUserNotifications(userId: number): Promise<any[]> {
+    try {
+      const userNotifications = await db
+        .select()
+        .from(notifications)
+        .where(eq(notifications.userId, userId))
+        .orderBy(desc(notifications.createdAt))
+        .limit(50);
+
+      return userNotifications.map(notification => ({
+        id: notification.id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        timestamp: notification.createdAt.toISOString(),
+        read: notification.read,
+        actionUrl: notification.actionUrl
+      }));
+    } catch (error) {
+      console.error('❌ Erro em getUserNotifications:', error);
+      throw error;
+    }
+  }
+
+  async markNotificationAsRead(notificationId: number, userId: number): Promise<void> {
+    try {
+      await db
+        .update(notifications)
+        .set({ read: true })
+        .where(and(
+          eq(notifications.id, notificationId),
+          eq(notifications.userId, userId)
+        ));
+    } catch (error) {
+      console.error('❌ Erro em markNotificationAsRead:', error);
+      throw error;
+    }
+  }
+
+  async markAllNotificationsAsRead(userId: number): Promise<void> {
+    try {
+      await db
+        .update(notifications)
+        .set({ read: true })
+        .where(eq(notifications.userId, userId));
+    } catch (error) {
+      console.error('❌ Erro em markAllNotificationsAsRead:', error);
+      throw error;
+    }
+  }
+
+  async createNotification(data: {
+    type: string;
+    title: string;
+    message: string;
+    userId: number;
+    actionUrl?: string;
+  }): Promise<any> {
+    try {
+      const [notification] = await db
+        .insert(notifications)
+        .values({
+          type: data.type,
+          title: data.title,
+          message: data.message,
+          userId: data.userId,
+          actionUrl: data.actionUrl,
+          read: false,
+          createdAt: new Date()
+        })
+        .returning();
+
+      return {
+        id: notification.id,
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        timestamp: notification.createdAt.toISOString(),
+        read: notification.read,
+        actionUrl: notification.actionUrl
+      };
+    } catch (error) {
+      console.error('❌ Erro em createNotification:', error);
+      throw error;
+    }
+  }
+
+  // Helper function to create notifications for service events
+  async createServiceNotification(
+    type: 'service_requested' | 'service_accepted' | 'service_completed' | 'payment_received' | 'new_offer' | 'offer_accepted',
+    serviceRequestId: number,
+    clientId: number,
+    professionalId?: number
+  ): Promise<void> {
+    try {
+      const serviceRequest = await this.getServiceRequestById(serviceRequestId);
+      const client = await this.getUserById(clientId);
+      const professional = professionalId ? await this.getProfessionalById(professionalId) : null;
+
+      let notificationData: {
+        type: string;
+        title: string;
+        message: string;
+        userId: number;
+        actionUrl?: string;
+      };
+
+      switch (type) {
+        case 'service_requested':
+          notificationData = {
+            type: 'info',
+            title: 'Nova Solicitação de Serviço',
+            message: `Nova solicitação de ${serviceRequest?.serviceType} foi criada`,
+            userId: professionalId || 0,
+            actionUrl: '/provider-dashboard'
+          };
+          break;
+
+        case 'service_accepted':
+          notificationData = {
+            type: 'success',
+            title: 'Serviço Aceito',
+            message: `Sua solicitação de ${serviceRequest?.serviceType} foi aceita por um profissional`,
+            userId: clientId,
+            actionUrl: '/my-requests'
+          };
+          break;
+
+        case 'service_completed':
+          notificationData = {
+            type: 'success',
+            title: 'Serviço Concluído',
+            message: `O serviço de ${serviceRequest?.serviceType} foi concluído com sucesso`,
+            userId: clientId,
+            actionUrl: '/my-requests'
+          };
+          break;
+
+        case 'payment_received':
+          notificationData = {
+            type: 'success',
+            title: 'Pagamento Recebido',
+            message: `Pagamento de R$ ${serviceRequest?.budget} foi processado com sucesso`,
+            userId: professionalId || 0,
+            actionUrl: '/provider-dashboard'
+          };
+          break;
+
+        case 'new_offer':
+          notificationData = {
+            type: 'info',
+            title: 'Nova Proposta Recebida',
+            message: `Você recebeu uma nova proposta para ${serviceRequest?.serviceType}`,
+            userId: clientId,
+            actionUrl: '/service-offer'
+          };
+          break;
+
+        case 'offer_accepted':
+          notificationData = {
+            type: 'success',
+            title: 'Proposta Aceita',
+            message: `Sua proposta para ${serviceRequest?.serviceType} foi aceita`,
+            userId: professionalId || 0,
+            actionUrl: '/provider-dashboard'
+          };
+          break;
+
+        default:
+          return;
+      }
+
+      await this.createNotification(notificationData);
+    } catch (error) {
+      console.error('❌ Erro em createServiceNotification:', error);
+      // Não relançar erro para não quebrar o fluxo principal
+    }
+  }
 }
 
 export const storage = new DatabaseStorage();

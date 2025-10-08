@@ -78,7 +78,7 @@ export default function MyRequests() {
       }
 
       const apiUrl = getApiUrl();
-      const fullUrl = `${apiUrl}/api/service-requests/my-requests`;
+      const fullUrl = `${apiUrl}/api/service-requests/client`;
       console.log('🌐 Fazendo requisição para:', fullUrl);
       console.log('🔑 Token:', token.substring(0, 20) + '...');
 

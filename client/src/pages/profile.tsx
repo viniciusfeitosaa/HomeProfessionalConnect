@@ -241,10 +241,6 @@ export default function Profile() {
   const cpfOk = isValidCPF(formData.cpf);
   const completed = [emailOk, phoneOk, cpfOk].filter(Boolean).length;
 
-  const handlePaymentMethods = () => {
-    setLocation("/payment");
-  };
-
   const handlePrivacy = () => {
     console.log("Opening privacy settings");
   };
@@ -544,18 +540,6 @@ export default function Profile() {
                   <div className="flex items-center space-x-2 sm:space-x-3">
                     <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 flex-shrink-0" />
                     <span className="font-medium text-sm sm:text-base">Minhas Solicitações</span>
-                  </div>
-                  <span className="text-gray-400">→</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={handlePaymentMethods}>
-              <CardContent className="p-3 sm:p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 sm:space-x-3">
-                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 flex-shrink-0" />
-                    <span className="font-medium text-sm sm:text-base">Formas de Pagamento</span>
                   </div>
                   <span className="text-gray-400">→</span>
                 </div>

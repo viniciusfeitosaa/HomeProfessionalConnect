@@ -1329,19 +1329,7 @@ export default function ProviderDashboard() {
       console.log(`📍 Com coordenadas: ${withCoordinates}`);
       console.log(`❓ Sem coordenadas: ${withoutCoordinates}`);
       
-      if (geocodingErrors.length > 0) {
-        toast({
-          title: "Solicitações Carregadas!",
-          description: `${openRequests.length} solicitações encontradas. ${withCoordinates} com localização precisa. ${geocodingErrors.length} com problemas de localização.`,
-          variant: "default",
-        });
-      } else {
-        toast({
-          title: "Solicitações Carregadas!",
-          description: `${openRequests.length} solicitações encontradas. Todos os endereços foram localizados com sucesso!`,
-          variant: "default",
-        });
-      }
+      // Mensagens de status removidas para melhor UX
       
     } catch (error) {
       console.error('💥 Erro geral ao buscar solicitações:', error);
@@ -1401,10 +1389,7 @@ export default function ProviderDashboard() {
                                 accuracy <= 50 ? 'Boa' : 
                                 accuracy <= 100 ? 'Regular' : 'Baixa';
             
-            toast({
-              title: `Localização ${accuracyLevel}`,
-              description: `Precisão: ${Math.round(accuracy || 0)}m | ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-            });
+            // Mensagem de status de localização removida para melhor UX
             
             // Forçar atualização do mapa com delay
             setTimeout(() => {

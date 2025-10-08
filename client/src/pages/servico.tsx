@@ -128,7 +128,7 @@ export default function Servico() {
     }
 
     try {
-      const response = await fetch(`${getApiUrl()}/api/service-request`, {
+      const response = await fetch(`${getApiUrl()}/api/service-requests`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

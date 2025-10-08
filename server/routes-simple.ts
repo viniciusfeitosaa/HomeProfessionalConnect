@@ -768,9 +768,29 @@ export function setupRoutes(app: Express, redisClient: any) {
         return res.status(403).json({ message: 'Acesso negado' });
       }
 
+      // Converter scheduledDate de string para Date se necessário
+      const requestData = { ...req.body };
+      if (requestData.scheduledDate && typeof requestData.scheduledDate === 'string') {
+        // Combinar data e hora se existirem
+        if (requestData.scheduledTime) {
+          requestData.scheduledDate = new Date(`${requestData.scheduledDate}T${requestData.scheduledTime}`);
+        } else {
+          requestData.scheduledDate = new Date(requestData.scheduledDate);
+        }
+      }
+
       const serviceRequest = await storage.createServiceRequest({
-        ...req.body,
+        ...requestData,
         clientId: user.id
+      });
+      
+      // Criar notificação para o cliente
+      await storage.createNotification({
+        type: 'success',
+        title: 'Solicitação Criada',
+        message: `Sua solicitação de ${requestData.serviceType} foi criada com sucesso`,
+        userId: user.id,
+        actionUrl: '/my-requests'
       });
       
       res.json({ success: true, message: 'Solicitação criada com sucesso', data: serviceRequest });
@@ -823,6 +843,20 @@ export function setupRoutes(app: Express, redisClient: any) {
         ...req.body,
         professionalId: professional.id
       });
+
+      // Buscar a solicitação para obter o cliente
+      const serviceRequest = await storage.getServiceRequestById(req.body.serviceRequestId);
+      
+      // Criar notificação para o cliente
+      if (serviceRequest) {
+        await storage.createNotification({
+          type: 'info',
+          title: 'Nova Proposta Recebida',
+          message: `Você recebeu uma nova proposta para ${serviceRequest.serviceType}`,
+          userId: serviceRequest.clientId,
+          actionUrl: '/service-offer'
+        });
+      }
       
       res.json({ success: true, message: 'Proposta criada com sucesso', data: serviceOffer });
     } catch (error: any) {
@@ -855,10 +889,38 @@ export function setupRoutes(app: Express, redisClient: any) {
   });
 
   // Accept service offer
-  app.post('/api/service-offers/:id/accept', async (req, res) => {
+  app.post('/api/service-offers/:id/accept', authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
-      // Temporarily return success until storage methods are implemented
+      const user = req.user as any;
+      
+      // Buscar a oferta
+      const offer = await storage.getServiceOfferById(parseInt(id));
+      if (!offer) {
+        return res.status(404).json({ message: 'Oferta não encontrada' });
+      }
+
+      // Atualizar status da oferta para aceita
+      await storage.updateServiceOfferStatus(parseInt(id), 'accepted');
+      
+      // Criar notificação para o profissional
+      await storage.createNotification({
+        type: 'success',
+        title: 'Proposta Aceita',
+        message: `Sua proposta foi aceita pelo cliente`,
+        userId: offer.professionalId,
+        actionUrl: '/provider-dashboard'
+      });
+
+      // Criar notificação para o cliente
+      await storage.createNotification({
+        type: 'success',
+        title: 'Proposta Aceita',
+        message: `Você aceitou a proposta do profissional`,
+        userId: user.id,
+        actionUrl: '/my-requests'
+      });
+      
       res.json({ success: true, message: 'Proposta aceita com sucesso' });
     } catch (error: any) {
       console.error('❌ Erro ao aceitar proposta:', error);
@@ -1023,6 +1085,134 @@ export function setupRoutes(app: Express, redisClient: any) {
       });
     } catch (error: any) {
       console.error('❌ Erro no registro:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ==================== GET SERVICE REQUEST BY ID ====================
+
+  // Get service request by ID
+  app.get('/api/service-requests/:id', authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const requestId = parseInt(id);
+      
+      if (isNaN(requestId)) {
+        return res.status(400).json({ message: "ID inválido" });
+      }
+      
+      const serviceRequest = await storage.getServiceRequestById(requestId);
+      
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicitação de serviço não encontrada" });
+      }
+
+      // Buscar informações do cliente
+      const client = await storage.getUser(serviceRequest.clientId);
+      
+      // Combinar dados do serviço com informações do cliente
+      const serviceDataWithClient = {
+        ...serviceRequest,
+        clientName: client?.name || "Cliente",
+        clientProfileImage: client?.profileImage || "",
+        clientPhone: client?.phone || "",
+        clientEmail: client?.email || ""
+      };
+
+      res.json(serviceDataWithClient);
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar solicitação de serviço:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ==================== GET SERVICE OFFERS BY REQUEST ID ====================
+
+  // Get service offers for a specific service request
+  app.get('/api/service-requests/:id/offers', authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const offers = await storage.getServiceOffers(parseInt(id));
+      res.json(offers);
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar propostas:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ==================== POST SERVICE OFFER FOR REQUEST ====================
+
+  // Create service offer for a specific service request
+  app.post('/api/service-requests/:id/offers', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { id } = req.params;
+      const serviceRequestId = parseInt(id);
+
+      console.log('👤 Usuário tentando criar proposta:', {
+        id: user.id,
+        name: user.name,
+        userType: user.userType,
+        isProvider: user.userType === 'provider'
+      });
+
+      if (user.userType !== 'provider') {
+        console.log('❌ Acesso negado - userType:', user.userType);
+        return res.status(403).json({ message: 'Acesso negado - apenas prestadores podem criar propostas' });
+      }
+
+      if (isNaN(serviceRequestId)) {
+        return res.status(400).json({ message: "ID da solicitação inválido" });
+      }
+
+      // Get professional by user ID
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ message: 'Profissional não encontrado' });
+      }
+
+      // Verificar se a solicitação existe
+      const serviceRequest = await storage.getServiceRequestById(serviceRequestId);
+      console.log('📋 Solicitação encontrada:', {
+        id: serviceRequest?.id,
+        serviceType: serviceRequest?.serviceType,
+        clientId: serviceRequest?.clientId
+      });
+      
+      if (!serviceRequest) {
+        return res.status(404).json({ message: 'Solicitação de serviço não encontrada' });
+      }
+
+      // Criar proposta com os dados do body + serviceRequestId do parâmetro
+      const serviceOffer = await storage.createServiceOffer({
+        serviceRequestId: serviceRequestId,
+        professionalId: professional.id,
+        proposedPrice: req.body.proposedPrice,
+        estimatedTime: req.body.estimatedTime,
+        message: req.body.message,
+        status: 'pending'
+      });
+
+      console.log('✅ Proposta criada com sucesso:', serviceOffer.id);
+
+      // Criar notificação para o cliente (não bloquear se falhar)
+      try {
+        await storage.createNotification({
+          type: 'info',
+          title: 'Nova Proposta Recebida',
+          message: `Você recebeu uma nova proposta para ${serviceRequest.serviceType}`,
+          userId: serviceRequest.clientId,
+          actionUrl: '/service-offer'
+        });
+        console.log('✅ Notificação criada para o cliente ID:', serviceRequest.clientId);
+      } catch (notificationError: any) {
+        console.error('⚠️ Erro ao criar notificação (proposta já foi criada):', notificationError);
+        // Não retornar erro, pois a proposta já foi criada com sucesso
+      }
+      
+      res.json({ success: true, message: 'Proposta criada com sucesso', data: serviceOffer });
+    } catch (error: any) {
+      console.error('❌ Erro ao criar proposta:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });
@@ -1285,6 +1475,80 @@ export function setupRoutes(app: Express, redisClient: any) {
       
     } catch (error: any) {
       console.error('❌ Erro ao buscar dados do dashboard:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // ==================== NOTIFICATION ROUTES ====================
+
+  // Get notifications count
+  app.get('/api/notifications/count', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const count = await storage.getUnreadNotificationCount(user.id);
+      res.json({ count });
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar contador de notificações:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Get all notifications
+  app.get('/api/notifications', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const notifications = await storage.getUserNotifications(user.id);
+      res.json(notifications);
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar notificações:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Mark notification as read
+  app.post('/api/notifications/:id/read', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { id } = req.params;
+      
+      await storage.markNotificationAsRead(parseInt(id), user.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('❌ Erro ao marcar notificação como lida:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Mark all notifications as read
+  app.post('/api/notifications/mark-all-read', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      await storage.markAllNotificationsAsRead(user.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('❌ Erro ao marcar todas as notificações como lidas:', error);
+      res.status(500).json({ message: 'Erro interno do servidor' });
+    }
+  });
+
+  // Create notification (internal use)
+  app.post('/api/notifications', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const { type, title, message, userId, actionUrl } = req.body;
+      
+      const notification = await storage.createNotification({
+        type,
+        title,
+        message,
+        userId: userId || user.id,
+        actionUrl
+      });
+      
+      res.json({ success: true, notification });
+    } catch (error: any) {
+      console.error('❌ Erro ao criar notificação:', error);
       res.status(500).json({ message: 'Erro interno do servidor' });
     }
   });
