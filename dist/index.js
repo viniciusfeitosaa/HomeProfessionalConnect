@@ -299,7 +299,7 @@ var serviceProgress = pgTable("service_progress", {
 
 // server/storage.ts
 init_db();
-import { eq, and, or, gte, ilike, sql as sql2, desc, ne } from "drizzle-orm";
+import { eq, and, or, gte, ilike, sql as sql2, desc, ne, isNull } from "drizzle-orm";
 var DatabaseStorage = class {
   // Método para converter URLs relativas em absolutas
   getFullImageUrl(relativeUrl) {
@@ -510,6 +510,27 @@ var DatabaseStorage = class {
   async updateProfessionalAvailability(userId, available) {
     await db.update(professionals).set({ available }).where(eq(professionals.userId, userId));
   }
+  // Stripe Connect Functions
+  async updateProfessionalStripeAccount(professionalId, data) {
+    const [professional] = await db.update(professionals).set(data).where(eq(professionals.id, professionalId)).returning();
+    return professional;
+  }
+  async getProfessionalByStripeAccountId(stripeAccountId) {
+    const [professional] = await db.select().from(professionals).where(eq(professionals.stripeAccountId, stripeAccountId));
+    return professional || null;
+  }
+  async getProfessionalsWithoutStripeConnect() {
+    return await db.select().from(professionals).where(
+      or(
+        isNull(professionals.stripeAccountId),
+        eq(professionals.stripeOnboardingCompleted, false)
+      )
+    );
+  }
+  async canProfessionalReceivePayments(professionalId) {
+    const [professional] = await db.select({ stripeChargesEnabled: professionals.stripeChargesEnabled }).from(professionals).where(eq(professionals.id, professionalId));
+    return professional?.stripeChargesEnabled === true;
+  }
   // Appointments
   async getAppointmentsByUser(userId) {
     return await db.select().from(appointments).where(eq(appointments.clientId, userId));
@@ -533,12 +554,38 @@ var DatabaseStorage = class {
     const [result] = await db.select({ count: sql2`cast(count(*) as int)` }).from(notifications).where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
     return result?.count || 0;
   }
-  async createNotification(insertNotification) {
-    const [notification] = await db.insert(notifications).values(insertNotification).returning();
-    return notification;
+  async createNotification(data) {
+    try {
+      console.log("\u{1F50D} createNotification - Dados recebidos:", data);
+      const valuesToInsert = {
+        type: data.type,
+        title: data.title,
+        message: data.message,
+        userId: data.userId,
+        actionUrl: data.actionUrl || null,
+        read: data.read ?? false
+      };
+      console.log("\u{1F4DD} createNotification - Valores para inserir:", valuesToInsert);
+      console.log("\u{1F4CB} Schema de notifications:", Object.keys(notifications));
+      const [notification] = await db.insert(notifications).values(valuesToInsert).returning();
+      console.log("\u2705 createNotification - Notifica\xE7\xE3o criada:", notification.id);
+      return notification;
+    } catch (error) {
+      console.error("\u274C createNotification - Erro:", error);
+      throw error;
+    }
   }
-  async markNotificationRead(id) {
-    await db.update(notifications).set({ [notifications.read.name]: true }).where(eq(notifications.id, id));
+  async getUserNotifications(userId) {
+    return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt)).limit(50);
+  }
+  async markNotificationAsRead(notificationId, userId) {
+    await db.update(notifications).set({ read: true }).where(and(
+      eq(notifications.id, notificationId),
+      eq(notifications.userId, userId)
+    ));
+  }
+  async markAllNotificationsAsRead(userId) {
+    await db.update(notifications).set({ read: true }).where(eq(notifications.userId, userId));
   }
   // Security & Anti-fraud
   async createLoginAttempt(insertLoginAttempt) {
@@ -784,7 +831,10 @@ var DatabaseStorage = class {
     return serviceRequest;
   }
   async deleteServiceRequest(id) {
+    console.log("\u{1F5D1}\uFE0F Excluindo service request ID:", id);
+    await this.deleteServiceOffersByRequest(id);
     await db.delete(serviceRequests).where(eq(serviceRequests.id, id));
+    console.log("\u2705 Service request exclu\xEDdo com sucesso");
   }
   async assignProfessionalToRequest(requestId, professionalId) {
     await db.update(serviceRequests).set({
@@ -925,6 +975,11 @@ var DatabaseStorage = class {
   async deleteServiceOffer(id) {
     await db.delete(serviceOffers).where(eq(serviceOffers.id, id));
   }
+  async deleteServiceOffersByRequest(serviceRequestId) {
+    console.log("\u{1F5D1}\uFE0F Excluindo todas as propostas do service request ID:", serviceRequestId);
+    await db.delete(serviceOffers).where(eq(serviceOffers.serviceRequestId, serviceRequestId));
+    console.log("\u2705 Todas as propostas exclu\xEDdas com sucesso");
+  }
   // ==================== SERVICE REQUESTS FOR CLIENT ====================
   async getServiceRequestsForClient(userId) {
     try {
@@ -982,6 +1037,7 @@ var DatabaseStorage = class {
         serviceTitle: serviceRequests.serviceType,
         serviceStatus: serviceRequests.status,
         professionalName: professionals.name,
+        professionalUserId: professionals.userId,
         professionalRating: professionals.rating,
         professionalTotalReviews: professionals.totalReviews,
         professionalProfileImage: professionals.imageUrl,
@@ -999,6 +1055,7 @@ var DatabaseStorage = class {
         id: result.id,
         serviceRequestId: result.serviceRequestId,
         professionalId: result.professionalId,
+        professionalUserId: result.professionalUserId,
         professionalName: result.professionalName,
         professionalRating: result.professionalRating || 5,
         professionalTotalReviews: result.professionalTotalReviews || 0,
@@ -1655,6 +1712,313 @@ var DatabaseStorage = class {
       throw error;
     }
   }
+  // ==================== PROVIDER APPOINTMENTS ====================
+  async getServiceRequestsByProfessional(professionalId) {
+    try {
+      console.log("\u{1F4C5} Buscando service requests para profissional ID:", professionalId);
+      const results = await db.select().from(serviceRequests).where(eq(serviceRequests.assignedProfessionalId, professionalId)).orderBy(desc(serviceRequests.createdAt));
+      console.log("\u2705 Service requests encontrados:", results.length);
+      return results;
+    } catch (error) {
+      console.error("\u274C Erro em getServiceRequestsByProfessional:", error);
+      throw error;
+    }
+  }
+  // ==================== COMPLETED SERVICES BY PROFESSIONAL ====================
+  async getCompletedServicesByProfessional(professionalId) {
+    try {
+      console.log("\u{1F4CA} Buscando servi\xE7os conclu\xEDdos para profissional ID:", professionalId);
+      const results = await db.select().from(serviceRequests).where(
+        and(
+          eq(serviceRequests.assignedProfessionalId, professionalId),
+          eq(serviceRequests.status, "completed")
+        )
+      ).orderBy(desc(serviceRequests.updatedAt));
+      console.log("\u2705 Servi\xE7os conclu\xEDdos encontrados:", results.length);
+      return results;
+    } catch (error) {
+      console.error("\u274C Erro em getCompletedServicesByProfessional:", error);
+      throw error;
+    }
+  }
+  // ==================== PROVIDER PAYMENTS ====================
+  async getPaymentsByProfessional(professionalId, filter = "all") {
+    try {
+      console.log("\u{1F4B3} Buscando pagamentos para profissional ID:", professionalId, "com filtro:", filter);
+      let whereCondition = eq(serviceOffers.professionalId, professionalId);
+      if (filter === "approved") {
+        whereCondition = and(
+          eq(serviceOffers.professionalId, professionalId),
+          eq(serviceOffers.status, "completed")
+        );
+      } else if (filter === "pending") {
+        whereCondition = and(
+          eq(serviceOffers.professionalId, professionalId),
+          eq(serviceOffers.status, "accepted")
+        );
+      }
+      const results = await db.select({
+        id: serviceOffers.id,
+        serviceRequestId: serviceOffers.serviceRequestId,
+        professionalId: serviceOffers.professionalId,
+        proposedPrice: serviceOffers.proposedPrice,
+        finalPrice: serviceOffers.finalPrice,
+        status: serviceOffers.status,
+        createdAt: serviceOffers.createdAt,
+        updatedAt: serviceOffers.updatedAt,
+        serviceTitle: serviceRequests.serviceType,
+        clientName: users.name,
+        clientEmail: users.email
+      }).from(serviceOffers).leftJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).leftJoin(users, eq(serviceRequests.clientId, users.id)).where(whereCondition).orderBy(desc(serviceOffers.updatedAt));
+      console.log("\u2705 Pagamentos encontrados:", results.length);
+      return results;
+    } catch (error) {
+      console.error("\u274C Erro em getPaymentsByProfessional:", error);
+      throw error;
+    }
+  }
+  async getPaymentStatsByProfessional(professionalId) {
+    try {
+      console.log("\u{1F4CA} Calculando estat\xEDsticas de pagamento para profissional ID:", professionalId);
+      const totalOffers = await db.select({ count: sql2`count(*)` }).from(serviceOffers).where(eq(serviceOffers.professionalId, professionalId));
+      const completedOffers = await db.select({ count: sql2`count(*)` }).from(serviceOffers).where(
+        and(
+          eq(serviceOffers.professionalId, professionalId),
+          eq(serviceOffers.status, "completed")
+        )
+      );
+      const pendingOffers = await db.select({ count: sql2`count(*)` }).from(serviceOffers).where(
+        and(
+          eq(serviceOffers.professionalId, professionalId),
+          eq(serviceOffers.status, "accepted")
+        )
+      );
+      const totalEarnings = await db.select({ total: sql2`sum(${serviceOffers.finalPrice})` }).from(serviceOffers).where(
+        and(
+          eq(serviceOffers.professionalId, professionalId),
+          eq(serviceOffers.status, "completed")
+        )
+      );
+      const stats = {
+        totalOffers: Number(totalOffers[0]?.count || 0),
+        completedOffers: Number(completedOffers[0]?.count || 0),
+        pendingOffers: Number(pendingOffers[0]?.count || 0),
+        totalEarnings: Number(totalEarnings[0]?.total || 0)
+      };
+      console.log("\u2705 Estat\xEDsticas calculadas:", stats);
+      return stats;
+    } catch (error) {
+      console.error("\u274C Erro em getPaymentStatsByProfessional:", error);
+      throw error;
+    }
+  }
+  // ==================== PROVIDER PROFILE ====================
+  async getProviderProfile(professionalId) {
+    try {
+      console.log("\u{1F464} Buscando perfil completo do profissional ID:", professionalId);
+      const userData = await db.select().from(users).where(eq(users.id, professionalId)).limit(1);
+      if (userData.length === 0) {
+        throw new Error("Profissional n\xE3o encontrado");
+      }
+      const user = userData[0];
+      const professionalData = await db.select().from(professionals).where(eq(professionals.userId, professionalId)).limit(1);
+      const professional = professionalData.length > 0 ? professionalData[0] : null;
+      const totalOffers = await db.select({ count: sql2`count(*)` }).from(serviceOffers).where(eq(serviceOffers.professionalId, professionalId));
+      const completedOffers = await db.select({ count: sql2`count(*)` }).from(serviceOffers).where(
+        and(
+          eq(serviceOffers.professionalId, professionalId),
+          eq(serviceOffers.status, "completed")
+        )
+      );
+      const totalEarnings = await db.select({ total: sql2`sum(${serviceOffers.finalPrice})` }).from(serviceOffers).where(
+        and(
+          eq(serviceOffers.professionalId, professionalId),
+          eq(serviceOffers.status, "completed")
+        )
+      );
+      const reviews = await db.select({
+        rating: serviceReviews.rating,
+        comment: serviceReviews.comment,
+        createdAt: serviceReviews.createdAt,
+        clientName: users.name
+      }).from(serviceReviews).leftJoin(users, eq(serviceReviews.clientId, users.id)).where(eq(serviceReviews.professionalId, professionalId)).orderBy(desc(serviceReviews.createdAt)).limit(10);
+      const avgRating = reviews.length > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0;
+      const profileData = {
+        ...user,
+        ...professional,
+        // Inclui dados do profissional (com campo 'available')
+        stats: {
+          totalOffers: Number(totalOffers[0]?.count || 0),
+          completedOffers: Number(completedOffers[0]?.count || 0),
+          totalEarnings: Number(totalEarnings[0]?.total || 0),
+          averageRating: Math.round(avgRating * 10) / 10,
+          totalReviews: reviews.length
+        },
+        recentReviews: reviews
+      };
+      console.log("\u2705 Perfil do profissional montado com sucesso");
+      console.log("\u2705 Campo available:", professional?.available);
+      return profileData;
+    } catch (error) {
+      console.error("\u274C Erro em getProviderProfile:", error);
+      throw error;
+    }
+  }
+  // ==================== PROVIDER DASHBOARD OVERVIEW ====================
+  async getProviderDashboardData(professionalId) {
+    try {
+      console.log("\u{1F4CA} Buscando dados completos do dashboard para profissional ID:", professionalId);
+      const userData = await db.select().from(users).where(eq(users.id, professionalId)).limit(1);
+      if (userData.length === 0) {
+        throw new Error("Profissional n\xE3o encontrado");
+      }
+      const user = userData[0];
+      const totalOffers = await db.select({ count: sql2`count(*)` }).from(serviceOffers).where(eq(serviceOffers.professionalId, professionalId));
+      const acceptedOffers = await db.select({ count: sql2`count(*)` }).from(serviceOffers).where(
+        and(
+          eq(serviceOffers.professionalId, professionalId),
+          eq(serviceOffers.status, "accepted")
+        )
+      );
+      const completedOffers = await db.select({ count: sql2`count(*)` }).from(serviceOffers).where(
+        and(
+          eq(serviceOffers.professionalId, professionalId),
+          eq(serviceOffers.status, "completed")
+        )
+      );
+      const totalEarnings = await db.select({ total: sql2`sum(${serviceOffers.finalPrice})` }).from(serviceOffers).where(
+        and(
+          eq(serviceOffers.professionalId, professionalId),
+          eq(serviceOffers.status, "completed")
+        )
+      );
+      const currentMonth = (/* @__PURE__ */ new Date()).getMonth() + 1;
+      const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
+      const monthlyEarnings = await db.select({ total: sql2`sum(${serviceOffers.finalPrice})` }).from(serviceOffers).where(
+        and(
+          eq(serviceOffers.professionalId, professionalId),
+          eq(serviceOffers.status, "completed"),
+          sql2`EXTRACT(MONTH FROM ${serviceOffers.updatedAt}) = ${currentMonth}`,
+          sql2`EXTRACT(YEAR FROM ${serviceOffers.updatedAt}) = ${currentYear}`
+        )
+      );
+      const availableServices = await db.select({ count: sql2`count(*)` }).from(serviceRequests).where(eq(serviceRequests.status, "open"));
+      const reviews = await db.select({
+        rating: serviceReviews.rating,
+        comment: serviceReviews.comment,
+        createdAt: serviceReviews.createdAt,
+        clientName: users.name
+      }).from(serviceReviews).leftJoin(users, eq(serviceReviews.clientId, users.id)).where(eq(serviceReviews.professionalId, professionalId)).orderBy(desc(serviceReviews.createdAt)).limit(5);
+      const avgRating = reviews.length > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0;
+      const recentOffers = await db.select({
+        id: serviceOffers.id,
+        proposedPrice: serviceOffers.proposedPrice,
+        finalPrice: serviceOffers.finalPrice,
+        status: serviceOffers.status,
+        createdAt: serviceOffers.createdAt,
+        serviceTitle: serviceRequests.serviceType,
+        clientName: users.name
+      }).from(serviceOffers).leftJoin(serviceRequests, eq(serviceOffers.serviceRequestId, serviceRequests.id)).leftJoin(users, eq(serviceRequests.clientId, users.id)).where(eq(serviceOffers.professionalId, professionalId)).orderBy(desc(serviceOffers.createdAt)).limit(5);
+      const dashboardData = {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          profileImage: user.profileImage,
+          userType: user.userType
+        },
+        stats: {
+          totalOffers: Number(totalOffers[0]?.count || 0),
+          acceptedOffers: Number(acceptedOffers[0]?.count || 0),
+          completedOffers: Number(completedOffers[0]?.count || 0),
+          totalEarnings: Number(totalEarnings[0]?.total || 0),
+          monthlyEarnings: Number(monthlyEarnings[0]?.total || 0),
+          availableServices: Number(availableServices[0]?.count || 0),
+          averageRating: Math.round(avgRating * 10) / 10,
+          totalReviews: reviews.length
+        },
+        recentActivity: {
+          recentOffers,
+          recentReviews: reviews
+        }
+      };
+      console.log("\u2705 Dados do dashboard montados com sucesso");
+      return dashboardData;
+    } catch (error) {
+      console.error("\u274C Erro em getProviderDashboardData:", error);
+      throw error;
+    }
+  }
+  // Helper function to create notifications for service events
+  async createServiceNotification(type, serviceRequestId, clientId, professionalId) {
+    try {
+      const serviceRequest = await this.getServiceRequestById(serviceRequestId);
+      const client = await this.getUserById(clientId);
+      const professional = professionalId ? await this.getProfessionalById(professionalId) : null;
+      let notificationData;
+      switch (type) {
+        case "service_requested":
+          notificationData = {
+            type: "info",
+            title: "Nova Solicita\xE7\xE3o de Servi\xE7o",
+            message: `Nova solicita\xE7\xE3o de ${serviceRequest?.serviceType} foi criada`,
+            userId: professionalId || 0,
+            actionUrl: "/provider-dashboard"
+          };
+          break;
+        case "service_accepted":
+          notificationData = {
+            type: "success",
+            title: "Servi\xE7o Aceito",
+            message: `Sua solicita\xE7\xE3o de ${serviceRequest?.serviceType} foi aceita por um profissional`,
+            userId: clientId,
+            actionUrl: "/my-requests"
+          };
+          break;
+        case "service_completed":
+          notificationData = {
+            type: "success",
+            title: "Servi\xE7o Conclu\xEDdo",
+            message: `O servi\xE7o de ${serviceRequest?.serviceType} foi conclu\xEDdo com sucesso`,
+            userId: clientId,
+            actionUrl: "/my-requests"
+          };
+          break;
+        case "payment_received":
+          notificationData = {
+            type: "success",
+            title: "Pagamento Recebido",
+            message: `Pagamento de R$ ${serviceRequest?.budget} foi processado com sucesso`,
+            userId: professionalId || 0,
+            actionUrl: "/provider-dashboard"
+          };
+          break;
+        case "new_offer":
+          notificationData = {
+            type: "info",
+            title: "Nova Proposta Recebida",
+            message: `Voc\xEA recebeu uma nova proposta para ${serviceRequest?.serviceType}`,
+            userId: clientId,
+            actionUrl: "/service-offer"
+          };
+          break;
+        case "offer_accepted":
+          notificationData = {
+            type: "success",
+            title: "Proposta Aceita",
+            message: `Sua proposta para ${serviceRequest?.serviceType} foi aceita`,
+            userId: professionalId || 0,
+            actionUrl: "/provider-dashboard"
+          };
+          break;
+        default:
+          return;
+      }
+      await this.createNotification(notificationData);
+    } catch (error) {
+      console.error("\u274C Erro em createServiceNotification:", error);
+    }
+  }
 };
 var storage = new DatabaseStorage();
 
@@ -1893,116 +2257,20 @@ var authenticateToken = async (req, res, next) => {
 
 // server/routes-simple.ts
 import Stripe from "stripe";
-app.get("/api/messages/conversations", authenticateToken, async (req, res) => {
-  try {
-    const user = req.user;
-    console.log("\u{1F50D} GET /api/messages/conversations - Usu\xE1rio:", user.id, user.userType);
-    const userConversations = await storage.getConversationsByUser(user.id);
-    console.log("\u{1F4CB} Conversas encontradas:", userConversations.length);
-    const conversationsWithDetails = await Promise.all(userConversations.map(async (conv) => {
-      const lastMessage = await storage.getLastMessageByConversation(conv.id);
-      const unreadCount = await storage.getUnreadMessageCount(conv.id, user.id);
-      if (user.userType === "provider") {
-        const client = await storage.getUser(conv.clientId);
-        return {
-          id: conv.id,
-          professionalId: conv.professionalId,
-          professionalName: user.name || "Profissional",
-          professionalAvatar: user.profileImage || "",
-          specialization: "",
-          lastMessage: lastMessage?.content || "Nenhuma mensagem",
-          lastMessageTime: lastMessage?.timestamp || conv.createdAt,
-          unreadCount,
-          isOnline: Math.random() > 0.5,
-          rating: 5,
-          location: client?.city || "",
-          clientId: conv.clientId,
-          clientName: client?.name || "Cliente",
-          clientAvatar: client?.profileImage || ""
-        };
-      }
-      const professional = await storage.getProfessionalById(conv.professionalId);
-      return {
-        id: conv.id,
-        professionalId: conv.professionalId,
-        professionalName: professional?.name || "Profissional",
-        professionalAvatar: professional?.imageUrl ? storage.getFullImageUrl(professional.imageUrl) : "",
-        specialization: professional?.specialization || "",
-        lastMessage: lastMessage?.content || "Nenhuma mensagem",
-        lastMessageTime: lastMessage?.timestamp || conv.createdAt,
-        unreadCount,
-        isOnline: Math.random() > 0.5,
-        rating: Number(professional?.rating) || 5,
-        location: professional?.location || ""
-      };
-    }));
-    res.json(conversationsWithDetails);
-  } catch (error) {
-    console.error("\u274C Erro ao buscar conversas:", error);
-    res.status(500).json({ message: "Erro interno ao buscar conversas" });
-  }
-});
-app.get("/api/messages/conversations", authenticateToken, async (req, res) => {
-  try {
-    const user = req.user;
-    console.log("\u{1F50D} GET /api/messages/conversations - Usu\xE1rio:", user.id, user.userType);
-    const userConversations = await storage.getConversationsByUser(user.id);
-    console.log("\u{1F4CB} Conversas encontradas:", userConversations.length);
-    const conversationsWithDetails = await Promise.all(userConversations.map(async (conv) => {
-      const lastMessage = await storage.getLastMessageByConversation(conv.id);
-      const unreadCount = await storage.getUnreadMessageCount(conv.id, user.id);
-      if (user.userType === "provider") {
-        const client = await storage.getUser(conv.clientId);
-        return {
-          id: conv.id,
-          professionalId: conv.professionalId,
-          professionalName: user.name || "Profissional",
-          professionalAvatar: user.profileImage || "",
-          specialization: "",
-          lastMessage: lastMessage?.content || "Nenhuma mensagem",
-          lastMessageTime: lastMessage?.timestamp || conv.createdAt,
-          unreadCount,
-          isOnline: Math.random() > 0.5,
-          rating: 5,
-          location: client?.city || "",
-          clientId: conv.clientId,
-          clientName: client?.name || "Cliente",
-          clientAvatar: client?.profileImage || ""
-        };
-      }
-      const professional = await storage.getProfessionalById(conv.professionalId);
-      return {
-        id: conv.id,
-        professionalId: conv.professionalId,
-        professionalName: professional?.name || "Profissional",
-        professionalAvatar: professional?.imageUrl ? storage.getFullImageUrl(professional.imageUrl) : "",
-        specialization: professional?.specialization || "",
-        lastMessage: lastMessage?.content || "Nenhuma mensagem",
-        lastMessageTime: lastMessage?.timestamp || conv.createdAt,
-        unreadCount,
-        isOnline: Math.random() > 0.5,
-        rating: Number(professional?.rating) || 5,
-        location: professional?.location || ""
-      };
-    }));
-    res.json(conversationsWithDetails);
-  } catch (error) {
-    console.error("\u274C Erro ao buscar conversas:", error);
-    res.status(500).json({ message: "Erro interno ao buscar conversas" });
-  }
-});
 console.log(`\u{1F527} Inicializando Stripe...`);
 console.log(`\u{1F511} STRIPE_SECRET_KEY presente: ${process.env.STRIPE_SECRET_KEY ? "Sim" : "N\xE3o"}`);
 console.log(`\u{1F511} STRIPE_SECRET_KEY in\xEDcio: ${process.env.STRIPE_SECRET_KEY?.substring(0, 20)}...`);
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY n\xE3o encontrada nas vari\xE1veis de ambiente");
+var stripe = null;
+if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY !== "sk_test_placeholder") {
+  stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2025-08-27.basil"
+  });
+  console.log(`\u2705 Stripe inicializado com sucesso`);
+} else {
+  console.log(`\u26A0\uFE0F Stripe desabilitado - configure STRIPE_SECRET_KEY para habilitar pagamentos`);
 }
-var stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-08-27.basil"
-});
-console.log(`\u2705 Stripe inicializado com sucesso`);
-function setupRoutes(app3, redisClient) {
-  app3.get("/api/payment/config", (req, res) => {
+function setupRoutes(app2, redisClient) {
+  app2.get("/api/payment/config", (req, res) => {
     try {
       const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY || process.env.VITE_STRIPE_PUBLIC_KEY;
       if (!publishableKey) {
@@ -2019,9 +2287,15 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ error: "Erro interno ao obter configura\xE7\xE3o do Stripe" });
     }
   });
-  app3.get("/api/payment/test-stripe", async (req, res) => {
+  app2.get("/api/payment/test-stripe", async (req, res) => {
     try {
       console.log(`\u{1F9EA} Testando Stripe...`);
+      if (!stripe) {
+        return res.status(503).json({
+          error: "Stripe n\xE3o configurado",
+          message: "Configure STRIPE_SECRET_KEY para habilitar pagamentos"
+        });
+      }
       const paymentIntent = await stripe.paymentIntents.create({
         amount: 500,
         // R$ 5,00 em centavos
@@ -2048,7 +2322,7 @@ function setupRoutes(app3, redisClient) {
       });
     }
   });
-  app3.get("/api/messages", authenticateToken, async (req, res) => {
+  app2.get("/api/messages", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       console.log("\u{1F50D} GET /api/messages - Usu\xE1rio autenticado:", user.id, user.userType);
@@ -2077,7 +2351,7 @@ function setupRoutes(app3, redisClient) {
             messages: await storage.getMessagesByConversation(conv.id)
           };
         }
-        const professional = await storage.getProfessionalById(conv.professionalId);
+        const professional = await storage.getProfessionalByUserId(conv.professionalId);
         return {
           id: conv.id,
           clientId: conv.clientId,
@@ -2100,7 +2374,7 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno ao buscar conversas" });
     }
   });
-  app3.get("/api/messages/:conversationId", authenticateToken, async (req, res) => {
+  app2.get("/api/messages/:conversationId", authenticateToken, async (req, res) => {
     try {
       const { conversationId } = req.params;
       const user = req.user;
@@ -2119,7 +2393,7 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno ao buscar mensagens" });
     }
   });
-  app3.post("/api/messages", authenticateToken, async (req, res) => {
+  app2.post("/api/messages", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       const { recipientId, content, type, conversationId } = req.body;
@@ -2154,12 +2428,23 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno ao enviar mensagem" });
     }
   });
-  app3.post("/api/messages/start-conversation", authenticateToken, async (req, res) => {
+  app2.post("/api/messages/start-conversation", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       const { professionalId, message } = req.body;
-      const professional = await storage.getProfessionalById(professionalId);
+      console.log("\u{1F50D} Iniciando conversa:", {
+        userId: user.id,
+        professionalId,
+        message: message?.substring(0, 50)
+      });
+      const professional = await storage.getProfessionalByUserId(professionalId);
+      console.log("\u{1F464} Profissional encontrado:", professional ? {
+        id: professional.id,
+        userId: professional.userId,
+        name: professional.name
+      } : "null");
       if (!professional) {
+        console.warn("\u26A0\uFE0F Profissional n\xE3o encontrado para userId:", professionalId);
         return res.status(404).json({ message: "Profissional n\xE3o encontrado" });
       }
       const existingConversation = await storage.getConversation(user.id, professionalId);
@@ -2195,7 +2480,7 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno ao iniciar conversa" });
     }
   });
-  app3.delete("/api/messages/conversation/:conversationId", authenticateToken, async (req, res) => {
+  app2.delete("/api/messages/conversation/:conversationId", authenticateToken, async (req, res) => {
     try {
       const { conversationId } = req.params;
       const user = req.user;
@@ -2206,7 +2491,7 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno ao excluir conversa" });
     }
   });
-  app3.get("/api/payment/test-db", async (req, res) => {
+  app2.get("/api/payment/test-db", async (req, res) => {
     try {
       console.log(`\u{1F9EA} Testando banco de dados...`);
       const offers = await storage.getServiceOffersForClient(21);
@@ -2235,10 +2520,184 @@ function setupRoutes(app3, redisClient) {
       });
     }
   });
-  app3.post("/api/payment/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  app2.post("/api/stripe/connect/create-account", authenticateToken, async (req, res) => {
+    try {
+      console.log("\u{1F537} Criando conta Stripe Connect...");
+      const user = req.user;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ error: "Apenas profissionais podem conectar Stripe" });
+      }
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
+      }
+      if (professional.stripeAccountId && professional.stripeOnboardingCompleted) {
+        return res.status(400).json({
+          error: "Voc\xEA j\xE1 tem uma conta Stripe conectada",
+          accountId: professional.stripeAccountId
+        });
+      }
+      if (!stripe) {
+        return res.status(503).json({
+          error: "Stripe n\xE3o configurado",
+          message: "Configure STRIPE_SECRET_KEY para habilitar Stripe Connect"
+        });
+      }
+      console.log("\u{1F4DD} Criando conta Express para:", user.email);
+      const account = await stripe.accounts.create({
+        type: "express",
+        country: "BR",
+        email: user.email,
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true }
+        },
+        business_type: "individual",
+        metadata: {
+          professionalId: professional.id.toString(),
+          userId: user.id.toString(),
+          platform: "lifebee"
+        }
+      });
+      console.log("\u2705 Conta criada:", account.id);
+      await storage.updateProfessionalStripeAccount(professional.id, {
+        stripeAccountId: account.id,
+        stripeAccountStatus: "pending",
+        stripeOnboardingCompleted: false
+      });
+      const accountLink = await stripe.accountLinks.create({
+        account: account.id,
+        refresh_url: `${process.env.FRONTEND_URL}/settings?stripe_setup=refresh`,
+        return_url: `${process.env.FRONTEND_URL}/settings?stripe_setup=success`,
+        type: "account_onboarding"
+      });
+      console.log("\u2705 Link de onboarding criado");
+      res.json({
+        success: true,
+        accountId: account.id,
+        onboardingUrl: accountLink.url
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao criar conta Connect:", error);
+      res.status(500).json({
+        error: "Erro ao criar conta Stripe Connect",
+        details: error instanceof Error ? error.message : "Erro desconhecido"
+      });
+    }
+  });
+  app2.get("/api/stripe/connect/account-status", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ error: "Apenas profissionais" });
+      }
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
+      }
+      if (!professional.stripeAccountId) {
+        return res.json({
+          connected: false,
+          needsOnboarding: true
+        });
+      }
+      if (!stripe) {
+        return res.status(503).json({
+          error: "Stripe n\xE3o configurado"
+        });
+      }
+      const account = await stripe.accounts.retrieve(professional.stripeAccountId);
+      console.log("\u{1F4CA} Status da conta:", {
+        id: account.id,
+        detailsSubmitted: account.details_submitted,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled
+      });
+      await storage.updateProfessionalStripeAccount(professional.id, {
+        stripeDetailsSubmitted: account.details_submitted,
+        stripeChargesEnabled: account.charges_enabled,
+        stripePayoutsEnabled: account.payouts_enabled,
+        stripeOnboardingCompleted: account.details_submitted,
+        stripeAccountStatus: account.charges_enabled ? "active" : "pending"
+      });
+      res.json({
+        connected: true,
+        accountId: account.id,
+        detailsSubmitted: account.details_submitted,
+        chargesEnabled: account.charges_enabled,
+        payoutsEnabled: account.payouts_enabled,
+        needsOnboarding: !account.details_submitted
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao verificar status:", error);
+      res.status(500).json({ error: "Erro ao verificar status da conta" });
+    }
+  });
+  app2.post("/api/stripe/connect/refresh-onboarding", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ error: "Apenas profissionais" });
+      }
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional || !professional.stripeAccountId) {
+        return res.status(404).json({ error: "Conta Stripe n\xE3o encontrada" });
+      }
+      if (!stripe) {
+        return res.status(503).json({
+          error: "Stripe n\xE3o configurado"
+        });
+      }
+      const accountLink = await stripe.accountLinks.create({
+        account: professional.stripeAccountId,
+        refresh_url: `${process.env.FRONTEND_URL}/settings?stripe_setup=refresh`,
+        return_url: `${process.env.FRONTEND_URL}/settings?stripe_setup=success`,
+        type: "account_onboarding"
+      });
+      res.json({
+        success: true,
+        onboardingUrl: accountLink.url
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao criar link:", error);
+      res.status(500).json({ error: "Erro ao criar link de onboarding" });
+    }
+  });
+  app2.post("/api/stripe/connect/dashboard-link", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ error: "Apenas profissionais" });
+      }
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional || !professional.stripeAccountId) {
+        return res.status(404).json({ error: "Conta Stripe n\xE3o encontrada" });
+      }
+      if (!stripe) {
+        return res.status(503).json({
+          error: "Stripe n\xE3o configurado"
+        });
+      }
+      const loginLink = await stripe.accounts.createLoginLink(professional.stripeAccountId);
+      res.json({
+        success: true,
+        dashboardUrl: loginLink.url
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao criar dashboard link:", error);
+      res.status(500).json({ error: "Erro ao criar link do dashboard" });
+    }
+  });
+  app2.post("/api/payment/webhook", express.raw({ type: "application/json" }), async (req, res) => {
     const sig = req.headers["stripe-signature"];
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
     let event;
+    if (!stripe) {
+      return res.status(503).json({
+        error: "Stripe n\xE3o configurado",
+        message: "Configure STRIPE_SECRET_KEY para habilitar webhooks"
+      });
+    }
     try {
       event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
     } catch (err) {
@@ -2255,7 +2714,22 @@ function setupRoutes(app3, redisClient) {
           const professionalId = paymentIntent.metadata.professionalId;
           const clientId = paymentIntent.metadata.clientId;
           if (serviceOfferId) {
+            const serviceOffer = await storage.getServiceOfferById(parseInt(serviceOfferId));
+            if (!serviceOffer) {
+              console.log("\u274C Proposta n\xE3o encontrada:", serviceOfferId);
+              return res.status(404).json({ error: "Proposta n\xE3o encontrada" });
+            }
+            const serviceRequest = await storage.getServiceRequestById(serviceOffer.serviceRequestId);
+            if (!serviceRequest) {
+              console.log("\u274C Servi\xE7o n\xE3o encontrado:", serviceOffer.serviceRequestId);
+              return res.status(404).json({ error: "Servi\xE7o n\xE3o encontrado" });
+            }
             await storage.updateServiceOfferStatus(parseInt(serviceOfferId), "completed");
+            console.log("\u2705 Proposta marcada como conclu\xEDda");
+            if (serviceRequest.status !== "completed") {
+              await storage.updateServiceRequestStatus(serviceRequest.id, "completed");
+              console.log("\u2705 Servi\xE7o marcado como conclu\xEDdo automaticamente");
+            }
             await storage.createNotification({
               userId: parseInt(professionalId),
               type: "payment_received",
@@ -2311,7 +2785,7 @@ function setupRoutes(app3, redisClient) {
     }
     res.json({ received: true });
   });
-  app3.post("/api/payment/update-status", authenticateToken, async (req, res) => {
+  app2.post("/api/payment/update-status", authenticateToken, async (req, res) => {
     try {
       console.log("\u{1F504} Atualizando status do pagamento...");
       console.log("\u{1F4DD} Request body:", JSON.stringify(req.body, null, 2));
@@ -2388,7 +2862,7 @@ function setupRoutes(app3, redisClient) {
       });
     }
   });
-  app3.get("/api/payment/status/:serviceOfferId", authenticateToken, async (req, res) => {
+  app2.get("/api/payment/status/:serviceOfferId", authenticateToken, async (req, res) => {
     try {
       const { serviceOfferId } = req.params;
       const serviceOffer = await storage.getServiceOfferById(parseInt(serviceOfferId));
@@ -2405,7 +2879,7 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ error: "Erro interno do servidor" });
     }
   });
-  app3.post("/api/payment/create-intent", authenticateToken, async (req, res) => {
+  app2.post("/api/payment/create-intent", authenticateToken, async (req, res) => {
     try {
       console.log("\u{1F50D} Iniciando cria\xE7\xE3o de Payment Intent");
       console.log("\u{1F4DD} Request body:", JSON.stringify(req.body, null, 2));
@@ -2436,6 +2910,22 @@ function setupRoutes(app3, redisClient) {
       if (!professional) {
         return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
       }
+      if (!professional.stripeAccountId) {
+        console.log("\u26A0\uFE0F Profissional n\xE3o tem conta Stripe Connect");
+        return res.status(400).json({
+          error: "Profissional precisa conectar sua conta Stripe primeiro",
+          errorCode: "STRIPE_NOT_CONNECTED",
+          needsStripeSetup: true
+        });
+      }
+      if (!professional.stripeChargesEnabled) {
+        console.log("\u26A0\uFE0F Profissional n\xE3o pode receber pagamentos ainda");
+        return res.status(400).json({
+          error: "Profissional ainda n\xE3o completou configura\xE7\xE3o do Stripe",
+          errorCode: "STRIPE_NOT_ENABLED",
+          needsStripeSetup: true
+        });
+      }
       const rawPrice = serviceOffer.finalPrice || serviceOffer.proposedPrice;
       if (!rawPrice || isNaN(parseFloat(rawPrice))) {
         return res.status(400).json({ error: "Pre\xE7o inv\xE1lido na oferta de servi\xE7o" });
@@ -2443,24 +2933,39 @@ function setupRoutes(app3, redisClient) {
       const amount = parseFloat(rawPrice);
       const minimumAmount = 5;
       const finalAmount = Math.max(amount, minimumAmount);
-      const lifebeeCommission = finalAmount * 0.05;
-      const professionalAmount = finalAmount - lifebeeCommission;
+      const lifebeeCommissionPercent = 0.05;
+      const lifebeeCommission = Math.round(finalAmount * 100 * lifebeeCommissionPercent);
+      const professionalAmount = Math.round(finalAmount * 100) - lifebeeCommission;
       console.log(`\u{1F4B0} Valor original: R$ ${amount.toFixed(2)}`);
       console.log(`\u{1F4B0} Valor final (m\xEDnimo R$ 5,00): R$ ${finalAmount.toFixed(2)}`);
+      console.log(`\u{1F4B0} LifeBee (5%): R$ ${(lifebeeCommission / 100).toFixed(2)}`);
+      console.log(`\u{1F4B0} Profissional (95%): R$ ${(professionalAmount / 100).toFixed(2)}`);
       console.log(`\u{1F511} Stripe Secret Key presente: ${process.env.STRIPE_SECRET_KEY ? "Sim" : "N\xE3o"}`);
-      console.log(`\u{1F680} Criando Payment Intent com valor: ${Math.round(finalAmount * 100)} centavos`);
+      if (!stripe) {
+        return res.status(503).json({
+          error: "Stripe n\xE3o configurado",
+          message: "Configure STRIPE_SECRET_KEY para habilitar pagamentos"
+        });
+      }
+      console.log(`\u{1F680} Criando Payment Intent com Connect...`);
+      console.log(`   Conta destino: ${professional.stripeAccountId}`);
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(finalAmount * 100),
-        // Stripe expects amount in cents
         currency: "brl",
         payment_method_types: ["card"],
+        application_fee_amount: lifebeeCommission,
+        // ✨ Taxa LifeBee (5%)
+        transfer_data: {
+          destination: professional.stripeAccountId
+          // ✨ Profissional recebe direto (95%)
+        },
         metadata: {
           serviceOfferId: serviceOffer.id.toString(),
           serviceRequestId: serviceOffer.serviceRequestId.toString(),
           clientId: serviceRequest.clientId.toString(),
           professionalId: serviceOffer.professionalId.toString(),
-          lifebeeCommission: lifebeeCommission.toFixed(2),
-          professionalAmount: professionalAmount.toFixed(2)
+          lifebeeCommission: (lifebeeCommission / 100).toFixed(2),
+          professionalAmount: (professionalAmount / 100).toFixed(2)
         }
       });
       const paymentReference = await storage.createPaymentReference({
@@ -2487,58 +2992,7 @@ function setupRoutes(app3, redisClient) {
       });
     }
   });
-  app3.post("/api/payment/webhook", express.raw({ type: "application/json" }), async (req, res) => {
-    const sig = req.headers["stripe-signature"];
-    let event;
-    try {
-      event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-    } catch (err) {
-      console.error(`\u274C Erro de verifica\xE7\xE3o do Webhook Stripe: ${err.message}`);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-    switch (event.type) {
-      case "payment_intent.succeeded":
-        const paymentIntentSucceeded = event.data.object;
-        console.log("\u2705 PaymentIntent succeeded:", paymentIntentSucceeded.id);
-        await storage.updatePaymentReferenceStatus(
-          paymentIntentSucceeded.id,
-          "approved",
-          "succeeded",
-          paymentIntentSucceeded.id,
-          /* @__PURE__ */ new Date()
-        );
-        const serviceOfferIdApproved = paymentIntentSucceeded.metadata.serviceOfferId;
-        if (serviceOfferIdApproved) {
-          await storage.updateServiceOfferStatus(parseInt(serviceOfferIdApproved), "accepted");
-          console.log(`\u2705 Proposta ${serviceOfferIdApproved} marcada como paga`);
-        }
-        break;
-      case "payment_intent.payment_failed":
-        const paymentIntentFailed = event.data.object;
-        console.log("\u274C PaymentIntent failed:", paymentIntentFailed.id);
-        await storage.updatePaymentReferenceStatus(
-          paymentIntentFailed.id,
-          "rejected",
-          paymentIntentFailed.last_payment_error?.message || "failed",
-          paymentIntentFailed.id
-        );
-        break;
-      case "payment_intent.processing":
-        const paymentIntentProcessing = event.data.object;
-        console.log("\u23F3 PaymentIntent processing:", paymentIntentProcessing.id);
-        await storage.updatePaymentReferenceStatus(
-          paymentIntentProcessing.id,
-          "pending",
-          "processing",
-          paymentIntentProcessing.id
-        );
-        break;
-      default:
-        console.log(`Unhandled event type ${event.type}`);
-    }
-    res.status(200).json({ received: true });
-  });
-  app3.get("/api/payment/test-config", (req, res) => {
+  app2.get("/api/payment/test-config", (req, res) => {
     res.json({
       success: true,
       config: {
@@ -2550,7 +3004,53 @@ function setupRoutes(app3, redisClient) {
       message: "Configura\xE7\xE3o verificada com sucesso"
     });
   });
-  app3.get("/api/service-requests/client", authenticateToken, async (req, res) => {
+  app2.post("/api/service/:id/complete", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const serviceRequestId = parseInt(req.params.id);
+      console.log("\u{1F537} Profissional marcando servi\xE7o como conclu\xEDdo:", {
+        userId: user.id,
+        userType: user.userType,
+        serviceRequestId
+      });
+      if (user.userType !== "provider") {
+        return res.status(403).json({ error: "Apenas profissionais podem marcar servi\xE7os como conclu\xEDdos" });
+      }
+      const serviceRequest = await storage.getServiceRequestById(serviceRequestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ error: "Servi\xE7o n\xE3o encontrado" });
+      }
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
+      }
+      const offers = await storage.getServiceOffersByRequest(serviceRequestId);
+      const acceptedOffer = offers.find(
+        (offer) => offer.professionalId === professional.id && offer.status === "accepted"
+      );
+      if (!acceptedOffer) {
+        return res.status(403).json({
+          error: "Voc\xEA n\xE3o tem permiss\xE3o para marcar este servi\xE7o como conclu\xEDdo"
+        });
+      }
+      await storage.updateServiceRequestStatus(serviceRequestId, "awaiting_confirmation");
+      console.log("\u2705 Servi\xE7o marcado como aguardando confirma\xE7\xE3o do cliente");
+      await storage.createNotification({
+        userId: serviceRequest.clientId,
+        type: "service_completed",
+        title: "Servi\xE7o Conclu\xEDdo! \u{1F389}",
+        message: `O profissional ${professional.name} marcou o servi\xE7o "${serviceRequest.title}" como conclu\xEDdo. Por favor, confirme a conclus\xE3o.`
+      });
+      res.json({
+        success: true,
+        message: "Servi\xE7o marcado como conclu\xEDdo. Aguardando confirma\xE7\xE3o do cliente."
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao marcar servi\xE7o como conclu\xEDdo:", error);
+      res.status(500).json({ error: "Erro ao marcar servi\xE7o como conclu\xEDdo" });
+    }
+  });
+  app2.get("/api/service-requests/client", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       if (user.userType !== "client") {
@@ -2563,7 +3063,7 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.get("/api/service-offers/client", authenticateToken, async (req, res) => {
+  app2.get("/api/service-offers/client", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       if (user.userType !== "client") {
@@ -2576,7 +3076,7 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.get("/api/user", authenticateToken, async (req, res) => {
+  app2.get("/api/user", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       const fullUser = await storage.getUser(user.id);
@@ -2589,7 +3089,7 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.get("/api/professionals", async (req, res) => {
+  app2.get("/api/professionals", async (req, res) => {
     try {
       const professionals2 = await storage.getAllProfessionals();
       res.json(professionals2);
@@ -2598,7 +3098,7 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.get("/api/professionals/:id", async (req, res) => {
+  app2.get("/api/professionals/:id", async (req, res) => {
     try {
       const { id } = req.params;
       const professional = await storage.getProfessional(parseInt(id));
@@ -2611,23 +3111,72 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.post("/api/service-requests", authenticateToken, async (req, res) => {
+  app2.get("/api/professionals/:id/proposals", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const professionalUserId = parseInt(req.params.id);
+      if (isNaN(professionalUserId)) {
+        return res.status(400).json({ message: "ID do profissional inv\xE1lido" });
+      }
+      if (user.userType !== "provider" || user.id !== professionalUserId) {
+        return res.status(403).json({ message: "Acesso negado \xE0s propostas" });
+      }
+      const professional = await storage.getProfessionalByUserId(professionalUserId);
+      if (!professional) {
+        return res.status(404).json({ message: "Profissional n\xE3o encontrado" });
+      }
+      console.log("\u{1F4CB} Buscando propostas para professional.id:", professional.id);
+      const proposals = await storage.getProposalsByProfessional(professional.id);
+      console.log("\u2705 Propostas encontradas:", proposals.length);
+      res.json(proposals);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar propostas do profissional:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/service-requests", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       if (user.userType !== "client") {
         return res.status(403).json({ message: "Acesso negado" });
       }
+      const requestData = { ...req.body };
+      if (requestData.scheduledDate && typeof requestData.scheduledDate === "string") {
+        if (requestData.scheduledTime) {
+          requestData.scheduledDate = /* @__PURE__ */ new Date(`${requestData.scheduledDate}T${requestData.scheduledTime}`);
+        } else {
+          requestData.scheduledDate = new Date(requestData.scheduledDate);
+        }
+      }
       const serviceRequest = await storage.createServiceRequest({
-        ...req.body,
+        ...requestData,
         clientId: user.id
       });
+      try {
+        console.log("\u{1F4E2} Tentando criar notifica\xE7\xE3o:", {
+          type: "success",
+          title: "Solicita\xE7\xE3o Criada",
+          userId: user.id
+        });
+        await storage.createNotification({
+          type: "success",
+          title: "Solicita\xE7\xE3o Criada",
+          message: `Sua solicita\xE7\xE3o de ${requestData.serviceType} foi criada com sucesso`,
+          userId: user.id,
+          actionUrl: "/my-requests"
+        });
+        console.log("\u2705 Notifica\xE7\xE3o criada com sucesso");
+      } catch (notificationError) {
+        console.error("\u26A0\uFE0F Erro ao criar notifica\xE7\xE3o (n\xE3o cr\xEDtico):", notificationError.message);
+        console.error("Stack:", notificationError.stack);
+      }
       res.json({ success: true, message: "Solicita\xE7\xE3o criada com sucesso", data: serviceRequest });
     } catch (error) {
       console.error("\u274C Erro ao criar solicita\xE7\xE3o:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.get("/api/service-requests/professional", authenticateToken, async (req, res) => {
+  app2.get("/api/service-requests/professional", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       if (user.userType !== "professional") {
@@ -2644,7 +3193,7 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.post("/api/service-offers", authenticateToken, async (req, res) => {
+  app2.post("/api/service-offers", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       if (user.userType !== "professional") {
@@ -2658,13 +3207,23 @@ function setupRoutes(app3, redisClient) {
         ...req.body,
         professionalId: professional.id
       });
+      const serviceRequest = await storage.getServiceRequestById(req.body.serviceRequestId);
+      if (serviceRequest) {
+        await storage.createNotification({
+          type: "info",
+          title: "Nova Proposta Recebida",
+          message: `Voc\xEA recebeu uma nova proposta para ${serviceRequest.serviceType}`,
+          userId: serviceRequest.clientId,
+          actionUrl: "/service-offer"
+        });
+      }
       res.json({ success: true, message: "Proposta criada com sucesso", data: serviceOffer });
     } catch (error) {
       console.error("\u274C Erro ao criar proposta:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.get("/api/service-offers/professional", authenticateToken, async (req, res) => {
+  app2.get("/api/service-offers/professional", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       if (user.userType !== "professional") {
@@ -2681,16 +3240,70 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.post("/api/service-offers/:id/accept", async (req, res) => {
+  app2.post("/api/service-offers/:id/accept", authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
+      const user = req.user;
+      const result = await storage.acceptServiceOffer(parseInt(id), user.id);
+      if (!result.success) {
+        return res.status(400).json({ message: result.error || "Erro ao aceitar proposta" });
+      }
+      const offer = await storage.getServiceOfferById(parseInt(id));
+      if (offer) {
+        try {
+          await storage.createNotification({
+            type: "success",
+            title: "Proposta Aceita",
+            message: `Sua proposta foi aceita pelo cliente`,
+            userId: offer.professionalId,
+            actionUrl: "/provider-dashboard"
+          });
+          await storage.createNotification({
+            type: "success",
+            title: "Proposta Aceita",
+            message: `Voc\xEA aceitou a proposta do profissional`,
+            userId: user.id,
+            actionUrl: "/my-requests"
+          });
+        } catch (notifError) {
+          console.error("\u26A0\uFE0F Erro ao criar notifica\xE7\xF5es (n\xE3o cr\xEDtico):", notifError);
+        }
+      }
       res.json({ success: true, message: "Proposta aceita com sucesso" });
     } catch (error) {
       console.error("\u274C Erro ao aceitar proposta:", error);
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.get("/api/notifications", authenticateToken, async (req, res) => {
+  app2.put("/api/service-offers/:id/reject", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+      const result = await storage.rejectServiceOffer(parseInt(id), user.id);
+      if (!result.success) {
+        return res.status(400).json({ message: result.error || "Erro ao rejeitar proposta" });
+      }
+      const offer = await storage.getServiceOfferById(parseInt(id));
+      if (offer) {
+        try {
+          await storage.createNotification({
+            type: "info",
+            title: "Proposta Rejeitada",
+            message: `Sua proposta foi rejeitada pelo cliente`,
+            userId: offer.professionalId,
+            actionUrl: "/provider-dashboard"
+          });
+        } catch (notifError) {
+          console.error("\u26A0\uFE0F Erro ao criar notifica\xE7\xF5es (n\xE3o cr\xEDtico):", notifError);
+        }
+      }
+      res.json({ success: true, message: "Proposta rejeitada com sucesso" });
+    } catch (error) {
+      console.error("\u274C Erro ao rejeitar proposta:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/notifications", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
       const notifications2 = await storage.getNotificationsByUser(user.id);
@@ -2700,7 +3313,7 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.put("/api/notifications/:id/read", authenticateToken, async (req, res) => {
+  app2.put("/api/notifications/:id/read", authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
       await storage.markNotificationRead(parseInt(id));
@@ -2710,7 +3323,7 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.put("/api/profile", async (req, res) => {
+  app2.put("/api/profile", async (req, res) => {
     try {
       res.json({ success: true, message: "Perfil atualizado com sucesso" });
     } catch (error) {
@@ -2718,7 +3331,31 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.post("/api/profile/upload", async (req, res) => {
+  app2.put("/api/user/profile", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const { name, email, phone, address } = req.body;
+      console.log("\u{1F504} Atualizando perfil do usu\xE1rio:", user.id);
+      console.log("\u{1F4DD} Dados recebidos:", { name, email, phone, address });
+      await storage.updateUser(user.id, {
+        name,
+        email,
+        phone,
+        address
+      });
+      console.log("\u2705 Perfil atualizado com sucesso");
+      const updatedUser = await storage.getUser(user.id);
+      res.json({
+        success: true,
+        message: "Perfil atualizado com sucesso",
+        user: updatedUser
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao atualizar perfil:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/profile/upload", async (req, res) => {
     try {
       res.json({ success: true, message: "Imagem enviada com sucesso" });
     } catch (error) {
@@ -2726,7 +3363,22 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.post("/api/login", async (req, res) => {
+  app2.post("/api/user/upload-image", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      console.log("\u{1F4F8} Upload de imagem para usu\xE1rio:", user.id);
+      res.json({
+        success: true,
+        message: "Imagem enviada com sucesso",
+        profileImage: "/uploads/default-avatar.png"
+        // Placeholder
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao enviar imagem:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/login", async (req, res) => {
     try {
       const { username, password } = req.body;
       if (!username || !password) {
@@ -2766,7 +3418,7 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
-  app3.post("/api/register", async (req, res) => {
+  app2.post("/api/register", async (req, res) => {
     try {
       const { username, email, password, name, phone, userType } = req.body;
       if (!username || !email || !password || !name) {
@@ -2811,6 +3463,346 @@ function setupRoutes(app3, redisClient) {
       res.status(500).json({ message: "Erro interno do servidor" });
     }
   });
+  app2.get("/api/service-requests/:id", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const requestId = parseInt(id);
+      if (isNaN(requestId)) {
+        return res.status(400).json({ message: "ID inv\xE1lido" });
+      }
+      const serviceRequest = await storage.getServiceRequestById(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicita\xE7\xE3o de servi\xE7o n\xE3o encontrada" });
+      }
+      const client = await storage.getUser(serviceRequest.clientId);
+      const serviceDataWithClient = {
+        ...serviceRequest,
+        clientName: client?.name || "Cliente",
+        clientProfileImage: client?.profileImage || "",
+        clientPhone: client?.phone || "",
+        clientEmail: client?.email || ""
+      };
+      res.json(serviceDataWithClient);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar solicita\xE7\xE3o de servi\xE7o:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/service-requests/:id/offers", authenticateToken, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const offers = await storage.getServiceOffers(parseInt(id));
+      res.json(offers);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar propostas:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/service-requests/:id/offers", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const { id } = req.params;
+      const serviceRequestId = parseInt(id);
+      console.log("\u{1F464} Usu\xE1rio tentando criar proposta:", {
+        id: user.id,
+        name: user.name,
+        userType: user.userType,
+        isProvider: user.userType === "provider"
+      });
+      if (user.userType !== "provider") {
+        console.log("\u274C Acesso negado - userType:", user.userType);
+        return res.status(403).json({ message: "Acesso negado - apenas prestadores podem criar propostas" });
+      }
+      if (isNaN(serviceRequestId)) {
+        return res.status(400).json({ message: "ID da solicita\xE7\xE3o inv\xE1lido" });
+      }
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ message: "Profissional n\xE3o encontrado" });
+      }
+      const serviceRequest = await storage.getServiceRequestById(serviceRequestId);
+      console.log("\u{1F4CB} Solicita\xE7\xE3o encontrada:", {
+        id: serviceRequest?.id,
+        serviceType: serviceRequest?.serviceType,
+        clientId: serviceRequest?.clientId
+      });
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicita\xE7\xE3o de servi\xE7o n\xE3o encontrada" });
+      }
+      const serviceOffer = await storage.createServiceOffer({
+        serviceRequestId,
+        professionalId: professional.id,
+        proposedPrice: req.body.proposedPrice,
+        estimatedTime: req.body.estimatedTime,
+        message: req.body.message,
+        status: "pending"
+      });
+      console.log("\u2705 Proposta criada com sucesso:", serviceOffer.id);
+      try {
+        await storage.createNotification({
+          type: "info",
+          title: "Nova Proposta Recebida",
+          message: `Voc\xEA recebeu uma nova proposta para ${serviceRequest.serviceType}`,
+          userId: serviceRequest.clientId,
+          actionUrl: "/service-offer"
+        });
+        console.log("\u2705 Notifica\xE7\xE3o criada para o cliente ID:", serviceRequest.clientId);
+      } catch (notificationError) {
+        console.error("\u26A0\uFE0F Erro ao criar notifica\xE7\xE3o (proposta j\xE1 foi criada):", notificationError);
+      }
+      res.json({ success: true, message: "Proposta criada com sucesso", data: serviceOffer });
+    } catch (error) {
+      console.error("\u274C Erro ao criar proposta:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.delete("/api/service-requests/:id", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const requestId = parseInt(req.params.id);
+      console.log("\u{1F5D1}\uFE0F Tentativa de exclus\xE3o de service request ID:", requestId, "por usu\xE1rio:", user.id);
+      const serviceRequest = await storage.getServiceRequestById(requestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ message: "Solicita\xE7\xE3o n\xE3o encontrada" });
+      }
+      if (user.userType !== "client" || serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ message: "Apenas o cliente que criou a solicita\xE7\xE3o pode exclu\xED-la" });
+      }
+      if (!["open", "pending", "assigned"].includes(serviceRequest.status)) {
+        return res.status(400).json({
+          message: "Apenas solicita\xE7\xF5es abertas, pendentes ou atribu\xEDdas podem ser exclu\xEDdas",
+          currentStatus: serviceRequest.status
+        });
+      }
+      await storage.deleteServiceRequest(requestId);
+      console.log("\u2705 Service request exclu\xEDdo com sucesso, ID:", requestId);
+      res.json({
+        success: true,
+        message: "Solicita\xE7\xE3o e todas as propostas relacionadas foram exclu\xEDdas com sucesso",
+        deletedRequestId: requestId
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao excluir solicita\xE7\xE3o:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/appointments", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "client") {
+        return res.status(403).json({ message: "Acesso negado. Apenas clientes podem acessar esta rota." });
+      }
+      console.log("\u{1F4C5} Buscando agendamentos para cliente ID:", user.id);
+      const serviceRequests2 = await storage.getServiceRequestsByClient(user.id);
+      const appointments2 = serviceRequests2.filter((sr) => sr.status === "assigned" || sr.status === "accepted" || sr.status === "in_progress" || sr.status === "awaiting_confirmation" || sr.status === "completed").map((sr) => ({
+        id: sr.id,
+        clientId: sr.clientId,
+        professionalId: sr.assignedProfessionalId,
+        serviceType: sr.serviceType,
+        description: sr.description,
+        scheduledFor: sr.scheduledDate,
+        scheduledTime: sr.scheduledTime,
+        status: sr.status,
+        address: sr.address,
+        createdAt: sr.createdAt,
+        updatedAt: sr.updatedAt
+      }));
+      console.log("\u2705 Agendamentos encontrados:", appointments2.length);
+      res.json(appointments2);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar agendamentos do cliente:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/appointments/provider", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      console.log("\u{1F4C5} Buscando agendamentos para profissional ID:", user.id);
+      const appointments2 = await storage.getServiceRequestsByProfessional(user.id);
+      console.log("\u2705 Agendamentos encontrados:", appointments2.length);
+      res.json(appointments2);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar agendamentos:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/service-requests/category/:category", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const category = req.params.category;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      console.log("\u{1F50D} Buscando solicita\xE7\xF5es para categoria:", category, "por profissional ID:", user.id);
+      const serviceRequests2 = await storage.getServiceRequestsByCategory(category);
+      const availableRequests = serviceRequests2.filter(
+        (request) => request.status === "open" || request.status === "pending" || request.status === "assigned" && request.assignedProfessionalId === user.id
+      );
+      console.log("\u2705 Solicita\xE7\xF5es encontradas:", availableRequests.length);
+      res.json(availableRequests);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar solicita\xE7\xF5es por categoria:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.put("/api/provider/availability", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const { available } = req.body;
+      console.log("\u{1F527} Atualizando disponibilidade do profissional:", { userId: user.id, available });
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem atualizar sua disponibilidade." });
+      }
+      await storage.updateProfessionalAvailability(user.id, available);
+      console.log("\u2705 Disponibilidade atualizada com sucesso");
+      res.json({ message: "Disponibilidade atualizada com sucesso", available });
+    } catch (error) {
+      console.error("\u274C Erro ao atualizar disponibilidade:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/professional/:id/completed-services", authenticateToken, async (req, res) => {
+    try {
+      console.log("\u{1F680} Endpoint /api/professional/:id/completed-services chamado");
+      const user = req.user;
+      const professionalId = parseInt(req.params.id);
+      console.log("\u{1F464} Usu\xE1rio autenticado:", { id: user?.id, userType: user?.userType, name: user?.name });
+      console.log("\u{1F4CB} Professional ID solicitado:", professionalId);
+      if (user.userType !== "provider" || user.id !== professionalId) {
+        console.log("\u274C Acesso negado - verifica\xE7\xE3o de permiss\xE3o falhou");
+        return res.status(403).json({ message: "Acesso negado. Voc\xEA s\xF3 pode acessar seus pr\xF3prios dados." });
+      }
+      console.log("\u2705 Permiss\xE3o aprovada, buscando dados...");
+      console.log("\u{1F4CA} Buscando servi\xE7os conclu\xEDdos para profissional ID:", professionalId);
+      console.log("\u{1F50D} Buscando professional_id para user_id:", professionalId);
+      const professional = await storage.getProfessionalByUserId(professionalId);
+      if (!professional) {
+        console.log("\u274C Profissional n\xE3o encontrado para user_id:", professionalId);
+        return res.status(404).json({ message: "Profissional n\xE3o encontrado" });
+      }
+      console.log("\u2705 Profissional encontrado:", { id: professional.id, userId: professional.userId, name: professional.name });
+      console.log("\u{1F50D} Buscando servi\xE7os conclu\xEDdos para professional_id:", professional.id);
+      const completedServices = await storage.getProfessionalCompletedServices(professional.id);
+      console.log("\u2705 Servi\xE7os conclu\xEDdos encontrados:", completedServices.length);
+      console.log("\u{1F4CB} Primeiro servi\xE7o:", completedServices[0] || "Nenhum servi\xE7o");
+      res.json({ data: completedServices });
+    } catch (error) {
+      console.error("\u274C Erro ao buscar servi\xE7os conclu\xEDdos:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/provider/payments", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const filter = req.query.filter || "all";
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      console.log("\u{1F4B3} Buscando pagamentos para profissional ID:", user.id, "com filtro:", filter);
+      const payments = await storage.getPaymentsByProfessional(user.id, filter);
+      const stats = await storage.getPaymentStatsByProfessional(user.id);
+      console.log("\u2705 Pagamentos encontrados:", payments.length);
+      console.log("\u2705 Estat\xEDsticas:", stats);
+      res.json({
+        payments,
+        stats
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao buscar pagamentos:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/provider/profile", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      console.log("\u{1F464} Buscando perfil do profissional ID:", user.id);
+      const profileData = await storage.getProviderProfile(user.id);
+      console.log("\u2705 Perfil encontrado:", !!profileData);
+      res.json(profileData);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar perfil do profissional:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/provider/dashboard", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      if (user.userType !== "provider") {
+        return res.status(403).json({ message: "Acesso negado. Apenas profissionais podem acessar esta rota." });
+      }
+      console.log("\u{1F4CA} Buscando dados do dashboard para profissional ID:", user.id);
+      const dashboardData = await storage.getProviderDashboardData(user.id);
+      console.log("\u2705 Dados do dashboard encontrados:", !!dashboardData);
+      res.json(dashboardData);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar dados do dashboard:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/notifications/count", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const count = await storage.getUnreadNotificationCount(user.id);
+      res.json({ count });
+    } catch (error) {
+      console.error("\u274C Erro ao buscar contador de notifica\xE7\xF5es:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.get("/api/notifications", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const notifications2 = await storage.getUserNotifications(user.id);
+      res.json(notifications2);
+    } catch (error) {
+      console.error("\u274C Erro ao buscar notifica\xE7\xF5es:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/notifications/:id/read", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const { id } = req.params;
+      await storage.markNotificationAsRead(parseInt(id), user.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("\u274C Erro ao marcar notifica\xE7\xE3o como lida:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/notifications/mark-all-read", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      await storage.markAllNotificationsAsRead(user.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("\u274C Erro ao marcar todas as notifica\xE7\xF5es como lidas:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
+  app2.post("/api/notifications", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const { type, title, message, userId, actionUrl } = req.body;
+      const notification = await storage.createNotification({
+        type,
+        title,
+        message,
+        userId: userId || user.id,
+        actionUrl
+      });
+      res.json({ success: true, notification });
+    } catch (error) {
+      console.error("\u274C Erro ao criar notifica\xE7\xE3o:", error);
+      res.status(500).json({ message: "Erro interno do servidor" });
+    }
+  });
 }
 
 // server/index.ts
@@ -2820,23 +3812,26 @@ import Redis from "redis";
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = path2.dirname(__filename);
 config2({ path: path2.join(__dirname, ".env") });
-var app2 = express2();
+var app = express2();
 console.log("=== Backend inicializado ===");
-app2.use((req, res, next) => {
+app.use((req, res, next) => {
   if (req.path.startsWith("/uploads")) return next();
   const origin = req.headers.origin;
-  const allowedOrigins = [
-    "https://lifebee.netlify.app",
-    "https://lifebee.com.br",
-    "http://localhost:5173",
-    "http://localhost:5174"
-  ];
-  res.setHeader("Vary", "Origin");
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
+  if (process.env.NODE_ENV === "development") {
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
   } else {
-    const defaultOrigin = process.env.NODE_ENV === "production" ? "https://lifebee.netlify.app" : "http://localhost:5173";
-    res.setHeader("Access-Control-Allow-Origin", defaultOrigin);
+    const allowedOrigins = [
+      "https://lifebee.netlify.app",
+      "https://lifebee.com.br",
+      "http://localhost:5173",
+      "http://localhost:5174"
+    ];
+    res.setHeader("Vary", "Origin");
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    } else {
+      res.setHeader("Access-Control-Allow-Origin", "https://lifebee.netlify.app");
+    }
   }
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD");
@@ -2844,13 +3839,13 @@ app2.use((req, res, next) => {
   if (req.method === "OPTIONS") return res.status(204).end();
   next();
 });
-app2.use(express2.json());
-app2.use(express2.urlencoded({ extended: false }));
-app2.use((req, res, next) => {
+app.use(express2.json());
+app.use(express2.urlencoded({ extended: false }));
+app.use((req, res, next) => {
   console.log("\u{1F310} Debug Global - Requisi\xE7\xE3o:", req.method, req.path);
   next();
 });
-app2.use(async (req, res, next) => {
+app.use(async (req, res, next) => {
   if (req.path.startsWith("/api") && req.path !== "/api/health") {
     try {
       const { db: db2 } = await Promise.resolve().then(() => (init_db(), db_exports));
@@ -2867,7 +3862,7 @@ app2.use(async (req, res, next) => {
     next();
   }
 });
-app2.use((req, res, next) => {
+app.use((req, res, next) => {
   const start = Date.now();
   const path3 = req.path;
   let capturedJsonResponse = void 0;
@@ -2898,8 +3893,8 @@ app2.use((req, res, next) => {
   } catch (error) {
     console.log("\u26A0\uFE0F Redis n\xE3o dispon\xEDvel, usando fallback");
   }
-  setupRoutes(app2, redisClient);
-  const server = createServer(app2);
+  setupRoutes(app, redisClient);
+  const server = createServer(app);
   const io = new SocketIOServer(server, {
     cors: {
       origin: [
@@ -2923,7 +3918,7 @@ app2.use((req, res, next) => {
       console.log("Usu\xE1rio desconectado:", socket.id);
     });
   });
-  app2.use((err, _req, res, _next) => {
+  app.use((err, _req, res, _next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
     console.error("\u274C Erro global capturado:");
@@ -2943,7 +3938,7 @@ app2.use((req, res, next) => {
     }
     res.status(status).json(errorResponse);
   });
-  const port = process.env.PORT || 8080;
+  const port = process.env.PORT || 3001;
   server.listen({
     port: Number(port),
     host: "0.0.0.0"

@@ -1002,10 +1002,6 @@ export function setupRoutes(app: Express, redisClient: any) {
         type: 'service_completed',
         title: 'Serviço Concluído! 🎉',
         message: `O profissional ${professional.name} marcou o serviço "${serviceRequest.title}" como concluído. Por favor, confirme a conclusão.`,
-        data: {
-          serviceRequestId: serviceRequestId,
-          professionalId: professional.id,
-        }
       });
 
       res.json({ 
