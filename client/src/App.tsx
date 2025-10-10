@@ -34,6 +34,7 @@ import AuthCallback from "@/pages/auth-callback";
 import PaymentSuccess from "@/pages/payment-success";
 import PaymentFailure from "@/pages/payment-failure";
 import PaymentPending from "@/pages/payment-pending";
+import StripeOnboardingRequired from "@/pages/stripe-onboarding-required";
 
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -66,6 +67,9 @@ function Router() {
   if (user?.userType === "provider") {
     return (
       <Switch>
+        {/* Rota de onboarding Stripe - SEMPRE acessível */}
+        <Route path="/stripe-setup" component={StripeOnboardingRequired} />
+        
         <Route path="/" component={ProviderDashboard} />
         <Route path="/provider-dashboard" component={ProviderDashboard} />
         <Route path="/provider-registration">

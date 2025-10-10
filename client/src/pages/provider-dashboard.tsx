@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { Link } from "wouter";
+import { StripeGuard } from "@/components/stripe-guard";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1654,9 +1655,10 @@ export default function ProviderDashboard() {
   };
 
   return (
-    <ProviderLayout>
-      {/* Conteúdo da página original */}
-              <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-32">
+    <StripeGuard>
+      <ProviderLayout>
+        {/* Conteúdo da página original */}
+                <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-32">
           {/* Header */}
           <div className="bg-white dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-700 rounded-b-lg px-3 sm:px-4 py-2 sm:py-3">
 			<div className="flex flex-row items-center justify-between gap-2">
@@ -2727,6 +2729,7 @@ export default function ProviderDashboard() {
         </DialogContent>
       </Dialog>
     </ProviderLayout>
+    </StripeGuard>
   );
 }
  

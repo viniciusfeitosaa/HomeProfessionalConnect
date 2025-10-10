@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,6 +31,7 @@ interface ProviderRegistrationProps {
 }
 
 export default function ProviderRegistration({ onComplete }: ProviderRegistrationProps) {
+  const [, setLocation] = useLocation();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     // Personal Info
@@ -56,8 +58,9 @@ export default function ProviderRegistration({ onComplete }: ProviderRegistratio
     if (step < totalSteps) {
       setStep(step + 1);
     } else {
-      // Complete registration
-      onComplete();
+      // Complete registration e redirecionar para Stripe Setup
+      console.log('✅ Cadastro completo - redirecionando para Stripe Connect...');
+      setLocation('/stripe-setup');
     }
   };
 
