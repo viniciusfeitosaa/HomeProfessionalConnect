@@ -16,6 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { getApiUrl } from "@/lib/api-config";
 import { ProviderLayout } from "@/components/ProviderLayout";
+import { StripeConnectSetup } from "@/components/stripe-connect-setup";
 
 export default function ProviderSettings() {
   const { theme, setTheme } = useTheme();
@@ -370,38 +371,8 @@ export default function ProviderSettings() {
             </CardContent>
           </Card>
 
-          {/* Payment Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5" />
-                Pagamentos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div>
-                    <p className="font-medium">Conta Bancária</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {payments.bankAccount || "Não configurado"}
-                    </p>
-                  </div>
-                  <Button variant="outline" size="sm">Alterar</Button>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div>
-                    <p className="font-medium">PIX</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {payments.pixKey || "Não configurado"}
-                    </p>
-                  </div>
-                  <Button variant="outline" size="sm">Alterar</Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Stripe Connect Setup - Sistema de Pagamentos */}
+          <StripeConnectSetup />
 
           {/* Security Section */}
           <Card>
