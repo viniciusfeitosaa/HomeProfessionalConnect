@@ -467,66 +467,84 @@ export class DatabaseStorage implements IStorage {
       stripeConnectedAt?: Date;
     }
   ): Promise<Professional> {
-    // Construir objeto de update apenas com campos definidos
-    const updateData: any = {};
-    
+    // Usar SQL raw para evitar problemas com schema não sincronizado
+    const updateFields: string[] = [];
+    const values: any[] = [];
+    let paramCounter = 1;
+
     if (data.stripeAccountId !== undefined) {
-      updateData.stripeAccountId = data.stripeAccountId;
+      updateFields.push(`stripe_account_id = $${paramCounter++}`);
+      values.push(data.stripeAccountId);
     }
     if (data.stripeAccountStatus !== undefined) {
-      updateData.stripeAccountStatus = data.stripeAccountStatus;
+      updateFields.push(`stripe_account_status = $${paramCounter++}`);
+      values.push(data.stripeAccountStatus);
     }
     if (data.stripeOnboardingCompleted !== undefined) {
-      updateData.stripeOnboardingCompleted = data.stripeOnboardingCompleted;
+      updateFields.push(`stripe_onboarding_completed = $${paramCounter++}`);
+      values.push(data.stripeOnboardingCompleted);
     }
     if (data.stripeDetailsSubmitted !== undefined) {
-      updateData.stripeDetailsSubmitted = data.stripeDetailsSubmitted;
+      updateFields.push(`stripe_details_submitted = $${paramCounter++}`);
+      values.push(data.stripeDetailsSubmitted);
     }
     if (data.stripeChargesEnabled !== undefined) {
-      updateData.stripeChargesEnabled = data.stripeChargesEnabled;
+      updateFields.push(`stripe_charges_enabled = $${paramCounter++}`);
+      values.push(data.stripeChargesEnabled);
     }
     if (data.stripePayoutsEnabled !== undefined) {
-      updateData.stripePayoutsEnabled = data.stripePayoutsEnabled;
+      updateFields.push(`stripe_payouts_enabled = $${paramCounter++}`);
+      values.push(data.stripePayoutsEnabled);
     }
     if (data.stripeConnectedAt !== undefined) {
-      updateData.stripeConnectedAt = data.stripeConnectedAt;
+      updateFields.push(`stripe_connected_at = $${paramCounter++}`);
+      values.push(data.stripeConnectedAt);
     }
-    
-    const [professional] = await db
-      .update(professionals)
-      .set(updateData)
-      .where(eq(professionals.id, professionalId))
-      .returning();
-    
-    return professional;
+
+    if (updateFields.length === 0) {
+      throw new Error('Nenhum campo para atualizar');
+    }
+
+    values.push(professionalId);
+
+    const query = `
+      UPDATE professionals 
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramCounter}
+      RETURNING *
+    `;
+
+    console.log('🔍 SQL Update Query:', query);
+    console.log('🔍 Values:', values);
+
+    const result = await this.db.query(query, values);
+    return result.rows[0];
   }
 
   async getProfessionalByStripeAccountId(stripeAccountId: string): Promise<Professional | null> {
-    const [professional] = await db
-      .select()
-      .from(professionals)
-      .where(eq(professionals.stripeAccountId, stripeAccountId));
-    return professional || null;
+    const result = await this.db.query(
+      'SELECT * FROM professionals WHERE stripe_account_id = $1',
+      [stripeAccountId]
+    );
+    return result.rows[0] || null;
   }
 
   async getProfessionalsWithoutStripeConnect(): Promise<Professional[]> {
-    return await db
-      .select()
-      .from(professionals)
-      .where(
-        or(
-          isNull(professionals.stripeAccountId),
-          eq(professionals.stripeOnboardingCompleted, false)
-        )
-      );
+    const result = await this.db.query(`
+      SELECT * FROM professionals 
+      WHERE stripe_account_id IS NULL 
+      OR stripe_onboarding_completed = FALSE
+      ORDER BY created_at DESC
+    `);
+    return result.rows;
   }
 
   async canProfessionalReceivePayments(professionalId: number): Promise<boolean> {
-    const [professional] = await db
-      .select({ stripeChargesEnabled: professionals.stripeChargesEnabled })
-      .from(professionals)
-      .where(eq(professionals.id, professionalId));
-    return professional?.stripeChargesEnabled === true;
+    const result = await this.db.query(
+      'SELECT stripe_charges_enabled FROM professionals WHERE id = $1',
+      [professionalId]
+    );
+    return result.rows[0]?.stripe_charges_enabled === true;
   }
 
   // Appointments
