@@ -950,6 +950,75 @@ export function setupRoutes(app: Express, redisClient: any) {
 
   // ==================== SERVICE ROUTES ====================
 
+  // Profissional marca serviço como concluído
+  app.post('/api/service/:id/complete', authenticateToken, async (req, res) => {
+    try {
+      const user = req.user as any;
+      const serviceRequestId = parseInt(req.params.id);
+
+      console.log('🔷 Profissional marcando serviço como concluído:', {
+        userId: user.id,
+        userType: user.userType,
+        serviceRequestId
+      });
+
+      // Verificar se é profissional
+      if (user.userType !== 'provider') {
+        return res.status(403).json({ error: 'Apenas profissionais podem marcar serviços como concluídos' });
+      }
+
+      // Buscar serviço
+      const serviceRequest = await storage.getServiceRequestById(serviceRequestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ error: 'Serviço não encontrado' });
+      }
+
+      // Buscar profissional
+      const professional = await storage.getProfessionalByUserId(user.id);
+      if (!professional) {
+        return res.status(404).json({ error: 'Profissional não encontrado' });
+      }
+
+      // Verificar se o profissional está associado a uma proposta aceita deste serviço
+      const offers = await storage.getServiceOffersForRequest(serviceRequestId);
+      const acceptedOffer = offers.find(
+        offer => offer.professionalId === professional.id && offer.status === 'accepted'
+      );
+
+      if (!acceptedOffer) {
+        return res.status(403).json({ 
+          error: 'Você não tem permissão para marcar este serviço como concluído' 
+        });
+      }
+
+      // Atualizar status do serviço para "awaiting_confirmation"
+      await storage.updateServiceRequestStatus(serviceRequestId, 'awaiting_confirmation');
+
+      console.log('✅ Serviço marcado como aguardando confirmação do cliente');
+
+      // Criar notificação para o cliente
+      await storage.createNotification({
+        userId: serviceRequest.clientId,
+        type: 'service_completed',
+        title: 'Serviço Concluído! 🎉',
+        message: `O profissional ${professional.name} marcou o serviço "${serviceRequest.title}" como concluído. Por favor, confirme a conclusão.`,
+        data: {
+          serviceRequestId: serviceRequestId,
+          professionalId: professional.id,
+        }
+      });
+
+      res.json({ 
+        success: true,
+        message: 'Serviço marcado como concluído. Aguardando confirmação do cliente.' 
+      });
+
+    } catch (error: any) {
+      console.error('❌ Erro ao marcar serviço como concluído:', error);
+      res.status(500).json({ error: 'Erro ao marcar serviço como concluído' });
+    }
+  });
+
   // Get service requests for client
   app.get('/api/service-requests/client', authenticateToken, async (req, res) => {
     try {
