@@ -453,6 +453,16 @@ export default function PaymentButton(props: PaymentButtonProps) {
             description: "Escolha seu método de pagamento",
         });
       } else {
+        // ✨ Tratamento específico para erros de Stripe não configurado
+        if (data.errorCode === 'STRIPE_NOT_CONNECTED' || data.errorCode === 'STRIPE_NOT_ENABLED') {
+          toast({
+            title: "Profissional precisa configurar Stripe",
+            description: "O profissional ainda não conectou sua conta Stripe. Por favor, aguarde enquanto ele completa a configuração.",
+            variant: "destructive",
+          });
+          setError('Profissional precisa configurar sua conta Stripe');
+          return;
+        }
         throw new Error(data.error || 'Erro ao criar pagamento');
       }
     } catch (error) {
