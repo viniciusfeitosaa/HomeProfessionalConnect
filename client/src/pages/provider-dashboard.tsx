@@ -1823,31 +1823,10 @@ export default function ProviderDashboard() {
                       Configurações
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-                    {theme === 'dark' ? (
-                      <>
-                        <Sun className="mr-2 h-4 w-4" />
-                        Modo Claro
-                      </>
-                    ) : (
-                      <>
-                        <Moon className="mr-2 h-4 w-4" />
-                        Modo Escuro
-                      </>
-                    )}
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem>
                     <Shield className="mr-2 h-4 w-4" />
                     Privacidade e Segurança
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Bell className="mr-2 h-4 w-4" />
-                    Preferências de Notificação
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <DollarSign className="mr-2 h-4 w-4" />
-                    Métodos de Pagamento
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <HelpCircle className="mr-2 h-4 w-4" />

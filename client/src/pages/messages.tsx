@@ -393,8 +393,14 @@ export default function Messages({ params }: { params?: { conversationId?: strin
     return (
       <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-orange-50 pb-24">
         {/* Header */}
-        <div className="bg-white border-b px-4 py-3 shadow-sm">
+        <div className="bg-white border-b px-4 py-3 shadow-sm sticky top-0 z-50">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setLocation('/')}
+              className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors lg:hidden"
+            >
+              <ArrowLeft className="h-5 w-5 text-gray-600" />
+            </button>
             <h1 className="text-lg font-semibold text-gray-900">Mensagens</h1>
           </div>
         </div>
@@ -517,23 +523,21 @@ export default function Messages({ params }: { params?: { conversationId?: strin
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-orange-50 pb-24 flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b px-4 py-3 shadow-sm">
+      <div className="bg-white border-b px-4 py-3 shadow-sm sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => setLocation('/messages')}
-            className="lg:hidden"
+            className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors lg:hidden"
           >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+            <ArrowLeft className="h-5 w-5 text-gray-600" />
+          </button>
           <h1 className="text-lg font-semibold text-gray-900">Mensagens</h1>
         </div>
       </div>
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col">
         {/* Chat Header */}
-        <div className="p-4 border-b border-gray-200 bg-white">
+        <div className="p-4 border-b border-gray-200 bg-white sticky top-[57px] z-40 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -564,7 +568,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
           </div>
         </div>
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 pb-24 space-y-4" style={{ maxHeight: '60vh' }}>
+        <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-4">
           {messages.map((message) => {
             const isOwn = message.senderId === user?.id;
             return (

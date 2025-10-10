@@ -10,7 +10,7 @@ import { BottomNavigation } from "@/components/bottom-navigation";
 import { getApiUrl } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Calendar, MapPin, CheckCircle, Loader2 } from "lucide-react";
+import { Calendar, MapPin, CheckCircle, Loader2, ArrowLeft } from "lucide-react";
 import ClientNavbar from "../components/client-navbar";
 
 export default function Servico() {
@@ -251,6 +251,14 @@ export default function Servico() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col pb-24">
       <div className="flex-1 p-4">
         <div className="max-w-md mx-auto">
+          {/* Botão Voltar */}
+          <button
+            onClick={() => setLocation('/')}
+            className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors mb-4"
+          >
+            <ArrowLeft className="h-5 w-5 text-gray-600" />
+          </button>
+
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               Solicitar Serviço

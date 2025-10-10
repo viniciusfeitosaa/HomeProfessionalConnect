@@ -2886,26 +2886,21 @@ function setupRoutes(app2, redisClient) {
       if (!professional) {
         return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
       }
-      const skipStripeValidation = process.env.SKIP_STRIPE_VALIDATION === "true";
-      if (!skipStripeValidation) {
-        if (!professional.stripeAccountId) {
-          console.log("\u26A0\uFE0F Profissional n\xE3o tem conta Stripe Connect");
-          return res.status(400).json({
-            error: "Profissional precisa conectar sua conta Stripe primeiro",
-            errorCode: "STRIPE_NOT_CONNECTED",
-            needsStripeSetup: true
-          });
-        }
-        if (!professional.stripeChargesEnabled) {
-          console.log("\u26A0\uFE0F Profissional n\xE3o pode receber pagamentos ainda");
-          return res.status(400).json({
-            error: "Profissional ainda n\xE3o completou configura\xE7\xE3o do Stripe",
-            errorCode: "STRIPE_NOT_ENABLED",
-            needsStripeSetup: true
-          });
-        }
-      } else {
-        console.log("\u{1F527} MODO DEV: Valida\xE7\xE3o de Stripe Connect desabilitada");
+      if (!professional.stripeAccountId) {
+        console.log("\u26A0\uFE0F Profissional n\xE3o tem conta Stripe Connect");
+        return res.status(400).json({
+          error: "Profissional precisa conectar sua conta Stripe primeiro",
+          errorCode: "STRIPE_NOT_CONNECTED",
+          needsStripeSetup: true
+        });
+      }
+      if (!professional.stripeChargesEnabled) {
+        console.log("\u26A0\uFE0F Profissional n\xE3o pode receber pagamentos ainda");
+        return res.status(400).json({
+          error: "Profissional ainda n\xE3o completou configura\xE7\xE3o do Stripe",
+          errorCode: "STRIPE_NOT_ENABLED",
+          needsStripeSetup: true
+        });
       }
       const rawPrice = serviceOffer.finalPrice || serviceOffer.proposedPrice;
       if (!rawPrice || isNaN(parseFloat(rawPrice))) {
@@ -2928,18 +2923,18 @@ function setupRoutes(app2, redisClient) {
           message: "Configure STRIPE_SECRET_KEY para habilitar pagamentos"
         });
       }
-      const useStripeConnect = !skipStripeValidation && professional.stripeAccountId;
-      if (useStripeConnect) {
-        console.log(`\u{1F680} Criando Payment Intent com Connect...`);
-        console.log(`   Conta destino: ${professional.stripeAccountId}`);
-      } else {
-        console.log(`\u{1F527} Criando Payment Intent SEM Connect (modo dev)...`);
-        console.log(`   \u26A0\uFE0F TODO o valor vai para a conta principal`);
-      }
-      const paymentIntentParams = {
+      console.log(`\u{1F680} Criando Payment Intent com Connect...`);
+      console.log(`   Conta destino: ${professional.stripeAccountId}`);
+      const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(finalAmount * 100),
         currency: "brl",
         payment_method_types: ["card"],
+        application_fee_amount: lifebeeCommission,
+        // ✨ Taxa LifeBee (5%)
+        transfer_data: {
+          destination: professional.stripeAccountId
+          // ✨ Profissional recebe direto (95%)
+        },
         metadata: {
           serviceOfferId: serviceOffer.id.toString(),
           serviceRequestId: serviceOffer.serviceRequestId.toString(),
@@ -2948,14 +2943,7 @@ function setupRoutes(app2, redisClient) {
           lifebeeCommission: (lifebeeCommission / 100).toFixed(2),
           professionalAmount: (professionalAmount / 100).toFixed(2)
         }
-      };
-      if (useStripeConnect) {
-        paymentIntentParams.application_fee_amount = lifebeeCommission;
-        paymentIntentParams.transfer_data = {
-          destination: professional.stripeAccountId
-        };
-      }
-      const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+      });
       const paymentReference = await storage.createPaymentReference({
         serviceRequestId: serviceOffer.serviceRequestId,
         serviceOfferId: serviceOffer.id,

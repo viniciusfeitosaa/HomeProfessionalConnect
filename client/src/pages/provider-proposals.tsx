@@ -477,15 +477,6 @@ export default function ProviderProposals() {
 
                     {/* Ações */}
                     <div className="flex flex-col gap-2 lg:flex-shrink-0">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => openChat(proposal)}
-                      >
-                        <MessageCircle className="h-4 w-4 mr-2" />
-                        Chat com Cliente
-                      </Button>
-                      
                       {/* Botão para confirmar conclusão (apenas para propostas aceitas e serviços não concluídos) */}
                       {proposal.status === 'accepted' && proposal.serviceRequest?.status !== 'awaiting_confirmation' && (
                         <Button 

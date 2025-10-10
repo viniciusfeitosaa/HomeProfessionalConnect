@@ -64,6 +64,30 @@ export default function ClientNavbar({ hidePlus }: ClientNavbarProps) {
               <button
                 aria-label="Criar Serviço"
                 onClick={() => {
+                  // Log para debug
+                  console.log('🔍 Verificando cadastro do usuário:', {
+                    userExists: !!user,
+                    email: user?.email,
+                    phone: user?.phone,
+                    cpfLocalStorage: localStorage.getItem('client_cpf')
+                  });
+
+                  // Se o user não existe OU não tem email/phone, pode estar carregando
+                  if (!user || (!user.email && !user.phone)) {
+                    console.warn('⚠️ Dados do usuário não disponíveis');
+                    toast({
+                      title: "Carregando dados...",
+                      description: "Aguarde enquanto carregamos suas informações."
+                    });
+                    // Tentar novamente após 500ms
+                    setTimeout(() => {
+                      if (user?.email || user?.phone) {
+                        setLocation('/servico');
+                      }
+                    }, 500);
+                    return;
+                  }
+
                   const emailOk = !!(user?.email && /.+@.+\..+/.test(user.email.trim()));
                   const digits = (user?.phone || "").replace(/\D/g, "");
                   const phoneOk = digits.length === 11 && digits[0] !== '0' && digits[1] !== '0' && digits[2] === '9';
@@ -76,14 +100,33 @@ export default function ClientNavbar({ hidePlus }: ClientNavbarProps) {
                   const cpfStored = (typeof window !== 'undefined' ? localStorage.getItem('client_cpf') : '') || '';
                   const cpfOk = isValidCPF(cpfStored);
                   const steps = [emailOk, phoneOk, cpfOk].filter(Boolean).length;
+                  
+                  console.log('✅ Validações:', {
+                    emailOk,
+                    phoneOk,
+                    cpfOk,
+                    steps,
+                    phoneDigits: digits,
+                    cpfDigits: cpfStored.replace(/\D/g, '')
+                  });
+
                   if (steps !== 3) {
+                    const missingItems = [];
+                    if (!emailOk) missingItems.push('Email válido');
+                    if (!phoneOk) missingItems.push('Telefone válido (11 dígitos com 9 no início)');
+                    if (!cpfOk) missingItems.push('CPF válido');
+                    
+                    console.warn('⚠️ Cadastro incompleto. Faltam:', missingItems);
+                    
                     toast({
                       title: "Verificação em andamento",
-                      description: `Conclua seu cadastro (${steps}/3): Email, Telefone e CPF para criar um serviço.`
+                      description: `Conclua seu cadastro (${steps}/3): ${missingItems.join(', ')}`
                     });
                     setLocation('/profile');
                     return;
                   }
+                  
+                  console.log('✅ Todas as validações passaram! Redirecionando para /servico');
                   setLocation('/servico');
                 }}
                 className="gap-2 whitespace-nowrap text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-primary hover:bg-primary/90 rounded-full bg-gradient-to-r from-yellow-500 to-yellow-600 text-white shadow-xl hover:shadow-2xl hover:from-yellow-600 hover:to-yellow-700 w-16 h-16 flex items-center justify-center transition-all duration-300 border-4 border-white dark:border-gray-900 focus:ring-4 focus:ring-yellow-200 dark:focus:ring-yellow-800 ring-4 ring-yellow-200 dark:ring-yellow-800"

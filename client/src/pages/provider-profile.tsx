@@ -430,14 +430,12 @@ export default function ProviderProfile() {
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
                 onClick={() => setLocation("/provider-dashboard")}
-                className="p-2"
+                className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors"
               >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
+                <ArrowLeft className="h-5 w-5 text-gray-600" />
+              </button>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">Meu Perfil</h1>
             </div>
             

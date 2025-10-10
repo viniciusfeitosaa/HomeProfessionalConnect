@@ -278,14 +278,12 @@ export default function Profile() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-24">
         <div className="w-full max-w-sm lg:max-w-none mx-auto lg:mx-0 relative px-3 sm:px-4 lg:px-8 py-3 sm:py-4 lg:py-6">
           <div className="flex items-center mb-4 sm:mb-6">
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={() => setLocation("/")}
-              className="mr-2 p-2 lg:hidden"
+              className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center transition-colors mr-2 lg:hidden"
             >
-              <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-            </Button>
+              <ArrowLeft className="h-5 w-5 text-gray-600" />
+            </button>
             <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Meu Perfil</h1>
           </div>
 

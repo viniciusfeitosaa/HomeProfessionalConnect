@@ -282,7 +282,7 @@ export default function Services() {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${getApiUrl()}/api/service-offers/${offerId}/accept`, {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -357,6 +357,17 @@ export default function Services() {
       const offer = serviceOffers.find(o => o.id === offerId);
       const message = `Olá! Gostaria de conversar sobre sua proposta para "${offer?.serviceTitle}".`;
       
+      console.log('🔍 Tentando iniciar conversa:', {
+        professionalId,
+        offerId,
+        offerDetails: offer ? {
+          id: offer.id,
+          professionalId: offer.professionalId,
+          professionalName: offer.professionalName,
+          professionalUserId: (offer as any).professionalUserId
+        } : 'Offer não encontrado'
+      });
+      
       const response = await fetch(`${getApiUrl()}/api/messages/start-conversation`, {
         method: 'POST',
         headers: {
@@ -370,6 +381,8 @@ export default function Services() {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Conversa iniciada:', data);
         toast({
           title: "Conversa iniciada!",
           description: "Redirecionando para as mensagens...",
@@ -377,6 +390,7 @@ export default function Services() {
         setLocation('/messages');
       } else {
         const errorData = await response.json();
+        console.error('❌ Erro ao iniciar conversa:', errorData);
         toast({
           title: "Erro",
           description: errorData.message || "Não foi possível iniciar a conversa",
@@ -984,7 +998,7 @@ export default function Services() {
                         </AlertDialog>
 
                         <button
-                          onClick={() => startConversation(offer.professionalId, offer.id)}
+                          onClick={() => startConversation(offer.professionalUserId || offer.professionalId, offer.id)}
                           disabled={startingConversationId === offer.id}
                           className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm shadow-md hover:shadow-lg transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -1359,28 +1373,6 @@ export default function Services() {
                             >
                               Ver Propostas ({request.responseCount})
                             </button>
-                          )}
-                          <Link href="/my-service-requests">
-                            <button className="flex-1 sm:flex-none px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg text-sm font-medium hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg">
-                              Ver Detalhes
-                            </button>
-                          </Link>
-                          
-                          {/* Botão Editar - desabilitado se concluído */}
-                          {request.status === 'completed' ? (
-                            <button
-                              disabled
-                              className="flex-1 sm:flex-none px-4 py-2 bg-gray-300 text-gray-500 rounded-lg text-sm font-medium cursor-not-allowed transition-all duration-200"
-                              title="Serviços concluídos não podem ser editados"
-                            >
-                              Editar
-                            </button>
-                          ) : (
-                            <Link href={`/servico`}>
-                              <button className="flex-1 sm:flex-none px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg text-sm font-medium hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-md hover:shadow-lg">
-                                Editar
-                              </button>
-                            </Link>
                           )}
                           
                           <button
