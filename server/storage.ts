@@ -467,11 +467,37 @@ export class DatabaseStorage implements IStorage {
       stripeConnectedAt?: Date;
     }
   ): Promise<Professional> {
+    // Construir objeto de update apenas com campos definidos
+    const updateData: any = {};
+    
+    if (data.stripeAccountId !== undefined) {
+      updateData.stripeAccountId = data.stripeAccountId;
+    }
+    if (data.stripeAccountStatus !== undefined) {
+      updateData.stripeAccountStatus = data.stripeAccountStatus;
+    }
+    if (data.stripeOnboardingCompleted !== undefined) {
+      updateData.stripeOnboardingCompleted = data.stripeOnboardingCompleted;
+    }
+    if (data.stripeDetailsSubmitted !== undefined) {
+      updateData.stripeDetailsSubmitted = data.stripeDetailsSubmitted;
+    }
+    if (data.stripeChargesEnabled !== undefined) {
+      updateData.stripeChargesEnabled = data.stripeChargesEnabled;
+    }
+    if (data.stripePayoutsEnabled !== undefined) {
+      updateData.stripePayoutsEnabled = data.stripePayoutsEnabled;
+    }
+    if (data.stripeConnectedAt !== undefined) {
+      updateData.stripeConnectedAt = data.stripeConnectedAt;
+    }
+    
     const [professional] = await db
       .update(professionals)
-      .set(data)
+      .set(updateData)
       .where(eq(professionals.id, professionalId))
       .returning();
+    
     return professional;
   }
 

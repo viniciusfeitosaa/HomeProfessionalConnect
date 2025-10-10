@@ -512,7 +512,29 @@ var DatabaseStorage = class {
   }
   // Stripe Connect Functions
   async updateProfessionalStripeAccount(professionalId, data) {
-    const [professional] = await db.update(professionals).set(data).where(eq(professionals.id, professionalId)).returning();
+    const updateData = {};
+    if (data.stripeAccountId !== void 0) {
+      updateData.stripeAccountId = data.stripeAccountId;
+    }
+    if (data.stripeAccountStatus !== void 0) {
+      updateData.stripeAccountStatus = data.stripeAccountStatus;
+    }
+    if (data.stripeOnboardingCompleted !== void 0) {
+      updateData.stripeOnboardingCompleted = data.stripeOnboardingCompleted;
+    }
+    if (data.stripeDetailsSubmitted !== void 0) {
+      updateData.stripeDetailsSubmitted = data.stripeDetailsSubmitted;
+    }
+    if (data.stripeChargesEnabled !== void 0) {
+      updateData.stripeChargesEnabled = data.stripeChargesEnabled;
+    }
+    if (data.stripePayoutsEnabled !== void 0) {
+      updateData.stripePayoutsEnabled = data.stripePayoutsEnabled;
+    }
+    if (data.stripeConnectedAt !== void 0) {
+      updateData.stripeConnectedAt = data.stripeConnectedAt;
+    }
+    const [professional] = await db.update(professionals).set(updateData).where(eq(professionals.id, professionalId)).returning();
     return professional;
   }
   async getProfessionalByStripeAccountId(stripeAccountId) {
