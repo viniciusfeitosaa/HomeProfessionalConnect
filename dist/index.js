@@ -3050,6 +3050,61 @@ function setupRoutes(app2, redisClient) {
       res.status(500).json({ error: "Erro ao marcar servi\xE7o como conclu\xEDdo" });
     }
   });
+  app2.post("/api/service/:id/confirm", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const serviceRequestId = parseInt(req.params.id);
+      console.log("\u{1F537} Cliente confirmando conclus\xE3o do servi\xE7o:", {
+        userId: user.id,
+        userType: user.userType,
+        serviceRequestId
+      });
+      if (user.userType !== "client") {
+        return res.status(403).json({ error: "Apenas clientes podem confirmar conclus\xE3o de servi\xE7os" });
+      }
+      const serviceRequest = await storage.getServiceRequestById(serviceRequestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ error: "Servi\xE7o n\xE3o encontrado" });
+      }
+      if (serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ error: "Voc\xEA n\xE3o tem permiss\xE3o para confirmar este servi\xE7o" });
+      }
+      if (serviceRequest.status !== "awaiting_confirmation") {
+        return res.status(400).json({
+          error: "Este servi\xE7o n\xE3o est\xE1 aguardando confirma\xE7\xE3o",
+          currentStatus: serviceRequest.status
+        });
+      }
+      const offers = await storage.getServiceOffersByRequest(serviceRequestId);
+      const acceptedOffer = offers.find((offer) => offer.status === "accepted");
+      if (!acceptedOffer) {
+        return res.status(404).json({ error: "Proposta aceita n\xE3o encontrada" });
+      }
+      const professional = await storage.getProfessionalById(acceptedOffer.professionalId);
+      if (!professional) {
+        return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
+      }
+      await storage.updateServiceRequestStatus(serviceRequestId, "completed");
+      await storage.updateServiceOfferStatus(acceptedOffer.id, "completed");
+      console.log("\u2705 Servi\xE7o confirmado como conclu\xEDdo pelo cliente");
+      await storage.createNotification({
+        userId: professional.userId,
+        type: "service_confirmed",
+        title: "Servi\xE7o Confirmado! \u2705",
+        message: `O cliente confirmou a conclus\xE3o do servi\xE7o "${serviceRequest.title}". O pagamento ser\xE1 liberado.`
+      });
+      const existingReview = await storage.getServiceReviewByServiceRequest(serviceRequestId);
+      res.json({
+        success: true,
+        message: "Servi\xE7o confirmado como conclu\xEDdo.",
+        requiresReview: !existingReview
+        // Indica se precisa avaliar
+      });
+    } catch (error) {
+      console.error("\u274C Erro ao confirmar conclus\xE3o do servi\xE7o:", error);
+      res.status(500).json({ error: "Erro ao confirmar conclus\xE3o do servi\xE7o" });
+    }
+  });
   app2.get("/api/service-requests/client", authenticateToken, async (req, res) => {
     try {
       const user = req.user;
