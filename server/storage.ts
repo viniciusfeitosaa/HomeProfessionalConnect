@@ -43,7 +43,7 @@ import {
   type InsertPaymentReference,
   type ServiceRequestStatus,
 } from "./schema.js";
-import { db } from "./db.js";
+import { db, sqlClient } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne, isNull } from "drizzle-orm";
 
 // Interface for storage operations
@@ -517,34 +517,34 @@ export class DatabaseStorage implements IStorage {
     console.log('🔍 SQL Update Query:', query);
     console.log('🔍 Values:', values);
 
-    const result = await this.db.query(query, values);
-    return result.rows[0];
+    const result = await sqlClient(query, values);
+    return result[0];
   }
 
   async getProfessionalByStripeAccountId(stripeAccountId: string): Promise<Professional | null> {
-    const result = await this.db.query(
+    const result = await sqlClient(
       'SELECT * FROM professionals WHERE stripe_account_id = $1',
       [stripeAccountId]
     );
-    return result.rows[0] || null;
+    return result[0] || null;
   }
 
   async getProfessionalsWithoutStripeConnect(): Promise<Professional[]> {
-    const result = await this.db.query(`
+    const result = await sqlClient(`
       SELECT * FROM professionals 
       WHERE stripe_account_id IS NULL 
       OR stripe_onboarding_completed = FALSE
       ORDER BY created_at DESC
     `);
-    return result.rows;
+    return result;
   }
 
   async canProfessionalReceivePayments(professionalId: number): Promise<boolean> {
-    const result = await this.db.query(
+    const result = await sqlClient(
       'SELECT stripe_charges_enabled FROM professionals WHERE id = $1',
       [professionalId]
     );
-    return result.rows[0]?.stripe_charges_enabled === true;
+    return result[0]?.stripe_charges_enabled === true;
   }
 
   // Appointments

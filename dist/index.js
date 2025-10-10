@@ -11,14 +11,15 @@ var __export = (target, all) => {
 // server/db.ts
 var db_exports = {};
 __export(db_exports, {
-  db: () => db
+  db: () => db,
+  sqlClient: () => sqlClient
 });
 import "dotenv/config";
 import path from "path";
 import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-var sql, db;
+var sql, db, sqlClient;
 var init_db = __esm({
   "server/db.ts"() {
     "use strict";
@@ -38,6 +39,7 @@ var init_db = __esm({
     console.log("DATABASE_URL value:", process.env.DATABASE_URL);
     sql = neon(process.env.DATABASE_URL || "postgresql://neondb_owner:npg_L9mgJX6UuftC@ep-lingering-pine-a54hc3dj-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require");
     db = drizzle(sql);
+    sqlClient = sql;
   }
 });
 
@@ -555,31 +557,31 @@ var DatabaseStorage = class {
     `;
     console.log("\u{1F50D} SQL Update Query:", query);
     console.log("\u{1F50D} Values:", values);
-    const result = await this.db.query(query, values);
-    return result.rows[0];
+    const result = await sqlClient(query, values);
+    return result[0];
   }
   async getProfessionalByStripeAccountId(stripeAccountId) {
-    const result = await this.db.query(
+    const result = await sqlClient(
       "SELECT * FROM professionals WHERE stripe_account_id = $1",
       [stripeAccountId]
     );
-    return result.rows[0] || null;
+    return result[0] || null;
   }
   async getProfessionalsWithoutStripeConnect() {
-    const result = await this.db.query(`
+    const result = await sqlClient(`
       SELECT * FROM professionals 
       WHERE stripe_account_id IS NULL 
       OR stripe_onboarding_completed = FALSE
       ORDER BY created_at DESC
     `);
-    return result.rows;
+    return result;
   }
   async canProfessionalReceivePayments(professionalId) {
-    const result = await this.db.query(
+    const result = await sqlClient(
       "SELECT stripe_charges_enabled FROM professionals WHERE id = $1",
       [professionalId]
     );
-    return result.rows[0]?.stripe_charges_enabled === true;
+    return result[0]?.stripe_charges_enabled === true;
   }
   // Appointments
   async getAppointmentsByUser(userId) {
