@@ -2734,23 +2734,13 @@ function setupRoutes(app2, redisClient) {
               userId: parseInt(professionalId),
               type: "payment_received",
               title: "Pagamento Recebido! \u{1F4B0}",
-              message: `Seu pagamento de R$ ${(paymentIntent.amount / 100).toFixed(2)} foi aprovado. O servi\xE7o est\xE1 conclu\xEDdo!`,
-              data: {
-                serviceOfferId: parseInt(serviceOfferId),
-                amount: paymentIntent.amount,
-                paymentIntentId: paymentIntent.id
-              }
+              message: `Seu pagamento de R$ ${(paymentIntent.amount / 100).toFixed(2)} foi aprovado. O servi\xE7o est\xE1 conclu\xEDdo!`
             });
             await storage.createNotification({
               userId: parseInt(clientId),
               type: "payment_success",
               title: "Servi\xE7o Conclu\xEDdo! \u2705",
-              message: "Seu pagamento foi processado com sucesso. O servi\xE7o est\xE1 conclu\xEDdo e o profissional foi notificado.",
-              data: {
-                serviceOfferId: parseInt(serviceOfferId),
-                amount: paymentIntent.amount,
-                paymentIntentId: paymentIntent.id
-              }
+              message: "Seu pagamento foi processado com sucesso. O servi\xE7o est\xE1 conclu\xEDdo e o profissional foi notificado."
             });
             console.log("\u2705 Status atualizado e notifica\xE7\xF5es enviadas");
           }
@@ -2769,11 +2759,7 @@ function setupRoutes(app2, redisClient) {
               userId: parseInt(clientId),
               type: "payment_failed",
               title: "Pagamento Falhou \u274C",
-              message: "N\xE3o foi poss\xEDvel processar seu pagamento. Tente novamente.",
-              data: {
-                serviceOfferId: parseInt(serviceOfferId),
-                paymentIntentId: failedPayment.id
-              }
+              message: "N\xE3o foi poss\xEDvel processar seu pagamento. Tente novamente."
             });
           }
         } catch (error) {
@@ -2822,12 +2808,7 @@ function setupRoutes(app2, redisClient) {
         userId: serviceOffer.professionalId,
         type: "payment_received",
         title: "Pagamento Recebido! \u{1F4B0}",
-        message: `Seu pagamento de R$ ${(amount / 100).toFixed(2)} foi aprovado. O servi\xE7o est\xE1 conclu\xEDdo!`,
-        data: {
-          serviceOfferId: parseInt(serviceOfferId),
-          amount,
-          paymentIntentId
-        }
+        message: `Seu pagamento de R$ ${(amount / 100).toFixed(2)} foi aprovado. O servi\xE7o est\xE1 conclu\xEDdo!`
       });
       console.log("\u2705 Notifica\xE7\xE3o enviada para o profissional");
       console.log(`\u{1F514} Criando notifica\xE7\xE3o para cliente ID: ${serviceRequest.clientId}`);
@@ -2835,12 +2816,7 @@ function setupRoutes(app2, redisClient) {
         userId: serviceRequest.clientId,
         type: "payment_success",
         title: "Servi\xE7o Conclu\xEDdo! \u2705",
-        message: "Seu pagamento foi processado com sucesso. O servi\xE7o est\xE1 conclu\xEDdo e o profissional foi notificado.",
-        data: {
-          serviceOfferId: parseInt(serviceOfferId),
-          amount,
-          paymentIntentId
-        }
+        message: "Seu pagamento foi processado com sucesso. O servi\xE7o est\xE1 conclu\xEDdo e o profissional foi notificado."
       });
       console.log("\u2705 Notifica\xE7\xE3o enviada para o cliente");
       console.log("\u2705 Processo conclu\xEDdo com sucesso");

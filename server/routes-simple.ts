@@ -616,11 +616,6 @@ export function setupRoutes(app: Express, redisClient: any) {
               type: 'payment_received',
               title: 'Pagamento Recebido! 💰',
               message: `Seu pagamento de R$ ${(paymentIntent.amount / 100).toFixed(2)} foi aprovado. O serviço está concluído!`,
-              data: {
-                serviceOfferId: parseInt(serviceOfferId),
-                amount: paymentIntent.amount,
-                paymentIntentId: paymentIntent.id
-              }
             });
             
             // Criar notificação para o cliente
@@ -629,11 +624,6 @@ export function setupRoutes(app: Express, redisClient: any) {
               type: 'payment_success',
               title: 'Serviço Concluído! ✅',
               message: 'Seu pagamento foi processado com sucesso. O serviço está concluído e o profissional foi notificado.',
-              data: {
-                serviceOfferId: parseInt(serviceOfferId),
-                amount: paymentIntent.amount,
-                paymentIntentId: paymentIntent.id
-              }
             });
             
             console.log('✅ Status atualizado e notificações enviadas');
@@ -658,10 +648,6 @@ export function setupRoutes(app: Express, redisClient: any) {
               type: 'payment_failed',
               title: 'Pagamento Falhou ❌',
               message: 'Não foi possível processar seu pagamento. Tente novamente.',
-              data: {
-                serviceOfferId: parseInt(serviceOfferId),
-                paymentIntentId: failedPayment.id
-              }
             });
           }
         } catch (error) {
@@ -729,11 +715,6 @@ export function setupRoutes(app: Express, redisClient: any) {
         type: 'payment_received',
         title: 'Pagamento Recebido! 💰',
         message: `Seu pagamento de R$ ${(amount / 100).toFixed(2)} foi aprovado. O serviço está concluído!`,
-        data: {
-          serviceOfferId: parseInt(serviceOfferId),
-          amount: amount,
-          paymentIntentId: paymentIntentId
-        }
       });
       console.log('✅ Notificação enviada para o profissional');
 
@@ -744,11 +725,6 @@ export function setupRoutes(app: Express, redisClient: any) {
         type: 'payment_success',
         title: 'Serviço Concluído! ✅',
         message: 'Seu pagamento foi processado com sucesso. O serviço está concluído e o profissional foi notificado.',
-        data: {
-          serviceOfferId: parseInt(serviceOfferId),
-          amount: amount,
-          paymentIntentId: paymentIntentId
-        }
       });
       console.log('✅ Notificação enviada para o cliente');
 
