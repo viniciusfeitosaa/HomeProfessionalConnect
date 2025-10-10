@@ -980,7 +980,7 @@ export function setupRoutes(app: Express, redisClient: any) {
       }
 
       // Verificar se o profissional está associado a uma proposta aceita deste serviço
-      const offers = await storage.getServiceOffersForRequest(serviceRequestId);
+      const offers = await storage.getServiceOffersByRequest(serviceRequestId);
       const acceptedOffer = offers.find(
         offer => offer.professionalId === professional.id && offer.status === 'accepted'
       );
