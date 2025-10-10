@@ -813,22 +813,29 @@ export function setupRoutes(app: Express, redisClient: any) {
       }
 
       // ✨ NOVO: Verificar se profissional tem Stripe Connect configurado
-      if (!professional.stripeAccountId) {
-        console.log('⚠️ Profissional não tem conta Stripe Connect');
-        return res.status(400).json({ 
-          error: 'Profissional precisa conectar sua conta Stripe primeiro',
-          errorCode: 'STRIPE_NOT_CONNECTED',
-          needsStripeSetup: true,
-        });
-      }
+      // 🔧 MODO DEV: Para desabilitar a validação durante testes, adicione SKIP_STRIPE_VALIDATION=true no .env
+      const skipStripeValidation = process.env.SKIP_STRIPE_VALIDATION === 'true';
+      
+      if (!skipStripeValidation) {
+        if (!professional.stripeAccountId) {
+          console.log('⚠️ Profissional não tem conta Stripe Connect');
+          return res.status(400).json({ 
+            error: 'Profissional precisa conectar sua conta Stripe primeiro',
+            errorCode: 'STRIPE_NOT_CONNECTED',
+            needsStripeSetup: true,
+          });
+        }
 
-      if (!professional.stripeChargesEnabled) {
-        console.log('⚠️ Profissional não pode receber pagamentos ainda');
-        return res.status(400).json({ 
-          error: 'Profissional ainda não completou configuração do Stripe',
-          errorCode: 'STRIPE_NOT_ENABLED',
-          needsStripeSetup: true,
-        });
+        if (!professional.stripeChargesEnabled) {
+          console.log('⚠️ Profissional não pode receber pagamentos ainda');
+          return res.status(400).json({ 
+            error: 'Profissional ainda não completou configuração do Stripe',
+            errorCode: 'STRIPE_NOT_ENABLED',
+            needsStripeSetup: true,
+          });
+        }
+      } else {
+        console.log('🔧 MODO DEV: Validação de Stripe Connect desabilitada');
       }
 
       const rawPrice = serviceOffer.finalPrice || serviceOffer.proposedPrice;
@@ -861,17 +868,20 @@ export function setupRoutes(app: Express, redisClient: any) {
       }
 
       // ✨ NOVO: Criar Payment Intent com Stripe Connect
-      console.log(`🚀 Criando Payment Intent com Connect...`);
-      console.log(`   Conta destino: ${professional.stripeAccountId}`);
+      const useStripeConnect = !skipStripeValidation && professional.stripeAccountId;
       
-      const paymentIntent = await stripe.paymentIntents.create({
+      if (useStripeConnect) {
+        console.log(`🚀 Criando Payment Intent com Connect...`);
+        console.log(`   Conta destino: ${professional.stripeAccountId}`);
+      } else {
+        console.log(`🔧 Criando Payment Intent SEM Connect (modo dev)...`);
+        console.log(`   ⚠️ TODO o valor vai para a conta principal`);
+      }
+      
+      const paymentIntentParams: any = {
         amount: Math.round(finalAmount * 100),
         currency: 'brl',
         payment_method_types: ['card'],
-        application_fee_amount: lifebeeCommission,  // ✨ Taxa LifeBee (5%)
-        transfer_data: {
-          destination: professional.stripeAccountId,  // ✨ Profissional recebe direto (95%)
-        },
         metadata: {
           serviceOfferId: serviceOffer.id.toString(),
           serviceRequestId: serviceOffer.serviceRequestId.toString(),
@@ -880,7 +890,17 @@ export function setupRoutes(app: Express, redisClient: any) {
           lifebeeCommission: (lifebeeCommission / 100).toFixed(2),
           professionalAmount: (professionalAmount / 100).toFixed(2),
         },
-      });
+      };
+
+      // Adicionar split apenas se Stripe Connect estiver configurado
+      if (useStripeConnect) {
+        paymentIntentParams.application_fee_amount = lifebeeCommission;
+        paymentIntentParams.transfer_data = {
+          destination: professional.stripeAccountId,
+        };
+      }
+      
+      const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
       // Salva referência do pagamento no banco
       const paymentReference = await storage.createPaymentReference({
