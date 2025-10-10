@@ -53,6 +53,15 @@ export const professionals = pgTable("professionals", {
   available: boolean("available").notNull().default(true),
   imageUrl: text("image_url"),
   createdAt: timestamp("created_at").defaultNow(),
+  
+  // Stripe Connect fields
+  stripeAccountId: text("stripe_account_id"),
+  stripeAccountStatus: text("stripe_account_status").default("not_connected"),
+  stripeOnboardingCompleted: boolean("stripe_onboarding_completed").default(false),
+  stripeDetailsSubmitted: boolean("stripe_details_submitted").default(false),
+  stripeChargesEnabled: boolean("stripe_charges_enabled").default(false),
+  stripePayoutsEnabled: boolean("stripe_payouts_enabled").default(false),
+  stripeConnectedAt: timestamp("stripe_connected_at"),
 });
 
 export const appointments = pgTable("appointments", {

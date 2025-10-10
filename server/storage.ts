@@ -44,7 +44,7 @@ import {
   type ServiceRequestStatus,
 } from "./schema.js";
 import { db } from "./db.js";
-import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
+import { eq, and, or, gte, ilike, sql, desc, ne, isNull } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -454,6 +454,55 @@ export class DatabaseStorage implements IStorage {
       .where(eq(professionals.userId, userId));
   }
 
+  // Stripe Connect Functions
+  async updateProfessionalStripeAccount(
+    professionalId: number,
+    data: {
+      stripeAccountId?: string;
+      stripeAccountStatus?: string;
+      stripeOnboardingCompleted?: boolean;
+      stripeDetailsSubmitted?: boolean;
+      stripeChargesEnabled?: boolean;
+      stripePayoutsEnabled?: boolean;
+      stripeConnectedAt?: Date;
+    }
+  ): Promise<Professional> {
+    const [professional] = await db
+      .update(professionals)
+      .set(data)
+      .where(eq(professionals.id, professionalId))
+      .returning();
+    return professional;
+  }
+
+  async getProfessionalByStripeAccountId(stripeAccountId: string): Promise<Professional | null> {
+    const [professional] = await db
+      .select()
+      .from(professionals)
+      .where(eq(professionals.stripeAccountId, stripeAccountId));
+    return professional || null;
+  }
+
+  async getProfessionalsWithoutStripeConnect(): Promise<Professional[]> {
+    return await db
+      .select()
+      .from(professionals)
+      .where(
+        or(
+          isNull(professionals.stripeAccountId),
+          eq(professionals.stripeOnboardingCompleted, false)
+        )
+      );
+  }
+
+  async canProfessionalReceivePayments(professionalId: number): Promise<boolean> {
+    const [professional] = await db
+      .select({ stripeChargesEnabled: professionals.stripeChargesEnabled })
+      .from(professionals)
+      .where(eq(professionals.id, professionalId));
+    return professional?.stripeChargesEnabled === true;
+  }
+
   // Appointments
   async getAppointmentsByUser(userId: number): Promise<Appointment[]> {
     return await db.select().from(appointments).where(eq(appointments.clientId, userId));
@@ -493,19 +542,66 @@ export class DatabaseStorage implements IStorage {
     return result?.count || 0;
   }
 
-  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
-    const [notification] = await db
-      .insert(notifications)
-      .values(insertNotification)
-      .returning();
-    return notification;
+  async createNotification(data: {
+    type: string;
+    title: string;
+    message: string;
+    userId: number;
+    actionUrl?: string;
+    read?: boolean;
+  }): Promise<Notification> {
+    try {
+      console.log('🔍 createNotification - Dados recebidos:', data);
+      
+      const valuesToInsert = {
+        type: data.type,
+        title: data.title,
+        message: data.message,
+        userId: data.userId,
+        actionUrl: data.actionUrl || null,
+        read: data.read ?? false
+      };
+      
+      console.log('📝 createNotification - Valores para inserir:', valuesToInsert);
+      console.log('📋 Schema de notifications:', Object.keys(notifications));
+      
+      const [notification] = await db
+        .insert(notifications)
+        .values(valuesToInsert)
+        .returning();
+        
+      console.log('✅ createNotification - Notificação criada:', notification.id);
+      return notification;
+    } catch (error) {
+      console.error('❌ createNotification - Erro:', error);
+      throw error;
+    }
   }
 
-  async markNotificationRead(id: number): Promise<void> {
+  async getUserNotifications(userId: number): Promise<Notification[]> {
+    return await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt))
+      .limit(50);
+  }
+
+  async markNotificationAsRead(notificationId: number, userId: number): Promise<void> {
     await db
       .update(notifications)
-      .set({ [notifications.read.name]: true })
-      .where(eq(notifications.id, id));
+      .set({ read: true })
+      .where(and(
+        eq(notifications.id, notificationId),
+        eq(notifications.userId, userId)
+      ));
+  }
+
+  async markAllNotificationsAsRead(userId: number): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(eq(notifications.userId, userId));
   }
 
   // Security & Anti-fraud
@@ -1190,6 +1286,7 @@ export class DatabaseStorage implements IStorage {
           serviceTitle: serviceRequests.serviceType,
           serviceStatus: serviceRequests.status,
           professionalName: professionals.name,
+          professionalUserId: professionals.userId,
           professionalRating: professionals.rating,
           professionalTotalReviews: professionals.totalReviews,
           professionalProfileImage: professionals.imageUrl,
@@ -1215,6 +1312,7 @@ export class DatabaseStorage implements IStorage {
         id: result.id,
         serviceRequestId: result.serviceRequestId,
         professionalId: result.professionalId,
+        professionalUserId: result.professionalUserId,
         professionalName: result.professionalName,
         professionalRating: result.professionalRating || 5.0,
         professionalTotalReviews: result.professionalTotalReviews || 0,
@@ -1954,20 +2052,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getProfessionalByUserId(userId: number): Promise<Professional | null> {
-    try {
-      const [result] = await db
-        .select()
-        .from(professionals)
-        .where(eq(professionals.userId, userId));
-      
-      return result || null;
-    } catch (error) {
-      console.error('❌ Erro ao buscar profissional por user_id:', error);
-      throw error;
-    }
-  }
-
   // ==================== PAYMENT REFERENCES METHODS ====================
 
   async createPaymentReference(paymentRef: InsertPaymentReference): Promise<PaymentReference> {
@@ -2584,112 +2668,6 @@ export class DatabaseStorage implements IStorage {
       return dashboardData;
     } catch (error) {
       console.error('❌ Erro em getProviderDashboardData:', error);
-      throw error;
-    }
-  }
-
-  // ==================== NOTIFICATION FUNCTIONS ====================
-
-  async getUnreadNotificationCount(userId: number): Promise<number> {
-    try {
-      const result = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(notifications)
-        .where(and(
-          eq(notifications.userId, userId),
-          eq(notifications.read, false)
-        ));
-      
-      return Number(result[0]?.count || 0);
-    } catch (error) {
-      console.error('❌ Erro em getUnreadNotificationCount:', error);
-      throw error;
-    }
-  }
-
-  async getUserNotifications(userId: number): Promise<any[]> {
-    try {
-      const userNotifications = await db
-        .select()
-        .from(notifications)
-        .where(eq(notifications.userId, userId))
-        .orderBy(desc(notifications.createdAt))
-        .limit(50);
-
-      return userNotifications.map(notification => ({
-        id: notification.id,
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        timestamp: notification.createdAt.toISOString(),
-        read: notification.read,
-        actionUrl: notification.actionUrl
-      }));
-    } catch (error) {
-      console.error('❌ Erro em getUserNotifications:', error);
-      throw error;
-    }
-  }
-
-  async markNotificationAsRead(notificationId: number, userId: number): Promise<void> {
-    try {
-      await db
-        .update(notifications)
-        .set({ read: true })
-        .where(and(
-          eq(notifications.id, notificationId),
-          eq(notifications.userId, userId)
-        ));
-    } catch (error) {
-      console.error('❌ Erro em markNotificationAsRead:', error);
-      throw error;
-    }
-  }
-
-  async markAllNotificationsAsRead(userId: number): Promise<void> {
-    try {
-      await db
-        .update(notifications)
-        .set({ read: true })
-        .where(eq(notifications.userId, userId));
-    } catch (error) {
-      console.error('❌ Erro em markAllNotificationsAsRead:', error);
-      throw error;
-    }
-  }
-
-  async createNotification(data: {
-    type: string;
-    title: string;
-    message: string;
-    userId: number;
-    actionUrl?: string;
-  }): Promise<any> {
-    try {
-      const [notification] = await db
-        .insert(notifications)
-        .values({
-          type: data.type,
-          title: data.title,
-          message: data.message,
-          userId: data.userId,
-          actionUrl: data.actionUrl,
-          read: false,
-          createdAt: new Date()
-        })
-        .returning();
-
-      return {
-        id: notification.id,
-        type: notification.type,
-        title: notification.title,
-        message: notification.message,
-        timestamp: notification.createdAt.toISOString(),
-        read: notification.read,
-        actionUrl: notification.actionUrl
-      };
-    } catch (error) {
-      console.error('❌ Erro em createNotification:', error);
       throw error;
     }
   }
