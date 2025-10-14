@@ -46,7 +46,7 @@ export default function RatingPopup({
 
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await fetch(`${getApiUrl()}/api/service/${serviceRequestId}/review`, {
         method: 'POST',
         headers: {

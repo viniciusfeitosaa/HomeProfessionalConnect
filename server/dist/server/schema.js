@@ -52,6 +52,13 @@ export const professionals = pgTable("professionals", {
     available: boolean("available").notNull().default(true),
     imageUrl: text("image_url"),
     createdAt: timestamp("created_at").defaultNow(),
+    // Stripe Connect fields
+    stripeAccountId: text("stripe_account_id"),
+    stripeAccountStatus: text("stripe_account_status"), // 'pending', 'active', 'inactive'
+    stripeOnboardingCompleted: boolean("stripe_onboarding_completed").default(false),
+    stripeDetailsSubmitted: boolean("stripe_details_submitted").default(false),
+    stripeChargesEnabled: boolean("stripe_charges_enabled").default(false),
+    stripePayoutsEnabled: boolean("stripe_payouts_enabled").default(false),
 });
 export const appointments = pgTable("appointments", {
     id: serial("id").primaryKey(),
@@ -128,7 +135,9 @@ export const serviceRequests = pgTable("service_requests", {
     scheduledDate: timestamp("scheduled_date").notNull(),
     scheduledTime: text("scheduled_time").notNull(), // Hora no formato HH:MM
     urgency: text("urgency", { enum: ["low", "medium", "high"] }).default("medium"),
-    budget: decimal("budget", { precision: 8, scale: 2 }), // Orçamento opcional
+    numberOfDays: integer("number_of_days").default(1), // Quantidade de dias do serviço
+    dailyRate: decimal("daily_rate", { precision: 8, scale: 2 }), // Valor por dia
+    budget: decimal("budget", { precision: 8, scale: 2 }), // Orçamento total (dias × diária)
     status: text("status", { enum: ["open", "in_progress", "assigned", "completed", "cancelled", "awaiting_confirmation"] }).default("open"),
     assignedProfessionalId: integer("assigned_professional_id"), // Profissional designado
     responses: integer("responses").default(0), // Número de profissionais que responderam
@@ -193,7 +202,7 @@ export const paymentReferences = pgTable("payment_references", {
     professionalId: integer("professional_id").notNull(),
     amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
     preferenceId: text("preference_id").notNull().unique(),
-    status: text("status", { enum: ["pending", "approved", "rejected", "cancelled"] }).notNull().default("pending"),
+    status: text("status", { enum: ["pending", "authorized", "approved", "rejected", "cancelled"] }).notNull().default("pending"),
     statusDetail: text("status_detail"), // Detalhes do status do pagamento
     externalReference: text("external_reference").notNull(),
     paymentId: text("payment_id"), // ID do pagamento no Mercado Pago quando aprovado

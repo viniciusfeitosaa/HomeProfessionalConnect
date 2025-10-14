@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { Home, Briefcase, MessageCircle, User } from "lucide-react";
 
 interface ClientNavbarProps {
@@ -13,6 +14,8 @@ export default function ClientNavbar({ hidePlus }: ClientNavbarProps) {
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { data: unreadData } = useUnreadMessages();
+  const unreadCount = unreadData?.unreadCount || 0;
 
   // Ocultar navegação quando estiver em uma conversa específica (ex: /messages/7)
   const shouldHideNavigation = location.match(/^\/messages\/\d+$/);
@@ -21,13 +24,13 @@ export default function ClientNavbar({ hidePlus }: ClientNavbarProps) {
     {
       label: "Início",
       to: "/",
-      icon: <Home className="h-6 w-6" />,
+      icon: <Home className="h-5 w-5" />,
       show: true,
     },
     {
       label: "Serviços",
       to: "/services",
-      icon: <Briefcase className="h-6 w-6" />,
+      icon: <Briefcase className="h-5 w-5" />,
       show: true,
     },
     {
@@ -39,13 +42,13 @@ export default function ClientNavbar({ hidePlus }: ClientNavbarProps) {
     {
       label: "Chat",
       to: "/messages",
-      icon: <MessageCircle className="h-6 w-6" />,
+      icon: <MessageCircle className="h-5 w-5" />,
       show: true,
     },
     {
       label: "Perfil",
       to: "/profile",
-      icon: <User className="h-6 w-6" />,
+      icon: <User className="h-5 w-5" />,
       show: true,
     },
   ];
@@ -57,7 +60,7 @@ export default function ClientNavbar({ hidePlus }: ClientNavbarProps) {
 
   return (
     <nav className="bg-white border-t border-gray-200 fixed bottom-0 left-0 w-full z-50 shadow rounded-t-xl px-0">
-      <ul className="flex justify-around items-center h-16 max-w-full px-2 sm:px-4">
+      <ul className="flex justify-around items-center h-14 max-w-full px-2 sm:px-4">
         {menuItems.filter(item => item.show).map((item) => (
           <li key={item.to} className={item.isCenter ? "relative -mt-10 z-10" : ""}>
             {item.isCenter ? (
@@ -138,7 +141,7 @@ export default function ClientNavbar({ hidePlus }: ClientNavbarProps) {
             ) : (
               <Link
                 href={item.to}
-                className={`flex flex-col items-center text-xs font-medium transition-colors duration-200 ${
+                className={`flex flex-col items-center text-xs font-medium transition-colors duration-200 relative ${
                   location === item.to
                     ? "text-yellow-500"
                     : "text-gray-500 hover:text-yellow-500"
@@ -146,6 +149,11 @@ export default function ClientNavbar({ hidePlus }: ClientNavbarProps) {
               >
                 {item.icon}
                 <span className="mt-1">{item.label}</span>
+                {item.label === "Chat" && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </Link>
             )}
           </li>

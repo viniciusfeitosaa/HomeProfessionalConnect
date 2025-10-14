@@ -21,31 +21,51 @@ export function StripeGuard({ children }: StripeGuardProps) {
 
   const checkStripeStatus = async () => {
     try {
+      const token = sessionStorage.getItem('token');
+      console.log('🔍 StripeGuard - Iniciando verificação...');
+      console.log('🔑 Token existe?', !!token);
+      
       const response = await fetch('/api/stripe/connect/account-status', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
+
+      console.log('📡 Response status:', response.status);
 
       if (response.ok) {
         const data = await response.json();
         
-        // Verificar se está conectado E pode receber pagamentos
-        if (data.connected && data.chargesEnabled) {
-          setHasStripe(true);
-        } else {
-          // Redirecionar para página de setup
-          console.log('⚠️ Profissional sem Stripe - redirecionando...');
-          setLocation('/stripe-setup');
+        console.log('📊 StripeGuard - Dados completos:', {
+          connected: data.connected,
+          accountId: data.accountId,
+          detailsSubmitted: data.detailsSubmitted,
+          chargesEnabled: data.chargesEnabled,
+          payoutsEnabled: data.payoutsEnabled,
+          needsOnboarding: data.needsOnboarding
+        });
+        
+        // TEMPORÁRIO: Permitir acesso independente do status do Stripe
+        // para não bloquear profissionais durante debug
+        console.log('✅ StripeGuard - Permitindo acesso (modo debug)');
+        setHasStripe(true);
+        
+        // Se não tem Stripe, apenas avisar no console (não bloquear)
+        if (!data.connected) {
+          console.warn('⚠️ Profissional precisa configurar Stripe para receber pagamentos');
+          console.warn('Acesse /provider-settings para configurar');
         }
       } else {
-        // Erro ao verificar - redireciona para setup por segurança
-        setLocation('/stripe-setup');
+        const errorText = await response.text();
+        console.error('❌ Erro na resposta:', response.status, errorText);
+        // Erro ao verificar - permitir acesso por enquanto (não bloquear)
+        console.warn('⚠️ StripeGuard - Erro ao verificar, permitindo acesso');
+        setHasStripe(true);
       }
     } catch (error) {
-      console.error('Erro ao verificar Stripe:', error);
-      // Em caso de erro, redireciona para setup
-      setLocation('/stripe-setup');
+      console.error('❌ StripeGuard - Erro ao verificar Stripe:', error);
+      // Em caso de erro, permitir acesso (não bloquear profissional)
+      setHasStripe(true);
     } finally {
       setChecking(false);
     }

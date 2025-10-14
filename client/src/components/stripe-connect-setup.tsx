@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -19,22 +20,114 @@ export function StripeConnectSetup() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [verifyingReturn, setVerifyingReturn] = useState(false);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   // Verificar status ao carregar
   useEffect(() => {
-    checkStatus();
-    
-    // Verificar query params (retorno do Stripe)
     const params = new URLSearchParams(window.location.search);
-    if (params.get('stripe_setup') === 'success') {
+    const isReturningFromStripe = params.get('stripe_setup') === 'success';
+    
+    if (isReturningFromStripe) {
+      // Retornou do Stripe - vamos verificar várias vezes até confirmar
+      console.log('🔄 Retornando do Stripe, verificando status...');
+      setVerifyingReturn(true);
+      
       toast({
-        title: "✅ Stripe conectado com sucesso!",
-        description: "Sua conta foi configurada e você já pode receber pagamentos.",
+        title: "🔄 Verificando cadastro...",
+        description: "Aguarde enquanto confirmamos sua conta Stripe.",
       });
+      
       // Limpar query params
       window.history.replaceState({}, '', window.location.pathname);
-      setTimeout(() => checkStatus(), 2000);
+      
+      // Verificar status múltiplas vezes com intervalos crescentes
+      let attempts = 0;
+      const maxAttempts = 5;
+      
+      const verifyWithRetry = async () => {
+        attempts++;
+        console.log(`📊 Tentativa ${attempts} de ${maxAttempts} - Verificando status Stripe...`);
+        
+        await checkStatus();
+        
+        // Verificar se o status foi atualizado
+        const currentCheck = await fetch('/api/stripe/connect/account-status', {
+          headers: {
+            'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
+          },
+        });
+        
+        if (currentCheck.ok) {
+          const currentData = await currentCheck.json();
+          
+          // Se a conta está ativa, parar de tentar
+          if (currentData.connected && currentData.chargesEnabled) {
+            console.log('✅ Conta ativa confirmada!');
+            setVerifyingReturn(false);
+            toast({
+              title: "✅ Stripe conectado com sucesso!",
+              description: "Sua conta foi configurada e você já pode receber pagamentos.",
+            });
+            
+            // Redirecionar para home após 2 segundos
+            setTimeout(() => {
+              console.log('🏠 Redirecionando para dashboard...');
+              setLocation('/provider-dashboard');
+            }, 2000);
+            return;
+          }
+          
+          // Se conectou mas ainda não está ativa
+          if (currentData.connected && !currentData.chargesEnabled) {
+            console.log('⏳ Conta conectada mas ainda processando...');
+            
+            // Se ainda temos tentativas, continuar verificando
+            if (attempts < maxAttempts) {
+              const delay = attempts * 2000; // 2s, 4s, 6s, 8s, 10s
+              console.log(`⏰ Aguardando ${delay/1000}s antes da próxima verificação...`);
+              setTimeout(verifyWithRetry, delay);
+            } else {
+              // Após todas as tentativas, mesmo sem estar ativo, redirecionar
+              setVerifyingReturn(false);
+              toast({
+                title: "✅ Cadastro registrado!",
+                description: "Seu cadastro foi registrado no Stripe. Redirecionando para o dashboard...",
+              });
+              
+              // Redirecionar mesmo sem estar completamente ativo
+              setTimeout(() => {
+                console.log('🏠 Redirecionando para dashboard (processando)...');
+                setLocation('/provider-dashboard');
+              }, 2000);
+            }
+            return;
+          }
+        }
+        
+        // Se não conectou ainda e temos tentativas restantes
+        if (attempts < maxAttempts) {
+          const delay = attempts * 2000;
+          setTimeout(verifyWithRetry, delay);
+        } else {
+          // Após todas as tentativas sem conectar, ainda assim redirecionar
+          setVerifyingReturn(false);
+          toast({
+            title: "✅ Cadastro enviado!",
+            description: "Seu cadastro foi enviado ao Stripe. Redirecionando...",
+          });
+          
+          // Redirecionar para dashboard de qualquer forma
+          setTimeout(() => {
+            console.log('🏠 Redirecionando para dashboard (timeout)...');
+            setLocation('/provider-dashboard');
+          }, 2000);
+        }
+      };
+      
+      // Iniciar verificação após 3 segundos (dar tempo do Stripe processar)
+      setTimeout(verifyWithRetry, 3000);
     } else if (params.get('stripe_setup') === 'refresh') {
       toast({
         title: "Link expirado",
@@ -42,6 +135,10 @@ export function StripeConnectSetup() {
         variant: "destructive",
       });
       window.history.replaceState({}, '', window.location.pathname);
+      checkStatus();
+    } else {
+      // Carregamento normal
+      checkStatus();
     }
   }, []);
 
@@ -52,7 +149,7 @@ export function StripeConnectSetup() {
       
       const response = await fetch('/api/stripe/connect/account-status', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
         },
       });
 
@@ -83,7 +180,7 @@ export function StripeConnectSetup() {
       const response = await fetch('/api/stripe/connect/create-account', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
           'Content-Type': 'application/json',
         },
       });
@@ -117,7 +214,7 @@ export function StripeConnectSetup() {
       const response = await fetch('/api/stripe/connect/refresh-onboarding', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
           'Content-Type': 'application/json',
         },
       });
@@ -147,7 +244,7 @@ export function StripeConnectSetup() {
       const response = await fetch('/api/stripe/connect/dashboard-link', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
           'Content-Type': 'application/json',
         },
       });
@@ -171,14 +268,30 @@ export function StripeConnectSetup() {
     }
   };
 
-  if (loading) {
+  if (loading || verifyingReturn) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Configuração de Pagamentos</CardTitle>
+          <CardDescription>
+            {verifyingReturn 
+              ? "Verificando seu cadastro no Stripe..." 
+              : "Carregando informações..."
+            }
+          </CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        <CardContent className="flex flex-col items-center justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-4" />
+          {verifyingReturn && (
+            <div className="text-center space-y-2">
+              <p className="text-sm text-gray-600">
+                🔄 Confirmando seu cadastro com o Stripe...
+              </p>
+              <p className="text-xs text-gray-500">
+                Isso pode levar alguns segundos
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     );

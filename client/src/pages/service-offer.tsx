@@ -22,7 +22,6 @@ export default function ServiceOffer() {
   
   const [offerMessage, setOfferMessage] = useState("");
   const [proposedPrice, setProposedPrice] = useState("");
-  const [estimatedTime, setEstimatedTime] = useState("");
   const [isOfferSent, setIsOfferSent] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -158,7 +157,7 @@ export default function ServiceOffer() {
         // Buscar dados do serviço
         const response = await fetch(`${getApiUrl()}/api/service-requests/${serviceId}`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
             'Content-Type': 'application/json'
           }
         });
@@ -264,7 +263,7 @@ export default function ServiceOffer() {
         setIsLoadingOffers(true);
         const response = await fetch(`${getApiUrl()}/api/service-requests/${serviceId}/offers`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
             'Content-Type': 'application/json'
           }
         });
@@ -286,17 +285,17 @@ export default function ServiceOffer() {
   }, [serviceId]);
 
   const handleSendOffer = async () => {
-    if (offerMessage.trim() && proposedPrice && estimatedTime) {
+    if (offerMessage.trim() && proposedPrice) {
       try {
         const response = await fetch(`${getApiUrl()}/api/service-requests/${serviceId}/offers`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             proposedPrice: parseFloat(proposedPrice),
-            estimatedTime,
+            estimatedTime: 'A combinar',
             message: offerMessage
           })
         });
@@ -311,7 +310,7 @@ export default function ServiceOffer() {
           // Recarregar as propostas para incluir a nova
           const offersResponse = await fetch(`${getApiUrl()}/api/service-requests/${serviceId}/offers`, {
             headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
               'Content-Type': 'application/json'
             }
           });
@@ -646,49 +645,63 @@ export default function ServiceOffer() {
                   </p>
                 </div>
                 
-                {/* Grid de Informações */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  {/* Orçamento */}
+                {/* Grid de Informações - NOVO LAYOUT */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  {/* Valor Total */}
                   <div className="text-center">
                     <DollarSign className="h-5 w-5 text-green-600 mx-auto mb-1" />
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Orçamento</p>
-                                         <div className="font-semibold text-green-600">
-                       R$ {serviceRequest.budget ? (typeof serviceRequest.budget === 'string' ? parseFloat(serviceRequest.budget).toFixed(2) : serviceRequest.budget.toFixed(2)) : '0,00'}
-                     </div>
-                  </div>
-                  
-                  {/* Distância */}
-                  <div className="text-center">
-                    <MapPin className="h-5 w-5 text-blue-600 mx-auto mb-1" />
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Distância</p>
-                                         <div className="font-semibold text-blue-600">
-                       {isCalculatingDistance ? (
-                         <div className="flex items-center justify-center gap-1">
-                           <Loader2 className="h-3 w-3 animate-spin" />
-                           <span>Calculando...</span>
-                         </div>
-                       ) : (
-                         serviceRequest.distance === -1 ? 'Não disponível' : `${serviceRequest.distance || '0'} km`
-                       )}
-                     </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Valor Total</p>
+                    <div className="font-semibold text-green-600">
+                      R$ {serviceRequest.budget ? (typeof serviceRequest.budget === 'string' ? parseFloat(serviceRequest.budget).toFixed(2) : serviceRequest.budget.toFixed(2)) : '0,00'}
+                    </div>
                   </div>
                   
                   {/* Horário */}
                   <div className="text-center">
                     <Clock className="h-5 w-5 text-purple-600 mx-auto mb-1" />
                     <p className="text-sm text-gray-600 dark:text-gray-400">Horário</p>
-                                         <div className="font-semibold text-purple-600">
-                       {serviceRequest.preferredTime || 'Não definido'}
-                     </div>
+                    <div className="font-semibold text-purple-600">
+                      {serviceRequest.preferredTime || serviceRequest.scheduledTime || 'Não definido'}
+                    </div>
                   </div>
                   
-                  {/* Respostas */}
+                  {/* Data de Início */}
                   <div className="text-center">
-                    <MessageCircle className="h-5 w-5 text-orange-600 mx-auto mb-1" />
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Respostas</p>
-                                         <div className="font-semibold text-orange-600">
-                       {serviceRequest.responses || 0}
-                     </div>
+                    <Calendar className="h-5 w-5 text-blue-600 mx-auto mb-1" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Data Início</p>
+                    <div className="font-semibold text-blue-600 text-xs">
+                      {serviceRequest.scheduledDate ? new Date(serviceRequest.scheduledDate).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit'
+                      }) : '-'}
+                    </div>
+                  </div>
+                  
+                  {/* Data de Fim (sempre aparece, mesmo se for 1 dia) */}
+                  <div className="text-center">
+                    <Calendar className="h-5 w-5 text-indigo-600 mx-auto mb-1" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Data Fim</p>
+                    <div className="font-semibold text-indigo-600 text-xs">
+                      {serviceRequest.scheduledDate ? (() => {
+                        const startDate = new Date(serviceRequest.scheduledDate);
+                        const endDate = new Date(startDate);
+                        const days = (serviceRequest as any).numberOfDays || 1;
+                        endDate.setDate(startDate.getDate() + (days - 1));
+                        return endDate.toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit'
+                        });
+                      })() : '-'}
+                    </div>
+                  </div>
+                  
+                  {/* Quantidade de Dias */}
+                  <div className="text-center">
+                    <Calendar className="h-5 w-5 text-teal-600 mx-auto mb-1" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Período</p>
+                    <div className="font-semibold text-teal-600">
+                      {(serviceRequest as any).numberOfDays || 1} {((serviceRequest as any).numberOfDays || 1) === 1 ? 'dia' : 'dias'}
+                    </div>
                   </div>
                 </div>
                 
@@ -722,6 +735,56 @@ export default function ServiceOffer() {
                     </p>
                   </div>
                   
+                  {/* Período Completo do Serviço (se houver múltiplos dias) */}
+                  {(serviceRequest as any).numberOfDays && (serviceRequest as any).numberOfDays > 1 && (
+                    <div>
+                      <h4 className="font-semibold mb-1 text-gray-900 dark:text-white flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-500" />
+                        Período do Serviço
+                      </h4>
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600 dark:text-gray-400">Duração:</span>
+                          <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                            {(serviceRequest as any).numberOfDays} {(serviceRequest as any).numberOfDays === 1 ? 'dia' : 'dias'}
+                          </span>
+                        </div>
+                        
+                        {(serviceRequest as any).dailyRate && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Valor por dia:</span>
+                            <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                              R$ {typeof (serviceRequest as any).dailyRate === 'string' 
+                                ? parseFloat((serviceRequest as any).dailyRate).toFixed(2) 
+                                : ((serviceRequest as any).dailyRate || 0).toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        
+                        <div className="pt-2 border-t border-blue-200 dark:border-blue-700 flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Valor Total:</span>
+                          <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                            R$ {serviceRequest.budget ? (typeof serviceRequest.budget === 'string' 
+                              ? parseFloat(serviceRequest.budget).toFixed(2) 
+                              : serviceRequest.budget.toFixed(2)) : '0,00'}
+                          </span>
+                        </div>
+                        
+                        <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-2">
+                          {(serviceRequest as any).numberOfDays} {(serviceRequest as any).numberOfDays === 1 ? 'dia' : 'dias'} × 
+                          R$ {(serviceRequest as any).dailyRate 
+                            ? (typeof (serviceRequest as any).dailyRate === 'string' 
+                              ? parseFloat((serviceRequest as any).dailyRate).toFixed(2) 
+                              : ((serviceRequest as any).dailyRate || 0).toFixed(2))
+                            : '0,00'}/dia = 
+                          R$ {serviceRequest.budget ? (typeof serviceRequest.budget === 'string' 
+                            ? parseFloat(serviceRequest.budget).toFixed(2) 
+                            : serviceRequest.budget.toFixed(2)) : '0,00'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Detalhes Adicionais */}
                   {serviceRequest.additionalInfo && (
                     <div>
@@ -746,28 +809,17 @@ export default function ServiceOffer() {
                    Fazer Proposta
                  </CardTitle>
                </CardHeader>
-               <CardContent className="space-y-4 p-4 sm:p-6">
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                   <div className="space-y-2">
-                     <label className="text-sm font-medium block">Valor Proposto (R$)</label>
-                     <Input
-                       type="number"
-                       placeholder="120.00"
-                       value={proposedPrice}
-                       onChange={(e) => setProposedPrice(e.target.value)}
-                       className="h-10 sm:h-11 text-sm sm:text-base"
-                     />
-                   </div>
-                   <div className="space-y-2">
-                     <label className="text-sm font-medium block">Tempo Estimado</label>
-                     <Input
-                       placeholder="1 hora"
-                       value={estimatedTime}
-                       onChange={(e) => setEstimatedTime(e.target.value)}
-                       className="h-10 sm:h-11 text-sm sm:text-base"
-                     />
-                   </div>
-                 </div>
+              <CardContent className="space-y-4 p-4 sm:p-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium block">Valor Proposto (R$)</label>
+                  <Input
+                    type="number"
+                    placeholder="120.00"
+                    value={proposedPrice}
+                    onChange={(e) => setProposedPrice(e.target.value)}
+                    className="h-10 sm:h-11 text-sm sm:text-base"
+                  />
+                </div>
 
                  <div className="space-y-2">
                    <label className="text-sm font-medium block">Mensagem da Proposta</label>
@@ -796,7 +848,7 @@ export default function ServiceOffer() {
                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
                    <Button 
                      onClick={handleSendOffer}
-                     disabled={!offerMessage.trim() || !proposedPrice || !estimatedTime}
+                     disabled={!offerMessage.trim() || !proposedPrice}
                      className="flex-1 h-10 sm:h-11 text-sm sm:text-base"
                    >
                      <Send className="h-4 w-4 mr-2" />

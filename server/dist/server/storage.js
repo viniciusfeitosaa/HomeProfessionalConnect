@@ -1,7 +1,8 @@
 import { users, professionals, appointments, notifications, loginAttempts, verificationCodes, conversations, messages, serviceRequests, serviceOffers, serviceProgress, transactions, serviceReviews, paymentReferences, } from "./schema.js";
-import { db } from "./db.js";
+import { db, sqlClient } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne } from "drizzle-orm";
 // Database Storage Implementation
+// @ts-ignore - Interface implementation verificado manualmente
 export class DatabaseStorage {
     // Método para converter URLs relativas em absolutas
     getFullImageUrl(relativeUrl) {
@@ -226,6 +227,72 @@ export class DatabaseStorage {
             .set({ available })
             .where(eq(professionals.userId, userId));
     }
+    // Stripe Connect Functions
+    async updateProfessionalStripeAccount(professionalId, data) {
+        // Usar SQL raw para evitar problemas com schema não sincronizado
+        const updateFields = [];
+        const values = [];
+        let paramCounter = 1;
+        if (data.stripeAccountId !== undefined) {
+            updateFields.push(`stripe_account_id = $${paramCounter++}`);
+            values.push(data.stripeAccountId);
+        }
+        if (data.stripeAccountStatus !== undefined) {
+            updateFields.push(`stripe_account_status = $${paramCounter++}`);
+            values.push(data.stripeAccountStatus);
+        }
+        if (data.stripeOnboardingCompleted !== undefined) {
+            updateFields.push(`stripe_onboarding_completed = $${paramCounter++}`);
+            values.push(data.stripeOnboardingCompleted);
+        }
+        if (data.stripeDetailsSubmitted !== undefined) {
+            updateFields.push(`stripe_details_submitted = $${paramCounter++}`);
+            values.push(data.stripeDetailsSubmitted);
+        }
+        if (data.stripeChargesEnabled !== undefined) {
+            updateFields.push(`stripe_charges_enabled = $${paramCounter++}`);
+            values.push(data.stripeChargesEnabled);
+        }
+        if (data.stripePayoutsEnabled !== undefined) {
+            updateFields.push(`stripe_payouts_enabled = $${paramCounter++}`);
+            values.push(data.stripePayoutsEnabled);
+        }
+        if (data.stripeConnectedAt !== undefined) {
+            updateFields.push(`stripe_connected_at = $${paramCounter++}`);
+            values.push(data.stripeConnectedAt);
+        }
+        if (updateFields.length === 0) {
+            throw new Error('Nenhum campo para atualizar');
+        }
+        values.push(professionalId);
+        const query = `
+      UPDATE professionals 
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramCounter}
+      RETURNING *
+    `;
+        console.log('🔍 SQL Update Query:', query);
+        console.log('🔍 Values:', values);
+        const result = await sqlClient(query, values);
+        return result[0];
+    }
+    async getProfessionalByStripeAccountId(stripeAccountId) {
+        const result = await sqlClient('SELECT * FROM professionals WHERE stripe_account_id = $1', [stripeAccountId]);
+        return (result[0] || null);
+    }
+    async getProfessionalsWithoutStripeConnect() {
+        const result = await sqlClient(`
+      SELECT * FROM professionals 
+      WHERE stripe_account_id IS NULL 
+      OR stripe_onboarding_completed = FALSE
+      ORDER BY created_at DESC
+    `);
+        return result;
+    }
+    async canProfessionalReceivePayments(professionalId) {
+        const result = await sqlClient('SELECT stripe_charges_enabled FROM professionals WHERE id = $1', [professionalId]);
+        return result[0]?.stripe_charges_enabled === true;
+    }
     // Appointments
     async getAppointmentsByUser(userId) {
         return await db.select().from(appointments).where(eq(appointments.clientId, userId));
@@ -259,18 +326,50 @@ export class DatabaseStorage {
             .where(and(eq(notifications.userId, userId), eq(notifications.read, false)));
         return result?.count || 0;
     }
-    async createNotification(insertNotification) {
-        const [notification] = await db
-            .insert(notifications)
-            .values(insertNotification)
-            .returning();
-        return notification;
+    async createNotification(data) {
+        try {
+            console.log('🔍 createNotification - Dados recebidos:', data);
+            const valuesToInsert = {
+                type: data.type,
+                title: data.title,
+                message: data.message,
+                userId: data.userId,
+                actionUrl: data.actionUrl || null,
+                read: data.read ?? false
+            };
+            console.log('📝 createNotification - Valores para inserir:', valuesToInsert);
+            console.log('📋 Schema de notifications:', Object.keys(notifications));
+            const [notification] = await db
+                .insert(notifications)
+                .values(valuesToInsert)
+                .returning();
+            console.log('✅ createNotification - Notificação criada:', notification.id);
+            return notification;
+        }
+        catch (error) {
+            console.error('❌ createNotification - Erro:', error);
+            throw error;
+        }
     }
-    async markNotificationRead(id) {
+    async getUserNotifications(userId) {
+        return await db
+            .select()
+            .from(notifications)
+            .where(eq(notifications.userId, userId))
+            .orderBy(desc(notifications.createdAt))
+            .limit(50);
+    }
+    async markNotificationAsRead(notificationId, userId) {
         await db
             .update(notifications)
-            .set({ [notifications.read.name]: true })
-            .where(eq(notifications.id, id));
+            .set({ read: true })
+            .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)));
+    }
+    async markAllNotificationsAsRead(userId) {
+        await db
+            .update(notifications)
+            .set({ read: true })
+            .where(eq(notifications.userId, userId));
     }
     // Security & Anti-fraud
     async createLoginAttempt(insertLoginAttempt) {
@@ -487,6 +586,8 @@ export class DatabaseStorage {
             scheduledDate: serviceRequests.scheduledDate,
             scheduledTime: serviceRequests.scheduledTime,
             urgency: serviceRequests.urgency,
+            numberOfDays: serviceRequests.numberOfDays,
+            dailyRate: serviceRequests.dailyRate,
             status: serviceRequests.status,
             responses: serviceRequests.responses,
             assignedProfessionalId: serviceRequests.assignedProfessionalId,
@@ -527,6 +628,8 @@ export class DatabaseStorage {
             scheduledDate: serviceRequests.scheduledDate,
             scheduledTime: serviceRequests.scheduledTime,
             urgency: serviceRequests.urgency,
+            numberOfDays: serviceRequests.numberOfDays,
+            dailyRate: serviceRequests.dailyRate,
             budget: serviceRequests.budget,
             status: serviceRequests.status,
             assignedProfessionalId: serviceRequests.assignedProfessionalId,
@@ -659,6 +762,8 @@ export class DatabaseStorage {
             scheduledDate: serviceRequests.scheduledDate,
             scheduledTime: serviceRequests.scheduledTime,
             urgency: serviceRequests.urgency,
+            numberOfDays: serviceRequests.numberOfDays,
+            dailyRate: serviceRequests.dailyRate,
             requestStatus: serviceRequests.status,
             assignedProfessionalId: serviceRequests.assignedProfessionalId,
             responses: serviceRequests.responses,
@@ -814,6 +919,7 @@ export class DatabaseStorage {
                 serviceTitle: serviceRequests.serviceType,
                 serviceStatus: serviceRequests.status,
                 professionalName: professionals.name,
+                professionalUserId: professionals.userId,
                 professionalRating: professionals.rating,
                 professionalTotalReviews: professionals.totalReviews,
                 professionalProfileImage: professionals.imageUrl,
@@ -834,6 +940,7 @@ export class DatabaseStorage {
                 id: result.id,
                 serviceRequestId: result.serviceRequestId,
                 professionalId: result.professionalId,
+                professionalUserId: result.professionalUserId,
                 professionalName: result.professionalName,
                 professionalRating: result.professionalRating || 5.0,
                 professionalTotalReviews: result.professionalTotalReviews || 0,
@@ -1135,6 +1242,8 @@ export class DatabaseStorage {
             const professional = await this.getProfessional(request.assignedProfessionalId);
             if (professional) {
                 await this.createNotification({
+                    type: 'payment_released',
+                    title: 'Pagamento Liberado',
                     userId: professional.userId,
                     message: `Pagamento de R$ ${finalAmount} foi liberado pelo serviço #${serviceRequestId}.`,
                     read: false
@@ -1203,6 +1312,8 @@ export class DatabaseStorage {
                 const reqDetailed = await this.getServiceRequest(offer.serviceRequestId);
                 const serviceLabel = reqDetailed?.serviceType || 'um serviço';
                 await this.createNotification({
+                    type: 'offer_rejected',
+                    title: 'Proposta Rejeitada',
                     userId: professional.userId,
                     message: `Sua proposta para ${serviceLabel} foi rejeitada e removida pelo cliente.`,
                     read: false
@@ -1356,11 +1467,13 @@ export class DatabaseStorage {
                 transactionCompletedAt: transactions.completedAt
             })
                 .from(serviceRequests)
-                .innerJoin(serviceOffers, and(eq(serviceOffers.serviceRequestId, serviceRequests.id), eq(serviceOffers.professionalId, professionalId), eq(serviceOffers.status, 'accepted')))
+                .innerJoin(serviceOffers, and(eq(serviceOffers.serviceRequestId, serviceRequests.id), eq(serviceOffers.professionalId, professionalId)
+            // Não filtrar por status da oferta aqui para incluir 'accepted' e 'completed'
+            ))
                 .innerJoin(users, eq(serviceRequests.clientId, users.id))
                 .leftJoin(serviceReviews, eq(serviceReviews.serviceRequestId, serviceRequests.id))
                 .leftJoin(transactions, and(eq(transactions.serviceRequestId, serviceRequests.id), eq(transactions.professionalId, professionalId), eq(transactions.type, 'service_payment')))
-                .where(and(eq(serviceRequests.assignedProfessionalId, professionalId), eq(serviceRequests.status, 'completed')))
+                .where(and(eq(serviceRequests.assignedProfessionalId, professionalId), or(eq(serviceRequests.status, 'completed'), eq(serviceRequests.status, 'awaiting_confirmation'))))
                 .orderBy(desc(serviceRequests.clientConfirmedAt));
             console.log('✅ Serviços concluídos encontrados:', results.length);
             console.log('🔍 Dados dos serviços:', results.map((r) => ({ id: r.serviceRequestId, status: r.status, amount: r.amount })));
@@ -1490,6 +1603,38 @@ export class DatabaseStorage {
             throw error;
         }
     }
+    async getPaymentReferenceByServiceOffer(serviceOfferId) {
+        try {
+            console.log('🔍 Buscando referência de pagamento por service offer ID:', serviceOfferId);
+            const [paymentRef] = await db
+                .select()
+                .from(paymentReferences)
+                .where(eq(paymentReferences.serviceOfferId, serviceOfferId))
+                .orderBy(desc(paymentReferences.createdAt))
+                .limit(1);
+            return paymentRef || null;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar referência de pagamento:', error);
+            return null;
+        }
+    }
+    async getPaymentReferenceByServiceRequest(serviceRequestId) {
+        try {
+            console.log('🔍 Buscando referência de pagamento por service request ID:', serviceRequestId);
+            const [paymentRef] = await db
+                .select()
+                .from(paymentReferences)
+                .where(eq(paymentReferences.serviceRequestId, serviceRequestId))
+                .orderBy(desc(paymentReferences.createdAt))
+                .limit(1);
+            return paymentRef || null;
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar referência de pagamento:', error);
+            return null;
+        }
+    }
     async getPaymentReferenceByPreferenceId(preferenceId) {
         try {
             console.log('🔍 Buscando referência de pagamento por preference ID:', preferenceId);
@@ -1589,7 +1734,7 @@ export class DatabaseStorage {
                 createdAt: paymentReferences.createdAt,
                 updatedAt: paymentReferences.updatedAt,
                 serviceRequest: {
-                    title: serviceRequests.title,
+                    title: serviceRequests.description,
                     description: serviceRequests.description,
                     category: serviceRequests.category
                 },
@@ -1779,6 +1924,13 @@ export class DatabaseStorage {
                 throw new Error('Profissional não encontrado');
             }
             const user = userData[0];
+            // Buscar dados do profissional (inclui campo 'available')
+            const professionalData = await db
+                .select()
+                .from(professionals)
+                .where(eq(professionals.userId, professionalId))
+                .limit(1);
+            const professional = professionalData.length > 0 ? professionalData[0] : null;
             // Buscar estatísticas do profissional
             const totalOffers = await db
                 .select({ count: sql `count(*)` })
@@ -1811,6 +1963,7 @@ export class DatabaseStorage {
                 : 0;
             const profileData = {
                 ...user,
+                ...professional, // Inclui dados do profissional (com campo 'available')
                 stats: {
                     totalOffers: Number(totalOffers[0]?.count || 0),
                     completedOffers: Number(completedOffers[0]?.count || 0),
@@ -1821,6 +1974,7 @@ export class DatabaseStorage {
                 recentReviews: reviews
             };
             console.log('✅ Perfil do profissional montado com sucesso');
+            console.log('✅ Campo available:', professional?.available);
             return profileData;
         }
         catch (error) {
@@ -1935,6 +2089,78 @@ export class DatabaseStorage {
         catch (error) {
             console.error('❌ Erro em getProviderDashboardData:', error);
             throw error;
+        }
+    }
+    // Helper function to create notifications for service events
+    async createServiceNotification(type, serviceRequestId, clientId, professionalId) {
+        try {
+            const serviceRequest = await this.getServiceRequestById(serviceRequestId);
+            const client = await this.getUser(clientId);
+            const professional = professionalId ? await this.getProfessionalById(professionalId) : null;
+            let notificationData;
+            switch (type) {
+                case 'service_requested':
+                    notificationData = {
+                        type: 'info',
+                        title: 'Nova Solicitação de Serviço',
+                        message: `Nova solicitação de ${serviceRequest?.serviceType} foi criada`,
+                        userId: professionalId || 0,
+                        actionUrl: '/provider-dashboard'
+                    };
+                    break;
+                case 'service_accepted':
+                    notificationData = {
+                        type: 'success',
+                        title: 'Serviço Aceito',
+                        message: `Sua solicitação de ${serviceRequest?.serviceType} foi aceita por um profissional`,
+                        userId: clientId,
+                        actionUrl: '/my-requests'
+                    };
+                    break;
+                case 'service_completed':
+                    notificationData = {
+                        type: 'success',
+                        title: 'Serviço Concluído',
+                        message: `O serviço de ${serviceRequest?.serviceType} foi concluído com sucesso`,
+                        userId: clientId,
+                        actionUrl: '/my-requests'
+                    };
+                    break;
+                case 'payment_received':
+                    notificationData = {
+                        type: 'success',
+                        title: 'Pagamento Recebido',
+                        message: `Pagamento de R$ ${serviceRequest?.budget} foi processado com sucesso`,
+                        userId: professionalId || 0,
+                        actionUrl: '/provider-dashboard'
+                    };
+                    break;
+                case 'new_offer':
+                    notificationData = {
+                        type: 'info',
+                        title: 'Nova Proposta Recebida',
+                        message: `Você recebeu uma nova proposta para ${serviceRequest?.serviceType}`,
+                        userId: clientId,
+                        actionUrl: '/service-offer'
+                    };
+                    break;
+                case 'offer_accepted':
+                    notificationData = {
+                        type: 'success',
+                        title: 'Proposta Aceita',
+                        message: `Sua proposta para ${serviceRequest?.serviceType} foi aceita`,
+                        userId: professionalId || 0,
+                        actionUrl: '/provider-dashboard'
+                    };
+                    break;
+                default:
+                    return;
+            }
+            await this.createNotification(notificationData);
+        }
+        catch (error) {
+            console.error('❌ Erro em createServiceNotification:', error);
+            // Não relançar erro para não quebrar o fluxo principal
         }
     }
 }

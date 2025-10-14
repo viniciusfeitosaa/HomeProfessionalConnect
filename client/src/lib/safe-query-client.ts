@@ -5,7 +5,7 @@ async function safeApiRequest(url: string): Promise<any> {
   const baseUrl = getApiUrl();
   const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
   
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',

@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getApiUrl } from "@/lib/api-config";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -15,13 +16,13 @@ export async function apiRequest(
   const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
   
   // Add auth token if available
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
   // Sempre usar a URL completa do backend
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+  const baseUrl = getApiUrl();
   const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
 
   let res = await fetch(fullUrl, {
@@ -51,11 +52,11 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+      const baseUrl = getApiUrl();
       const url = queryKey[0] as string;
       const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
       
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const headers: Record<string, string> = {};
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;

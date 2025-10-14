@@ -60,7 +60,7 @@ export default function Home() {
   // Função para iniciar conversa diretamente
   const startConversation = async (professionalId: number, professionalName: string) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await fetch(`${getApiUrl()}/api/messages/start-conversation`, {
         method: 'POST',
         credentials: 'include',

@@ -58,7 +58,7 @@ export default function MessagesProvider({ params }: { params?: { conversationId
     try {
       console.log('🔄 fetchConversations - Iniciando busca de conversas...');
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) {
         console.log('❌ Token não encontrado');
         toast({
@@ -111,7 +111,7 @@ export default function MessagesProvider({ params }: { params?: { conversationId
   // Buscar mensagens ao abrir conversa
   const fetchMessages = async (conversationId: string | number) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) return;
       const response = await fetch(`${getApiUrl()}/api/messages/${conversationId}`, {
         credentials: 'include',
@@ -186,7 +186,7 @@ export default function MessagesProvider({ params }: { params?: { conversationId
     if (!selectedConv) return;
     
     setIsUploading(true);
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) {
       toast({
         title: "Erro de autenticação",
@@ -287,7 +287,7 @@ export default function MessagesProvider({ params }: { params?: { conversationId
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedConv) return;
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) {
       toast({
         title: "Erro de autenticação",
@@ -358,7 +358,7 @@ export default function MessagesProvider({ params }: { params?: { conversationId
   const deleteConversation = async (conversationId: number) => {
     try {
       console.log('🗑️ Tentando excluir conversa:', conversationId);
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) return;
       const response = await fetch(`${getApiUrl()}/api/messages/conversation/${conversationId}`, {
         method: 'DELETE',

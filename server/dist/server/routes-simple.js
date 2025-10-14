@@ -2,17 +2,33 @@ import express from "express";
 import { storage } from "./storage.js";
 import { authenticateToken, generateToken, verifyPassword, hashPassword } from "./auth.js";
 import Stripe from 'stripe';
+// Helper function to assert user is defined
+function assertUser(req) {
+    if (!req.user) {
+        throw new Error('Unauthorized: User not found');
+    }
+}
+// Helper to get user or throw
+function getAuthUser(req) {
+    if (!req.user) {
+        throw new Error('Unauthorized: User not found');
+    }
+    return req.user;
+}
 // Configure Stripe
 console.log(`🔧 Inicializando Stripe...`);
 console.log(`🔑 STRIPE_SECRET_KEY presente: ${process.env.STRIPE_SECRET_KEY ? 'Sim' : 'Não'}`);
 console.log(`🔑 STRIPE_SECRET_KEY início: ${process.env.STRIPE_SECRET_KEY?.substring(0, 20)}...`);
-if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY não encontrada nas variáveis de ambiente');
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_SECRET_KEY !== 'sk_test_placeholder') {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+        apiVersion: '2025-08-27.basil',
+    });
+    console.log(`✅ Stripe inicializado com sucesso`);
 }
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2025-08-27.basil',
-});
-console.log(`✅ Stripe inicializado com sucesso`);
+else {
+    console.log(`⚠️ Stripe desabilitado - configure STRIPE_SECRET_KEY para habilitar pagamentos`);
+}
 export function setupRoutes(app, redisClient) {
     app.get('/api/payment/config', (req, res) => {
         try {
@@ -36,6 +52,12 @@ export function setupRoutes(app, redisClient) {
     app.get('/api/payment/test-stripe', async (req, res) => {
         try {
             console.log(`🧪 Testando Stripe...`);
+            if (!stripe) {
+                return res.status(503).json({
+                    error: 'Stripe não configurado',
+                    message: 'Configure STRIPE_SECRET_KEY para habilitar pagamentos'
+                });
+            }
             // Teste simples: criar um Payment Intent de R$ 5,00
             const paymentIntent = await stripe.paymentIntents.create({
                 amount: 500, // R$ 5,00 em centavos
@@ -66,6 +88,7 @@ export function setupRoutes(app, redisClient) {
     // ==================== MESSAGING ROUTES ====================
     app.get('/api/messages', authenticateToken, async (req, res) => {
         try {
+            assertUser(req);
             const user = req.user;
             console.log('🔍 GET /api/messages - Usuário autenticado:', user.id, user.userType);
             const conversations = await storage.getConversationsByUser(user.id);
@@ -93,7 +116,8 @@ export function setupRoutes(app, redisClient) {
                         messages: await storage.getMessagesByConversation(conv.id)
                     };
                 }
-                const professional = await storage.getProfessionalById(conv.professionalId);
+                // O professionalId na tabela conversations é o userId, não o id da tabela professionals
+                const professional = await storage.getProfessionalByUserId(conv.professionalId);
                 return {
                     id: conv.id,
                     clientId: conv.clientId,
@@ -115,6 +139,25 @@ export function setupRoutes(app, redisClient) {
         catch (error) {
             console.error('❌ Erro ao buscar conversas:', error);
             res.status(500).json({ message: 'Erro interno ao buscar conversas' });
+        }
+    });
+    // Rota para obter o total de mensagens não lidas
+    app.get('/api/messages/unread/count', authenticateToken, async (req, res) => {
+        try {
+            assertUser(req);
+            const user = req.user;
+            const conversations = await storage.getConversationsByUser(user.id);
+            // Somar todas as mensagens não lidas de todas as conversas
+            let totalUnread = 0;
+            for (const conv of conversations) {
+                const unreadCount = await storage.getUnreadMessageCount(conv.id, user.id);
+                totalUnread += unreadCount;
+            }
+            res.json({ unreadCount: totalUnread });
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar contagem de mensagens não lidas:', error);
+            res.status(500).json({ message: 'Erro interno ao buscar contagem de mensagens não lidas' });
         }
     });
     app.get('/api/messages/:conversationId', authenticateToken, async (req, res) => {
@@ -180,8 +223,20 @@ export function setupRoutes(app, redisClient) {
         try {
             const user = req.user;
             const { professionalId, message } = req.body;
-            const professional = await storage.getProfessionalById(professionalId);
+            console.log('🔍 Iniciando conversa:', {
+                userId: user.id,
+                professionalId,
+                message: message?.substring(0, 50)
+            });
+            // O professionalId que vem das propostas é na verdade o userId do profissional
+            const professional = await storage.getProfessionalByUserId(professionalId);
+            console.log('👤 Profissional encontrado:', professional ? {
+                id: professional.id,
+                userId: professional.userId,
+                name: professional.name
+            } : 'null');
             if (!professional) {
+                console.warn('⚠️ Profissional não encontrado para userId:', professionalId);
                 return res.status(404).json({ message: 'Profissional não encontrado' });
             }
             const existingConversation = await storage.getConversation(user.id, professionalId);
@@ -201,6 +256,8 @@ export function setupRoutes(app, redisClient) {
                 const conversation = await storage.createConversation({
                     clientId: user.id,
                     professionalId,
+                    deletedByClient: false,
+                    deletedByProfessional: false,
                 });
                 conversationId = conversation.id;
             }
@@ -263,17 +320,224 @@ export function setupRoutes(app, redisClient) {
             });
         }
     });
+    // ==================== STRIPE CONNECT ROUTES ====================
+    /**
+     * 1. Criar conta Stripe Connect para profissional
+     */
+    app.post('/api/stripe/connect/create-account', authenticateToken, async (req, res) => {
+        try {
+            console.log('🔷 Criando conta Stripe Connect...');
+            const user = req.user;
+            console.log('👤 Dados do usuário:', { id: user?.id, userType: user?.userType, email: user?.email });
+            // Verificar se é profissional
+            if (user?.userType !== 'provider') {
+                console.log('❌ UserType inválido:', user?.userType, '- Esperado: provider');
+                return res.status(403).json({
+                    error: 'Apenas profissionais podem conectar Stripe',
+                    debug: { userType: user?.userType, expected: 'provider' }
+                });
+            }
+            // Buscar dados do profissional
+            const professional = await storage.getProfessionalByUserId(user.id);
+            if (!professional) {
+                return res.status(404).json({ error: 'Profissional não encontrado' });
+            }
+            // Verificar se já tem conta Connect
+            if (professional.stripeAccountId && professional.stripeOnboardingCompleted) {
+                return res.status(400).json({
+                    error: 'Você já tem uma conta Stripe conectada',
+                    accountId: professional.stripeAccountId,
+                });
+            }
+            if (!stripe) {
+                return res.status(503).json({
+                    error: 'Stripe não configurado',
+                    message: 'Configure STRIPE_SECRET_KEY para habilitar Stripe Connect'
+                });
+            }
+            // Criar conta Stripe Connect
+            console.log('📝 Criando conta Express para:', user.email);
+            const account = await stripe.accounts.create({
+                type: 'express',
+                country: 'BR',
+                email: user.email,
+                capabilities: {
+                    card_payments: { requested: true },
+                    transfers: { requested: true },
+                },
+                business_type: 'individual',
+                metadata: {
+                    professionalId: professional.id.toString(),
+                    userId: user.id.toString(),
+                    platform: 'lifebee',
+                },
+            });
+            console.log('✅ Conta criada:', account.id);
+            // Salvar no banco
+            await storage.updateProfessionalStripeAccount(professional.id, {
+                stripeAccountId: account.id,
+                stripeAccountStatus: 'pending',
+                stripeOnboardingCompleted: false,
+            });
+            // Criar link de onboarding
+            const accountLink = await stripe.accountLinks.create({
+                account: account.id,
+                refresh_url: `${process.env.FRONTEND_URL}/provider-settings?stripe_setup=refresh`,
+                return_url: `${process.env.FRONTEND_URL}/provider-settings?stripe_setup=success`,
+                type: 'account_onboarding',
+            });
+            console.log('✅ Link de onboarding criado');
+            res.json({
+                success: true,
+                accountId: account.id,
+                onboardingUrl: accountLink.url,
+            });
+        }
+        catch (error) {
+            console.error('❌ Erro ao criar conta Connect:', error);
+            res.status(500).json({
+                error: 'Erro ao criar conta Stripe Connect',
+                details: error instanceof Error ? error.message : 'Erro desconhecido',
+            });
+        }
+    });
+    /**
+     * 2. Verificar status da conta Stripe Connect
+     */
+    app.get('/api/stripe/connect/account-status', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ error: 'Apenas profissionais' });
+            }
+            const professional = await storage.getProfessionalByUserId(user.id);
+            if (!professional) {
+                return res.status(404).json({ error: 'Profissional não encontrado' });
+            }
+            // Se não tem conta Connect
+            if (!professional.stripeAccountId) {
+                return res.json({
+                    connected: false,
+                    needsOnboarding: true,
+                });
+            }
+            if (!stripe) {
+                return res.status(503).json({
+                    error: 'Stripe não configurado'
+                });
+            }
+            // Buscar dados da conta no Stripe
+            const account = await stripe.accounts.retrieve(professional.stripeAccountId);
+            console.log('📊 Status da conta:', {
+                id: account.id,
+                detailsSubmitted: account.details_submitted,
+                chargesEnabled: account.charges_enabled,
+                payoutsEnabled: account.payouts_enabled,
+            });
+            // Atualizar dados locais
+            await storage.updateProfessionalStripeAccount(professional.id, {
+                stripeDetailsSubmitted: account.details_submitted,
+                stripeChargesEnabled: account.charges_enabled,
+                stripePayoutsEnabled: account.payouts_enabled,
+                stripeOnboardingCompleted: account.details_submitted,
+                stripeAccountStatus: account.charges_enabled ? 'active' : 'pending',
+            });
+            res.json({
+                connected: true,
+                accountId: account.id,
+                detailsSubmitted: account.details_submitted,
+                chargesEnabled: account.charges_enabled,
+                payoutsEnabled: account.payouts_enabled,
+                needsOnboarding: !account.details_submitted,
+            });
+        }
+        catch (error) {
+            console.error('❌ Erro ao verificar status:', error);
+            res.status(500).json({ error: 'Erro ao verificar status da conta' });
+        }
+    });
+    /**
+     * 3. Criar novo link de onboarding (se expirou)
+     */
+    app.post('/api/stripe/connect/refresh-onboarding', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ error: 'Apenas profissionais' });
+            }
+            const professional = await storage.getProfessionalByUserId(user.id);
+            if (!professional || !professional.stripeAccountId) {
+                return res.status(404).json({ error: 'Conta Stripe não encontrada' });
+            }
+            if (!stripe) {
+                return res.status(503).json({
+                    error: 'Stripe não configurado'
+                });
+            }
+            // Criar novo link
+            const accountLink = await stripe.accountLinks.create({
+                account: professional.stripeAccountId,
+                refresh_url: `${process.env.FRONTEND_URL}/provider-settings?stripe_setup=refresh`,
+                return_url: `${process.env.FRONTEND_URL}/provider-settings?stripe_setup=success`,
+                type: 'account_onboarding',
+            });
+            res.json({
+                success: true,
+                onboardingUrl: accountLink.url,
+            });
+        }
+        catch (error) {
+            console.error('❌ Erro ao criar link:', error);
+            res.status(500).json({ error: 'Erro ao criar link de onboarding' });
+        }
+    });
+    /**
+     * 4. Criar dashboard link (para profissional acessar dashboard Stripe)
+     */
+    app.post('/api/stripe/connect/dashboard-link', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ error: 'Apenas profissionais' });
+            }
+            const professional = await storage.getProfessionalByUserId(user.id);
+            if (!professional || !professional.stripeAccountId) {
+                return res.status(404).json({ error: 'Conta Stripe não encontrada' });
+            }
+            if (!stripe) {
+                return res.status(503).json({
+                    error: 'Stripe não configurado'
+                });
+            }
+            // Criar login link
+            const loginLink = await stripe.accounts.createLoginLink(professional.stripeAccountId);
+            res.json({
+                success: true,
+                dashboardUrl: loginLink.url,
+            });
+        }
+        catch (error) {
+            console.error('❌ Erro ao criar dashboard link:', error);
+            res.status(500).json({ error: 'Erro ao criar link do dashboard' });
+        }
+    });
     // ==================== STRIPE WEBHOOK ====================
     app.post('/api/payment/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
         const sig = req.headers['stripe-signature'];
         const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
         let event;
+        if (!stripe) {
+            return res.status(503).json({
+                error: 'Stripe não configurado',
+                message: 'Configure STRIPE_SECRET_KEY para habilitar webhooks'
+            });
+        }
         try {
             event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
         }
         catch (err) {
-            console.error('❌ Webhook signature verification failed:', err.message);
-            return res.status(400).send(`Webhook Error: ${err.message}`);
+            console.error('❌ Webhook signature verification failed:', err?.message || err);
+            return res.status(400).send(`Webhook Error: ${err?.message || 'Unknown error'}`);
         }
         console.log('🔔 Webhook recebido:', event.type);
         // Handle the event
@@ -281,13 +545,14 @@ export function setupRoutes(app, redisClient) {
             case 'payment_intent.succeeded':
                 const paymentIntent = event.data.object;
                 console.log('✅ Pagamento aprovado:', paymentIntent.id);
+                console.log('💰 Status:', paymentIntent.status);
+                console.log('🔒 Modo escrow:', paymentIntent.metadata.escrowMode);
                 try {
-                    // Atualizar status do serviço para pago
                     const serviceOfferId = paymentIntent.metadata.serviceOfferId;
                     const professionalId = paymentIntent.metadata.professionalId;
                     const clientId = paymentIntent.metadata.clientId;
                     if (serviceOfferId) {
-                        // Buscar dados da proposta para obter o serviceRequestId
+                        // Buscar dados da proposta
                         const serviceOffer = await storage.getServiceOfferById(parseInt(serviceOfferId));
                         if (!serviceOffer) {
                             console.log('❌ Proposta não encontrada:', serviceOfferId);
@@ -299,43 +564,63 @@ export function setupRoutes(app, redisClient) {
                             console.log('❌ Serviço não encontrado:', serviceOffer.serviceRequestId);
                             return res.status(404).json({ error: 'Serviço não encontrado' });
                         }
-                        // Atualizar status da proposta para concluída (pagamento realizado)
-                        await storage.updateServiceOfferStatus(parseInt(serviceOfferId), 'completed');
-                        console.log('✅ Proposta marcada como concluída');
-                        // Atualizar status do serviço para concluído se ainda não estiver
-                        if (serviceRequest.status !== 'completed') {
-                            await storage.updateServiceRequestStatus(serviceRequest.id, 'completed');
-                            console.log('✅ Serviço marcado como concluído automaticamente');
+                        // ✨ ESCROW MODE: Este evento só ocorre quando pagamento é CAPTURADO (liberado na confirmação)
+                        if (paymentIntent.metadata.escrowMode === 'true') {
+                            console.log('💸 ESCROW: Pagamento foi CAPTURADO e liberado!');
+                            // Apenas notificar - status já foi atualizado na confirmação do cliente
+                            // NÃO atualizar status aqui pois isso já foi feito em /api/service/:id/confirm
+                            // Notificar profissional que o dinheiro foi liberado
+                            await storage.createNotification({
+                                userId: parseInt(professionalId),
+                                type: 'payment_released',
+                                title: 'Pagamento Liberado! 💰',
+                                message: `O cliente confirmou o serviço. Seu pagamento de R$ ${(paymentIntent.amount / 100).toFixed(2)} foi liberado!`,
+                            });
+                            console.log('✅ Notificação de liberação enviada ao profissional');
                         }
-                        // Criar notificação para o profissional
-                        await storage.createNotification({
-                            userId: parseInt(professionalId),
-                            type: 'payment_received',
-                            title: 'Pagamento Recebido! 💰',
-                            message: `Seu pagamento de R$ ${(paymentIntent.amount / 100).toFixed(2)} foi aprovado. O serviço está concluído!`,
-                            data: {
-                                serviceOfferId: parseInt(serviceOfferId),
-                                amount: paymentIntent.amount,
-                                paymentIntentId: paymentIntent.id
-                            }
-                        });
-                        // Criar notificação para o cliente
-                        await storage.createNotification({
-                            userId: parseInt(clientId),
-                            type: 'payment_success',
-                            title: 'Serviço Concluído! ✅',
-                            message: 'Seu pagamento foi processado com sucesso. O serviço está concluído e o profissional foi notificado.',
-                            data: {
-                                serviceOfferId: parseInt(serviceOfferId),
-                                amount: paymentIntent.amount,
-                                paymentIntentId: paymentIntent.id
-                            }
-                        });
+                        else {
+                            // Modo antigo/direto: pagamento sem retenção (não deveria acontecer mais)
+                            console.warn('⚠️ Pagamento SEM escrow detectado - isso não deveria acontecer');
+                        }
                         console.log('✅ Status atualizado e notificações enviadas');
                     }
                 }
                 catch (error) {
                     console.error('❌ Erro ao processar pagamento aprovado:', error);
+                }
+                break;
+            // ✨ ESCROW: Pagamento AUTORIZADO mas ainda NÃO capturado (retido)
+            case 'payment_intent.amount_capturable_updated':
+                const authorizedPayment = event.data.object;
+                console.log('🔒 Pagamento AUTORIZADO (retido):', authorizedPayment.id);
+                console.log('💰 Valor retido: R$', authorizedPayment.amount / 100);
+                try {
+                    const serviceOfferId = authorizedPayment.metadata.serviceOfferId;
+                    const clientId = authorizedPayment.metadata.clientId;
+                    const professionalId = authorizedPayment.metadata.professionalId;
+                    if (serviceOfferId) {
+                        // Atualizar referência de pagamento para "authorized" (retido)
+                        await storage.updatePaymentReferenceStatus(authorizedPayment.id, 'authorized', // Status: autorizado/retido
+                        'payment_authorized', authorizedPayment.id, new Date());
+                        // Notificar cliente que pagamento foi retido
+                        await storage.createNotification({
+                            userId: parseInt(clientId),
+                            type: 'payment_authorized',
+                            title: 'Pagamento Autorizado! 🔒',
+                            message: `Seu pagamento de R$ ${(authorizedPayment.amount / 100).toFixed(2)} foi autorizado e está retido. Será liberado quando você confirmar a conclusão do serviço.`,
+                        });
+                        // Notificar profissional que tem garantia de pagamento
+                        await storage.createNotification({
+                            userId: parseInt(professionalId),
+                            type: 'payment_guaranteed',
+                            title: 'Pagamento Garantido! ✅',
+                            message: `O cliente já pagou R$ ${(authorizedPayment.amount / 100).toFixed(2)}. O valor está retido e será liberado após a conclusão do serviço.`,
+                        });
+                        console.log('✅ Pagamento autorizado e retido com sucesso');
+                    }
+                }
+                catch (error) {
+                    console.error('❌ Erro ao processar pagamento autorizado:', error);
                 }
                 break;
             case 'payment_intent.payment_failed':
@@ -351,10 +636,6 @@ export function setupRoutes(app, redisClient) {
                             type: 'payment_failed',
                             title: 'Pagamento Falhou ❌',
                             message: 'Não foi possível processar seu pagamento. Tente novamente.',
-                            data: {
-                                serviceOfferId: parseInt(serviceOfferId),
-                                paymentIntentId: failedPayment.id
-                            }
                         });
                     }
                 }
@@ -368,11 +649,20 @@ export function setupRoutes(app, redisClient) {
         res.json({ received: true });
     });
     // ==================== UPDATE PAYMENT STATUS ROUTE ====================
-    app.post('/api/payment/update-status', authenticateToken, async (req, res) => {
+    app.post('/api/payment/update-status', (req, res, next) => {
+        console.log('🔥🔥🔥 POST /api/payment/update-status RECEBIDO - ANTES DO MIDDLEWARE 🔥🔥🔥');
+        console.log('🔍 Body:', req.body);
+        console.log('🔍 Headers:', req.headers);
+        next();
+    }, authenticateToken, async (req, res) => {
         try {
-            console.log('🔄 Atualizando status do pagamento...');
+            console.log('');
+            console.log('='.repeat(80));
+            console.log('🔄 ENDPOINT /api/payment/update-status CHAMADO!');
+            console.log('='.repeat(80));
             console.log('📝 Request body:', JSON.stringify(req.body, null, 2));
             console.log('👤 User from token:', req.user);
+            console.log('📅 Timestamp:', new Date().toISOString());
             const { serviceOfferId, paymentIntentId, amount } = req.body;
             if (!serviceOfferId) {
                 return res.status(400).json({ error: 'serviceOfferId é obrigatório' });
@@ -396,73 +686,123 @@ export function setupRoutes(app, redisClient) {
                 console.log('❌ Dados relacionados não encontrados');
                 return res.status(404).json({ error: 'Dados relacionados não encontrados' });
             }
-            // Atualizar status para concluída
-            await storage.updateServiceOfferStatus(parseInt(serviceOfferId), 'completed');
-            console.log('✅ Status atualizado para concluída');
-            if (serviceRequest.status !== 'completed') {
-                await storage.updateServiceRequestStatus(serviceRequest.id, 'completed');
-                console.log('✅ Solicitação de serviço marcada como concluída');
+            // ✨ ESCROW: Atualizar status do pagamento para "authorized" (retido)
+            console.log('🔒 ESCROW: Atualizando status do pagamento para AUTHORIZED...');
+            console.log('📌 Status atual do serviço:', serviceRequest.status);
+            console.log('📌 Status proposta:', serviceOffer.status);
+            // Buscar e atualizar a referência de pagamento
+            console.log('🔍 Buscando paymentRef por serviceOfferId:', serviceOffer.id);
+            const paymentRef = await storage.getPaymentReferenceByServiceOffer(serviceOffer.id);
+            if (paymentRef) {
+                console.log('💰 Referência de pagamento encontrada:', {
+                    id: paymentRef.id,
+                    status: paymentRef.status,
+                    preferenceId: paymentRef.preferenceId,
+                    serviceOfferId: paymentRef.serviceOfferId
+                });
+                console.log('🔄 Iniciando atualização do status para "authorized"...');
+                await storage.updatePaymentReferenceStatus(paymentRef.preferenceId, 'approved', // usar enum existente; detalhar como autorizado
+                'authorized', paymentIntentId, new Date());
+                console.log('✅ Status do pagamento atualizado para: approved (detalhe: authorized)');
+                // Verificar se realmente foi atualizado
+                const updatedPaymentRef = await storage.getPaymentReferenceByServiceOffer(serviceOffer.id);
+                console.log('🔍 Verificação após update - novo status:', updatedPaymentRef?.status);
             }
-            // Criar notificação para o profissional
+            else {
+                console.error('❌ Referência de pagamento NÃO encontrada!');
+                console.error('❌ ServiceOfferId buscado:', serviceOffer.id);
+            }
+            // Criar notificação para o profissional sobre pagamento garantido
             console.log(`🔔 Criando notificação para profissional ID: ${serviceOffer.professionalId}`);
+            // userId deve ser o ID do usuário dono do perfil profissional, não o ID do profissional
             await storage.createNotification({
-                userId: serviceOffer.professionalId,
-                type: 'payment_received',
-                title: 'Pagamento Recebido! 💰',
-                message: `Seu pagamento de R$ ${(amount / 100).toFixed(2)} foi aprovado. O serviço está concluído!`,
-                data: {
-                    serviceOfferId: parseInt(serviceOfferId),
-                    amount: amount,
-                    paymentIntentId: paymentIntentId
-                }
+                userId: professional.userId,
+                type: 'payment_guaranteed',
+                title: 'Pagamento Garantido! ✅',
+                message: `O cliente já pagou R$ ${(amount / 100).toFixed(2)}. O valor está retido e será liberado após você concluir o serviço!`,
             });
             console.log('✅ Notificação enviada para o profissional');
-            // Criar notificação para o cliente
-            console.log(`🔔 Criando notificação para cliente ID: ${serviceRequest.clientId}`);
+            // Criar notificação para o cliente sobre pagamento retido
             await storage.createNotification({
                 userId: serviceRequest.clientId,
-                type: 'payment_success',
-                title: 'Serviço Concluído! ✅',
-                message: 'Seu pagamento foi processado com sucesso. O serviço está concluído e o profissional foi notificado.',
-                data: {
-                    serviceOfferId: parseInt(serviceOfferId),
-                    amount: amount,
-                    paymentIntentId: paymentIntentId
-                }
+                type: 'payment_authorized',
+                title: 'Pagamento Autorizado! 🔒',
+                message: `Seu pagamento de R$ ${(amount / 100).toFixed(2)} foi autorizado e está retido. Aguarde o profissional executar o serviço. Você confirmará a conclusão para liberar o pagamento.`,
             });
             console.log('✅ Notificação enviada para o cliente');
-            console.log('✅ Processo concluído com sucesso');
             res.json({
                 success: true,
-                message: 'Status atualizado e notificações enviadas',
-                serviceOfferId: parseInt(serviceOfferId),
-                status: 'completed'
+                message: 'Pagamento autorizado e retido. Aguardando execução do serviço.',
+                escrowMode: true,
+                paymentStatus: 'authorized'
             });
         }
         catch (error) {
-            console.error('❌ Erro ao atualizar status do pagamento:', error);
-            console.error('❌ Stack trace:', error.stack);
-            console.error('❌ Error name:', error.name);
-            console.error('❌ Error message:', error.message);
-            res.status(500).json({
-                error: 'Erro interno do servidor',
-                details: error.message,
-                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-            });
+            console.error('❌ Erro ao processar status do pagamento:', error);
+            res.status(500).json({ error: 'Erro ao atualizar status' });
         }
     });
+    // CÓDIGO COMENTADO - REMOVER após verificar
+    /*
+        // Criar notificação duplicada - REMOVIDA
+        console.log(`🔔 Criando notificação para cliente ID: ${serviceRequest.clientId}`);
+        await storage.createNotification({
+          userId: serviceRequest.clientId,
+          type: 'payment_success',
+          title: 'Serviço Concluído! ✅',
+          message: 'Seu pagamento foi processado com sucesso. O serviço está concluído e o profissional foi notificado.',
+        });
+        console.log('✅ Notificação enviada para o cliente');
+  
+        console.log('✅ Processo concluído com sucesso');
+        res.json({
+          success: true,
+          message: 'Status atualizado e notificações enviadas',
+          serviceOfferId: parseInt(serviceOfferId),
+          status: 'completed'
+        });
+  
+      } catch (error: any) {
+        console.error('❌ Erro ao atualizar status do pagamento:', error);
+        console.error('❌ Stack trace:', error.stack);
+        console.error('❌ Error name:', error.name);
+        console.error('❌ Error message:', error.message);
+        
+        res.status(500).json({
+          error: 'Erro interno do servidor',
+          details: error.message,
+          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+      }
+    });
+    */
     // ==================== PAYMENT STATUS ROUTE ====================
     app.get('/api/payment/status/:serviceOfferId', authenticateToken, async (req, res) => {
         try {
             const { serviceOfferId } = req.params;
+            console.log('🔍 Verificando status de pagamento para oferta ID:', serviceOfferId);
             const serviceOffer = await storage.getServiceOfferById(parseInt(serviceOfferId));
             if (!serviceOffer) {
                 return res.status(404).json({ error: 'Proposta não encontrada' });
             }
+            // ✨ VERIFICAR SE EXISTE UM PAYMENT REF COM STATUS AUTHORIZED/APPROVED
+            const paymentRef = await storage.getPaymentReferenceByServiceOffer(parseInt(serviceOfferId));
+            console.log('💰 PaymentRef encontrado:', paymentRef ? {
+                id: paymentRef.id,
+                status: paymentRef.status,
+                paymentId: paymentRef.paymentId
+            } : 'Nenhum');
+            const isPaid = paymentRef && (paymentRef.status === 'authorized' || paymentRef.status === 'approved');
+            console.log('✅ Status de pagamento:', {
+                serviceOfferId: serviceOffer.id,
+                offerStatus: serviceOffer.status,
+                paymentStatus: paymentRef?.status || 'none',
+                isPaid
+            });
             res.json({
                 serviceOfferId: serviceOffer.id,
                 status: serviceOffer.status,
-                isPaid: serviceOffer.status === 'completed'
+                isPaid: isPaid || false
             });
         }
         catch (error) {
@@ -504,6 +844,23 @@ export function setupRoutes(app, redisClient) {
             if (!professional) {
                 return res.status(404).json({ error: 'Profissional não encontrado' });
             }
+            // ✨ Verificar se profissional tem Stripe Connect configurado
+            if (!professional.stripeAccountId) {
+                console.log('⚠️ Profissional não tem conta Stripe Connect');
+                return res.status(400).json({
+                    error: 'Profissional precisa conectar sua conta Stripe primeiro',
+                    errorCode: 'STRIPE_NOT_CONNECTED',
+                    needsStripeSetup: true,
+                });
+            }
+            if (!professional.stripeChargesEnabled) {
+                console.log('⚠️ Profissional não pode receber pagamentos ainda');
+                return res.status(400).json({
+                    error: 'Profissional ainda não completou configuração do Stripe',
+                    errorCode: 'STRIPE_NOT_ENABLED',
+                    needsStripeSetup: true,
+                });
+            }
             const rawPrice = serviceOffer.finalPrice || serviceOffer.proposedPrice;
             if (!rawPrice || isNaN(parseFloat(rawPrice))) {
                 return res.status(400).json({ error: 'Preço inválido na oferta de serviço' });
@@ -512,24 +869,42 @@ export function setupRoutes(app, redisClient) {
             // Stripe Brasil: valor mínimo é R$ 5,00
             const minimumAmount = 5.00;
             const finalAmount = Math.max(amount, minimumAmount);
-            const lifebeeCommission = finalAmount * 0.05; // 5% de comissão
-            const professionalAmount = finalAmount - lifebeeCommission;
+            // ✨ Calcular taxa LifeBee (5%) em centavos
+            const lifebeeCommissionPercent = 0.05;
+            const lifebeeCommission = Math.round(finalAmount * 100 * lifebeeCommissionPercent); // em centavos
+            const professionalAmount = Math.round(finalAmount * 100) - lifebeeCommission;
             console.log(`💰 Valor original: R$ ${amount.toFixed(2)}`);
             console.log(`💰 Valor final (mínimo R$ 5,00): R$ ${finalAmount.toFixed(2)}`);
+            console.log(`💰 LifeBee (5%): R$ ${(lifebeeCommission / 100).toFixed(2)}`);
+            console.log(`💰 Profissional (95%): R$ ${(professionalAmount / 100).toFixed(2)}`);
             console.log(`🔑 Stripe Secret Key presente: ${process.env.STRIPE_SECRET_KEY ? 'Sim' : 'Não'}`);
-            // Cria Payment Intent no Stripe com métodos de pagamento brasileiros
-            console.log(`🚀 Criando Payment Intent com valor: ${Math.round(finalAmount * 100)} centavos`);
+            if (!stripe) {
+                return res.status(503).json({
+                    error: 'Stripe não configurado',
+                    message: 'Configure STRIPE_SECRET_KEY para habilitar pagamentos'
+                });
+            }
+            // ✨ Criar Payment Intent com Stripe Connect e RETENÇÃO
+            console.log(`🚀 Criando Payment Intent com Connect (ESCROW - Retenção)...`);
+            console.log(`   Conta destino: ${professional.stripeAccountId}`);
+            console.log(`   💰 Pagamento será RETIDO até confirmação do cliente`);
             const paymentIntent = await stripe.paymentIntents.create({
-                amount: Math.round(finalAmount * 100), // Stripe expects amount in cents
+                amount: Math.round(finalAmount * 100),
                 currency: 'brl',
                 payment_method_types: ['card'],
+                capture_method: 'manual', // ✨ RETENÇÃO! Autoriza mas não captura automaticamente
+                application_fee_amount: lifebeeCommission, // ✨ Taxa LifeBee (5%)
+                transfer_data: {
+                    destination: professional.stripeAccountId, // ✨ Profissional recebe direto (95%)
+                },
                 metadata: {
                     serviceOfferId: serviceOffer.id.toString(),
                     serviceRequestId: serviceOffer.serviceRequestId.toString(),
                     clientId: serviceRequest.clientId.toString(),
                     professionalId: serviceOffer.professionalId.toString(),
-                    lifebeeCommission: lifebeeCommission.toFixed(2),
-                    professionalAmount: professionalAmount.toFixed(2),
+                    lifebeeCommission: (lifebeeCommission / 100).toFixed(2),
+                    professionalAmount: (professionalAmount / 100).toFixed(2),
+                    escrowMode: 'true', // ✨ Indica que está em modo escrow
                 },
             });
             // Salva referência do pagamento no banco
@@ -571,6 +946,328 @@ export function setupRoutes(app, redisClient) {
         });
     });
     // ==================== SERVICE ROUTES ====================
+    // Profissional marca serviço como concluído
+    app.post('/api/service/:id/complete', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const serviceRequestId = parseInt(req.params.id);
+            console.log('🔷 Profissional marcando serviço como concluído:', {
+                userId: user.id,
+                userType: user.userType,
+                serviceRequestId
+            });
+            // Verificar se é profissional
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ error: 'Apenas profissionais podem marcar serviços como concluídos' });
+            }
+            // Buscar serviço
+            const serviceRequest = await storage.getServiceRequestById(serviceRequestId);
+            if (!serviceRequest) {
+                return res.status(404).json({ error: 'Serviço não encontrado' });
+            }
+            // Buscar profissional
+            const professional = await storage.getProfessionalByUserId(user.id);
+            if (!professional) {
+                return res.status(404).json({ error: 'Profissional não encontrado' });
+            }
+            // Verificar se o profissional está associado a uma proposta aceita deste serviço
+            const offers = await storage.getServiceOffersByRequest(serviceRequestId);
+            console.log('📋 Propostas encontradas:', offers.length);
+            console.log('📋 Propostas:', offers.map(o => ({
+                id: o.id,
+                professionalId: o.professionalId,
+                status: o.status
+            })));
+            console.log('🔍 Procurando proposta aceita do profissional ID:', professional.id);
+            const acceptedOffer = offers.find(offer => offer.professionalId === professional.id && offer.status === 'accepted');
+            console.log('📋 Proposta aceita encontrada:', acceptedOffer ? 'Sim' : 'Não');
+            if (acceptedOffer) {
+                console.log('📋 Detalhes da proposta:', {
+                    id: acceptedOffer.id,
+                    professionalId: acceptedOffer.professionalId,
+                    status: acceptedOffer.status
+                });
+            }
+            if (!acceptedOffer) {
+                console.log('❌ Nenhuma proposta aceita encontrada');
+                console.log('❌ Profissional ID buscado:', professional.id);
+                console.log('❌ Propostas disponíveis:', offers.map(o => `ID: ${o.id}, ProfID: ${o.professionalId}, Status: ${o.status}`));
+                return res.status(403).json({
+                    error: 'Você não tem permissão para marcar este serviço como concluído',
+                    debug: {
+                        professionalId: professional.id,
+                        offersCount: offers.length,
+                        offers: offers.map(o => ({ id: o.id, profId: o.professionalId, status: o.status }))
+                    }
+                });
+            }
+            // ✨ ESCROW: Verificar se há pagamento (apenas informativo, não bloqueia)
+            const paymentRef = await storage.getPaymentReferenceByServiceOffer(acceptedOffer.id);
+            if (paymentRef) {
+                console.log('✅ Pagamento encontrado - Status:', paymentRef.status);
+                if (paymentRef.status === 'authorized' || paymentRef.status === 'approved') {
+                    console.log('💰 Pagamento garantido! Profissional pode marcar como concluído com segurança.');
+                }
+            }
+            else {
+                console.warn('⚠️ Nenhum pagamento encontrado - profissional está assumindo risco');
+            }
+            // Atualizar status do serviço para "awaiting_confirmation"
+            await storage.updateServiceRequestStatus(serviceRequestId, 'awaiting_confirmation');
+            console.log('✅ Serviço marcado como aguardando confirmação do cliente');
+            // Criar notificação para o cliente
+            const startDate = serviceRequest.scheduledDate ? new Date(serviceRequest.scheduledDate) : null;
+            const endDate = startDate && serviceRequest.numberOfDays
+                ? new Date(startDate.getTime() + (serviceRequest.numberOfDays - 1) * 24 * 60 * 60 * 1000)
+                : startDate;
+            await storage.createNotification({
+                userId: serviceRequest.clientId,
+                type: 'service_completed',
+                title: 'Serviço Concluído! 🎉',
+                message: `O profissional ${professional.name} marcou o serviço "${serviceRequest.description}" como concluído. Confirme a conclusão para liberar o pagamento de R$ ${paymentRef?.amount || '0.00'} ao profissional.`,
+                data: {
+                    scheduledDate: serviceRequest.scheduledDate,
+                    scheduledTime: serviceRequest.scheduledTime,
+                    numberOfDays: serviceRequest.numberOfDays || 1,
+                    dailyRate: serviceRequest.dailyRate,
+                    startDate: startDate?.toISOString(),
+                    endDate: endDate?.toISOString()
+                }
+            });
+            res.json({
+                success: true,
+                message: 'Serviço marcado como concluído. Aguardando confirmação do cliente para liberar pagamento.',
+                hasPendingPayment: !!paymentRef,
+                paymentStatus: paymentRef?.status
+            });
+        }
+        catch (error) {
+            console.error('❌ Erro ao marcar serviço como concluído:', error);
+            res.status(500).json({ error: 'Erro ao marcar serviço como concluído' });
+        }
+    });
+    // Cliente confirma conclusão do serviço
+    app.post('/api/service/:id/confirm', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const serviceRequestId = parseInt(req.params.id);
+            console.log('🔷 Cliente confirmando conclusão do serviço:', {
+                userId: user.id,
+                userType: user.userType,
+                serviceRequestId
+            });
+            // Verificar se é cliente
+            if (user.userType !== 'client') {
+                return res.status(403).json({ error: 'Apenas clientes podem confirmar conclusão de serviços' });
+            }
+            // Buscar serviço
+            const serviceRequest = await storage.getServiceRequestById(serviceRequestId);
+            if (!serviceRequest) {
+                return res.status(404).json({ error: 'Serviço não encontrado' });
+            }
+            // Verificar se o cliente é o dono do serviço
+            if (serviceRequest.clientId !== user.id) {
+                return res.status(403).json({ error: 'Você não tem permissão para confirmar este serviço' });
+            }
+            // Verificar se o serviço está aguardando confirmação
+            if (serviceRequest.status !== 'awaiting_confirmation') {
+                return res.status(400).json({
+                    error: 'Este serviço não está aguardando confirmação',
+                    currentStatus: serviceRequest.status
+                });
+            }
+            // Buscar a proposta aceita
+            const offers = await storage.getServiceOffersByRequest(serviceRequestId);
+            const acceptedOffer = offers.find(offer => offer.status === 'accepted');
+            if (!acceptedOffer) {
+                return res.status(404).json({ error: 'Proposta aceita não encontrada' });
+            }
+            // Buscar profissional
+            const professional = await storage.getProfessionalById(acceptedOffer.professionalId);
+            if (!professional) {
+                return res.status(404).json({ error: 'Profissional não encontrado' });
+            }
+            // 💰 ESCROW: Buscar e CAPTURAR o pagamento retido
+            console.log('💰 Buscando pagamento retido para liberar...');
+            console.log('🔍 Buscando referência de pagamento por service offer ID:', acceptedOffer.id);
+            const paymentRef = await storage.getPaymentReferenceByServiceOffer(acceptedOffer.id);
+            if (!paymentRef) {
+                console.log('❌ Nenhum pagamento encontrado para esta proposta');
+                return res.status(400).json({
+                    error: 'Pagamento não encontrado',
+                    message: 'Não é possível confirmar conclusão sem pagamento',
+                    errorCode: 'NO_PAYMENT'
+                });
+            }
+            console.log('💰 Referência de pagamento encontrada:', {
+                id: paymentRef.id,
+                status: paymentRef.status,
+                serviceOfferId: paymentRef.serviceOfferId,
+                preferenceId: paymentRef.preferenceId,
+                paymentId: paymentRef.paymentId
+            });
+            if (paymentRef.status !== 'authorized' && paymentRef.status !== 'approved') {
+                console.log('❌ Pagamento não está autorizado:', paymentRef.status);
+                return res.status(400).json({
+                    error: 'Pagamento não autorizado',
+                    message: `O pagamento está com status "${paymentRef.status}". Precisa estar autorizado para confirmar conclusão.`,
+                    errorCode: 'PAYMENT_NOT_AUTHORIZED',
+                    paymentStatus: paymentRef.status
+                });
+            }
+            // Captura condicional no Stripe: se ainda estiver requires_capture, captura agora
+            if (!paymentRef.externalReference) {
+                return res.status(400).json({ error: 'Referência de pagamento sem PaymentIntent ID' });
+            }
+            try {
+                const pi = await stripe?.paymentIntents.retrieve(paymentRef.externalReference);
+                console.log('🔎 PaymentIntent atual:', {
+                    id: pi?.id,
+                    status: pi?.status,
+                    amount: pi?.amount
+                });
+                if (pi?.status === 'requires_capture') {
+                    console.log(`💸 Capturando Payment Intent: ${pi.id}`);
+                    const captured = await stripe?.paymentIntents.capture(pi.id);
+                    console.log('✅ Pagamento capturado no Stripe:', captured?.status);
+                    await storage.updatePaymentReferenceStatus(paymentRef.preferenceId, 'approved', 'payment_captured', pi.id, new Date());
+                }
+                else if (pi?.status === 'succeeded') {
+                    console.log('✅ Pagamento já estava capturado (succeeded)');
+                    if (paymentRef.status !== 'approved') {
+                        await storage.updatePaymentReferenceStatus(paymentRef.preferenceId, 'approved', 'already_captured', pi?.id, new Date());
+                    }
+                }
+                else if (pi) {
+                    console.warn('⚠️ PaymentIntent não está pronto para captura:', pi.status);
+                    return res.status(400).json({
+                        error: 'Pagamento não está pronto para captura',
+                        stripeStatus: pi.status
+                    });
+                }
+            }
+            catch (captureError) {
+                console.error('❌ Erro ao consultar/capturar PaymentIntent:', captureError);
+                return res.status(500).json({
+                    error: 'Erro ao processar captura',
+                    message: captureError.message
+                });
+            }
+            // Atualizar status do serviço para "completed"
+            await storage.updateServiceRequestStatus(serviceRequestId, 'completed');
+            // Atualizar status da proposta para "completed"
+            await storage.updateServiceOfferStatus(acceptedOffer.id, 'completed');
+            console.log('✅ Serviço confirmado como concluído pelo cliente');
+            // Criar notificação para o profissional
+            const startDate2 = serviceRequest.scheduledDate ? new Date(serviceRequest.scheduledDate) : null;
+            const endDate2 = startDate2 && serviceRequest.numberOfDays
+                ? new Date(startDate2.getTime() + (serviceRequest.numberOfDays - 1) * 24 * 60 * 60 * 1000)
+                : startDate2;
+            await storage.createNotification({
+                userId: professional.userId,
+                type: 'service_confirmed',
+                title: 'Serviço Confirmado! ✅',
+                message: `O cliente confirmou a conclusão do serviço "${serviceRequest.description}". O pagamento foi liberado!`,
+                data: {
+                    scheduledDate: serviceRequest.scheduledDate,
+                    scheduledTime: serviceRequest.scheduledTime,
+                    numberOfDays: serviceRequest.numberOfDays || 1,
+                    dailyRate: serviceRequest.dailyRate,
+                    startDate: startDate2?.toISOString(),
+                    endDate: endDate2?.toISOString(),
+                    paymentAmount: paymentRef?.amount
+                }
+            });
+            // Verificar se já existe avaliação
+            const existingReview = await storage.getServiceReviewByService(serviceRequestId);
+            res.json({
+                success: true,
+                message: 'Serviço confirmado como concluído.',
+                requiresReview: !existingReview // Indica se precisa avaliar
+            });
+        }
+        catch (error) {
+            console.error('❌ Erro ao confirmar conclusão do serviço:', error);
+            res.status(500).json({ error: 'Erro ao confirmar conclusão do serviço' });
+        }
+    });
+    // Cliente envia avaliação do serviço
+    app.post('/api/service/:id/review', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const serviceRequestId = parseInt(req.params.id);
+            const { rating, comment } = req.body || {};
+            console.log('⭐ Recebendo avaliação do serviço:', {
+                userId: user?.id,
+                serviceRequestId,
+                rating,
+                hasComment: !!comment
+            });
+            // Somente cliente pode avaliar
+            if (user.userType !== 'client') {
+                return res.status(403).json({ error: 'Apenas clientes podem avaliar serviços' });
+            }
+            if (!Number.isInteger(serviceRequestId) || serviceRequestId <= 0) {
+                return res.status(400).json({ error: 'ID de serviço inválido' });
+            }
+            if (!rating || rating < 1 || rating > 5) {
+                return res.status(400).json({ error: 'Rating deve ser um número entre 1 e 5' });
+            }
+            // Buscar service request
+            const serviceRequest = await storage.getServiceRequestById(serviceRequestId);
+            if (!serviceRequest) {
+                return res.status(404).json({ error: 'Serviço não encontrado' });
+            }
+            // Validar proprietário
+            if (serviceRequest.clientId !== user.id) {
+                return res.status(403).json({ error: 'Você não tem permissão para avaliar este serviço' });
+            }
+            // Verificar status concluído
+            if (serviceRequest.status !== 'completed') {
+                return res.status(400).json({ error: 'Serviço ainda não foi concluído' });
+            }
+            // Obter oferta aceita para saber professionalId e serviceOfferId
+            const offers = await storage.getServiceOffersByRequest(serviceRequestId);
+            const acceptedOffer = offers?.find((o) => o.status === 'accepted' || o.status === 'completed');
+            if (!acceptedOffer) {
+                return res.status(400).json({ error: 'Não há proposta aceita/concluída para este serviço' });
+            }
+            const existingReview = await storage.getServiceReviewByService(serviceRequestId);
+            if (existingReview) {
+                return res.status(400).json({ error: 'Este serviço já foi avaliado' });
+            }
+            // Persistir avaliação
+            const newReview = await storage.createServiceReview({
+                serviceRequestId,
+                serviceOfferId: acceptedOffer.id,
+                clientId: user.id,
+                professionalId: acceptedOffer.professionalId,
+                rating: Number(rating),
+                comment: comment ? String(comment).slice(0, 1000) : null,
+            });
+            console.log('✅ Avaliação criada:', newReview?.id);
+            // Notificar profissional (não crítico)
+            try {
+                const professional = await storage.getProfessionalById(acceptedOffer.professionalId);
+                if (professional) {
+                    await storage.createNotification({
+                        userId: professional.userId,
+                        type: 'review_received',
+                        title: 'Você recebeu uma nova avaliação ⭐',
+                        message: `O cliente avaliou o serviço com ${Number(rating).toFixed(1)}/5${comment ? ' e deixou um comentário.' : '.'}`
+                    });
+                }
+            }
+            catch (notifErr) {
+                console.warn('⚠️ Não foi possível notificar profissional sobre a avaliação:', notifErr);
+            }
+            return res.json({ success: true });
+        }
+        catch (error) {
+            console.error('❌ Erro ao criar avaliação do serviço:', error);
+            return res.status(500).json({ error: 'Erro ao enviar avaliação' });
+        }
+    });
     // Get service requests for client
     app.get('/api/service-requests/client', authenticateToken, async (req, res) => {
         try {
@@ -643,6 +1340,34 @@ export function setupRoutes(app, redisClient) {
             res.status(500).json({ message: 'Erro interno do servidor' });
         }
     });
+    // Get all proposals by professional
+    app.get('/api/professionals/:id/proposals', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const professionalUserId = parseInt(req.params.id);
+            if (isNaN(professionalUserId)) {
+                return res.status(400).json({ message: "ID do profissional inválido" });
+            }
+            // Verificar se o usuário está acessando suas próprias propostas
+            if (user.userType !== 'provider' || user.id !== professionalUserId) {
+                return res.status(403).json({ message: "Acesso negado às propostas" });
+            }
+            // Buscar o profissional pelo userId
+            const professional = await storage.getProfessionalByUserId(professionalUserId);
+            if (!professional) {
+                return res.status(404).json({ message: "Profissional não encontrado" });
+            }
+            console.log('📋 Buscando propostas para professional.id:', professional.id);
+            // Buscar todas as propostas do profissional com detalhes dos serviços
+            const proposals = await storage.getProposalsByProfessional(professional.id);
+            console.log('✅ Propostas encontradas:', proposals.length);
+            res.json(proposals);
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar propostas do profissional:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
     // ==================== SERVICE REQUEST ROUTES ====================
     // Create service request
     app.post('/api/service-requests', authenticateToken, async (req, res) => {
@@ -651,10 +1376,53 @@ export function setupRoutes(app, redisClient) {
             if (user.userType !== 'client') {
                 return res.status(403).json({ message: 'Acesso negado' });
             }
-            const serviceRequest = await storage.createServiceRequest({
-                ...req.body,
+            // Converter scheduledDate de string para Date se necessário
+            const requestData = { ...req.body };
+            if (requestData.scheduledDate && typeof requestData.scheduledDate === 'string') {
+                // Combinar data e hora se existirem
+                if (requestData.scheduledTime) {
+                    requestData.scheduledDate = new Date(`${requestData.scheduledDate}T${requestData.scheduledTime}`);
+                }
+                else {
+                    requestData.scheduledDate = new Date(requestData.scheduledDate);
+                }
+            }
+            // Adicionar campos de dias e diária
+            if (requestData.numberOfDays) {
+                requestData.numberOfDays = parseInt(requestData.numberOfDays.toString());
+            }
+            if (requestData.dailyRate) {
+                requestData.dailyRate = parseFloat(requestData.dailyRate.toString());
+            }
+            console.log('📝 Criando solicitação com dados:', {
+                ...requestData,
                 clientId: user.id
             });
+            const serviceRequest = await storage.createServiceRequest({
+                ...requestData,
+                clientId: user.id
+            });
+            // Criar notificação para o cliente (não crítico - não bloquear se falhar)
+            try {
+                console.log('📢 Tentando criar notificação:', {
+                    type: 'success',
+                    title: 'Solicitação Criada',
+                    userId: user.id
+                });
+                await storage.createNotification({
+                    type: 'success',
+                    title: 'Solicitação Criada',
+                    message: `Sua solicitação de ${requestData.serviceType} foi criada com sucesso`,
+                    userId: user.id,
+                    actionUrl: '/my-requests'
+                });
+                console.log('✅ Notificação criada com sucesso');
+            }
+            catch (notificationError) {
+                // Log do erro mas não bloqueia a criação do serviço
+                console.error('⚠️ Erro ao criar notificação (não crítico):', notificationError.message);
+                console.error('Stack:', notificationError.stack);
+            }
             res.json({ success: true, message: 'Solicitação criada com sucesso', data: serviceRequest });
         }
         catch (error) {
@@ -700,6 +1468,30 @@ export function setupRoutes(app, redisClient) {
                 ...req.body,
                 professionalId: professional.id
             });
+            // Buscar a solicitação para obter o cliente
+            const serviceRequest = await storage.getServiceRequestById(req.body.serviceRequestId);
+            // Criar notificação para o cliente
+            if (serviceRequest) {
+                const startDate3 = serviceRequest.scheduledDate ? new Date(serviceRequest.scheduledDate) : null;
+                const endDate3 = startDate3 && serviceRequest.numberOfDays
+                    ? new Date(startDate3.getTime() + (serviceRequest.numberOfDays - 1) * 24 * 60 * 60 * 1000)
+                    : startDate3;
+                await storage.createNotification({
+                    type: 'info',
+                    title: 'Nova Proposta Recebida',
+                    message: `Você recebeu uma nova proposta para ${serviceRequest.serviceType}`,
+                    userId: serviceRequest.clientId,
+                    actionUrl: '/service-offer',
+                    data: {
+                        scheduledDate: serviceRequest.scheduledDate,
+                        scheduledTime: serviceRequest.scheduledTime,
+                        numberOfDays: serviceRequest.numberOfDays || 1,
+                        dailyRate: serviceRequest.dailyRate,
+                        startDate: startDate3?.toISOString(),
+                        endDate: endDate3?.toISOString()
+                    }
+                });
+            }
             res.json({ success: true, message: 'Proposta criada com sucesso', data: serviceOffer });
         }
         catch (error) {
@@ -729,14 +1521,77 @@ export function setupRoutes(app, redisClient) {
         }
     });
     // Accept service offer
-    app.post('/api/service-offers/:id/accept', async (req, res) => {
+    app.post('/api/service-offers/:id/accept', authenticateToken, async (req, res) => {
         try {
             const { id } = req.params;
-            // Temporarily return success until storage methods are implemented
+            const user = req.user;
+            // Usar método completo que faz todas as validações
+            const result = await storage.acceptServiceOffer(parseInt(id), user.id);
+            if (!result.success) {
+                return res.status(400).json({ message: result.error || 'Erro ao aceitar proposta' });
+            }
+            // Buscar a oferta para pegar o professionalId
+            const offer = await storage.getServiceOfferById(parseInt(id));
+            // Tentar criar notificações, mas não falhar se houver erro
+            if (offer) {
+                try {
+                    await storage.createNotification({
+                        type: 'success',
+                        title: 'Proposta Aceita',
+                        message: `Sua proposta foi aceita pelo cliente`,
+                        userId: offer.professionalId,
+                        actionUrl: '/provider-dashboard'
+                    });
+                    await storage.createNotification({
+                        type: 'success',
+                        title: 'Proposta Aceita',
+                        message: `Você aceitou a proposta do profissional`,
+                        userId: user.id,
+                        actionUrl: '/my-requests'
+                    });
+                }
+                catch (notifError) {
+                    console.error('⚠️ Erro ao criar notificações (não crítico):', notifError);
+                }
+            }
             res.json({ success: true, message: 'Proposta aceita com sucesso' });
         }
         catch (error) {
             console.error('❌ Erro ao aceitar proposta:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Reject service offer
+    app.put('/api/service-offers/:id/reject', authenticateToken, async (req, res) => {
+        try {
+            const { id } = req.params;
+            const user = req.user;
+            // Usar método completo que faz todas as validações
+            const result = await storage.rejectServiceOffer(parseInt(id), user.id);
+            if (!result.success) {
+                return res.status(400).json({ message: result.error || 'Erro ao rejeitar proposta' });
+            }
+            // Buscar a oferta para pegar o professionalId
+            const offer = await storage.getServiceOfferById(parseInt(id));
+            // Tentar criar notificações, mas não falhar se houver erro
+            if (offer) {
+                try {
+                    await storage.createNotification({
+                        type: 'info',
+                        title: 'Proposta Rejeitada',
+                        message: `Sua proposta foi rejeitada pelo cliente`,
+                        userId: offer.professionalId,
+                        actionUrl: '/provider-dashboard'
+                    });
+                }
+                catch (notifError) {
+                    console.error('⚠️ Erro ao criar notificações (não crítico):', notifError);
+                }
+            }
+            res.json({ success: true, message: 'Proposta rejeitada com sucesso' });
+        }
+        catch (error) {
+            console.error('❌ Erro ao rejeitar proposta:', error);
             res.status(500).json({ message: 'Erro interno do servidor' });
         }
     });
@@ -757,7 +1612,8 @@ export function setupRoutes(app, redisClient) {
     app.put('/api/notifications/:id/read', authenticateToken, async (req, res) => {
         try {
             const { id } = req.params;
-            await storage.markNotificationRead(parseInt(id));
+            const user = req.user;
+            await storage.markNotificationAsRead(parseInt(id), user.id);
             res.json({ success: true, message: 'Notificação marcada como lida' });
         }
         catch (error) {
@@ -777,11 +1633,57 @@ export function setupRoutes(app, redisClient) {
             res.status(500).json({ message: 'Erro interno do servidor' });
         }
     });
+    // Update user profile - alternative route
+    app.put('/api/user/profile', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const { name, email, phone, address } = req.body;
+            console.log('🔄 Atualizando perfil do usuário:', user.id);
+            console.log('📝 Dados recebidos:', { name, email, phone, address });
+            // Atualizar dados do usuário
+            await storage.updateUser(user.id, {
+                name,
+                email,
+                phone,
+                address
+            });
+            console.log('✅ Perfil atualizado com sucesso');
+            // Buscar dados atualizados
+            const updatedUser = await storage.getUser(user.id);
+            res.json({
+                success: true,
+                message: 'Perfil atualizado com sucesso',
+                user: updatedUser
+            });
+        }
+        catch (error) {
+            console.error('❌ Erro ao atualizar perfil:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
     // Upload profile image
     app.post('/api/profile/upload', async (req, res) => {
         try {
             // Temporarily return success until storage methods are implemented
             res.json({ success: true, message: 'Imagem enviada com sucesso' });
+        }
+        catch (error) {
+            console.error('❌ Erro ao enviar imagem:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Upload user profile image - alternative route
+    app.post('/api/user/upload-image', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            console.log('📸 Upload de imagem para usuário:', user.id);
+            // TODO: Implementar upload de imagem usando multer ou similar
+            // Por enquanto, retornamos sucesso temporário
+            res.json({
+                success: true,
+                message: 'Imagem enviada com sucesso',
+                profileImage: '/uploads/default-avatar.png' // Placeholder
+            });
         }
         catch (error) {
             console.error('❌ Erro ao enviar imagem:', error);
@@ -861,7 +1763,18 @@ export function setupRoutes(app, redisClient) {
                 password: await hashPassword(password),
                 name,
                 phone: phone || null,
-                userType: userType || 'client'
+                userType: userType || 'client',
+                googleId: null,
+                appleId: null,
+                phoneVerified: false,
+                address: null,
+                profileImage: null,
+                isVerified: false,
+                isBlocked: false,
+                loginAttempts: 0,
+                resetToken: null,
+                resetTokenExpiry: null,
+                lastLoginAt: null,
             });
             // Generate token
             const token = generateToken(user);
@@ -882,6 +1795,117 @@ export function setupRoutes(app, redisClient) {
         }
         catch (error) {
             console.error('❌ Erro no registro:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // ==================== GET SERVICE REQUEST BY ID ====================
+    // Get service request by ID
+    app.get('/api/service-requests/:id', authenticateToken, async (req, res) => {
+        try {
+            const { id } = req.params;
+            const requestId = parseInt(id);
+            if (isNaN(requestId)) {
+                return res.status(400).json({ message: "ID inválido" });
+            }
+            const serviceRequest = await storage.getServiceRequestById(requestId);
+            if (!serviceRequest) {
+                return res.status(404).json({ message: "Solicitação de serviço não encontrada" });
+            }
+            // Buscar informações do cliente
+            const client = await storage.getUser(serviceRequest.clientId);
+            // Combinar dados do serviço com informações do cliente
+            const serviceDataWithClient = {
+                ...serviceRequest,
+                clientName: client?.name || "Cliente",
+                clientProfileImage: client?.profileImage || "",
+                clientPhone: client?.phone || "",
+                clientEmail: client?.email || ""
+            };
+            res.json(serviceDataWithClient);
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar solicitação de serviço:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // ==================== GET SERVICE OFFERS BY REQUEST ID ====================
+    // Get service offers for a specific service request
+    app.get('/api/service-requests/:id/offers', authenticateToken, async (req, res) => {
+        try {
+            const { id } = req.params;
+            const offers = await storage.getServiceOffers(parseInt(id));
+            res.json(offers);
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar propostas:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // ==================== POST SERVICE OFFER FOR REQUEST ====================
+    // Create service offer for a specific service request
+    app.post('/api/service-requests/:id/offers', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const { id } = req.params;
+            const serviceRequestId = parseInt(id);
+            console.log('👤 Usuário tentando criar proposta:', {
+                id: user.id,
+                name: user.name,
+                userType: user.userType,
+                isProvider: user.userType === 'provider'
+            });
+            if (user.userType !== 'provider') {
+                console.log('❌ Acesso negado - userType:', user.userType);
+                return res.status(403).json({ message: 'Acesso negado - apenas prestadores podem criar propostas' });
+            }
+            if (isNaN(serviceRequestId)) {
+                return res.status(400).json({ message: "ID da solicitação inválido" });
+            }
+            // Get professional by user ID
+            const professional = await storage.getProfessionalByUserId(user.id);
+            if (!professional) {
+                return res.status(404).json({ message: 'Profissional não encontrado' });
+            }
+            // Verificar se a solicitação existe
+            const serviceRequest = await storage.getServiceRequestById(serviceRequestId);
+            console.log('📋 Solicitação encontrada:', {
+                id: serviceRequest?.id,
+                serviceType: serviceRequest?.serviceType,
+                clientId: serviceRequest?.clientId
+            });
+            if (!serviceRequest) {
+                return res.status(404).json({ message: 'Solicitação de serviço não encontrada' });
+            }
+            // Criar proposta com os dados do body + serviceRequestId do parâmetro
+            const serviceOffer = await storage.createServiceOffer({
+                serviceRequestId: serviceRequestId,
+                professionalId: professional.id,
+                proposedPrice: req.body.proposedPrice,
+                finalPrice: req.body.proposedPrice, // Define finalPrice igual ao proposedPrice inicialmente
+                estimatedTime: req.body.estimatedTime,
+                message: req.body.message,
+                status: 'pending'
+            });
+            console.log('✅ Proposta criada com sucesso:', serviceOffer.id);
+            // Criar notificação para o cliente (não bloquear se falhar)
+            try {
+                await storage.createNotification({
+                    type: 'info',
+                    title: 'Nova Proposta Recebida',
+                    message: `Você recebeu uma nova proposta para ${serviceRequest.serviceType}`,
+                    userId: serviceRequest.clientId,
+                    actionUrl: '/service-offer'
+                });
+                console.log('✅ Notificação criada para o cliente ID:', serviceRequest.clientId);
+            }
+            catch (notificationError) {
+                console.error('⚠️ Erro ao criar notificação (proposta já foi criada):', notificationError);
+                // Não retornar erro, pois a proposta já foi criada com sucesso
+            }
+            res.json({ success: true, message: 'Proposta criada com sucesso', data: serviceOffer });
+        }
+        catch (error) {
+            console.error('❌ Erro ao criar proposta:', error);
             res.status(500).json({ message: 'Erro interno do servidor' });
         }
     });
@@ -922,6 +1946,40 @@ export function setupRoutes(app, redisClient) {
         }
     });
     // ==================== PROVIDER APPOINTMENTS ====================
+    // Get appointments for client
+    app.get('/api/appointments', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            if (user.userType !== 'client') {
+                return res.status(403).json({ message: 'Acesso negado. Apenas clientes podem acessar esta rota.' });
+            }
+            console.log('📅 Buscando agendamentos para cliente ID:', user.id);
+            // Buscar service requests do cliente que foram aceitos (status = 'assigned' ou 'accepted')
+            const serviceRequests = await storage.getServiceRequestsByClient(user.id);
+            // Filtrar apenas os que têm proposta aceita e converter para formato de appointment
+            const appointments = serviceRequests
+                .filter(sr => sr.status === 'assigned' || sr.status === 'in_progress' || sr.status === 'awaiting_confirmation' || sr.status === 'completed')
+                .map(sr => ({
+                id: sr.id,
+                clientId: sr.clientId,
+                professionalId: sr.assignedProfessionalId,
+                serviceType: sr.serviceType,
+                description: sr.description,
+                scheduledFor: sr.scheduledDate,
+                scheduledTime: sr.scheduledTime,
+                status: sr.status,
+                address: sr.address,
+                createdAt: sr.createdAt,
+                updatedAt: sr.updatedAt
+            }));
+            console.log('✅ Agendamentos encontrados:', appointments.length);
+            res.json(appointments);
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar agendamentos do cliente:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
     // Get appointments for provider
     app.get('/api/appointments/provider', authenticateToken, async (req, res) => {
         try {
@@ -953,7 +2011,7 @@ export function setupRoutes(app, redisClient) {
             // Buscar service requests da categoria específica que ainda não foram assigned
             const serviceRequests = await storage.getServiceRequestsByCategory(category);
             // Filtrar apenas os que não estão assigned ou estão assigned para este profissional
-            const availableRequests = serviceRequests.filter(request => request.status === 'open' || request.status === 'pending' ||
+            const availableRequests = serviceRequests.filter(request => request.status === 'open' ||
                 (request.status === 'assigned' && request.assignedProfessionalId === user.id));
             console.log('✅ Solicitações encontradas:', availableRequests.length);
             res.json(availableRequests);
@@ -963,19 +2021,54 @@ export function setupRoutes(app, redisClient) {
             res.status(500).json({ message: 'Erro interno do servidor' });
         }
     });
+    // ==================== PROVIDER AVAILABILITY ====================
+    // Update provider availability
+    app.put('/api/provider/availability', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const { available } = req.body;
+            console.log('🔧 Atualizando disponibilidade do profissional:', { userId: user.id, available });
+            if (user.userType !== 'provider') {
+                return res.status(403).json({ message: 'Acesso negado. Apenas profissionais podem atualizar sua disponibilidade.' });
+            }
+            // Atualizar disponibilidade do profissional usando user.id
+            await storage.updateProfessionalAvailability(user.id, available);
+            console.log('✅ Disponibilidade atualizada com sucesso');
+            res.json({ message: 'Disponibilidade atualizada com sucesso', available });
+        }
+        catch (error) {
+            console.error('❌ Erro ao atualizar disponibilidade:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
     // ==================== PROFESSIONAL COMPLETED SERVICES ====================
     // Get completed services for professional
     app.get('/api/professional/:id/completed-services', authenticateToken, async (req, res) => {
         try {
+            console.log('🚀 Endpoint /api/professional/:id/completed-services chamado');
             const user = req.user;
             const professionalId = parseInt(req.params.id);
+            console.log('👤 Usuário autenticado:', { id: user?.id, userType: user?.userType });
+            console.log('📋 Professional ID solicitado:', professionalId);
             if (user.userType !== 'provider' || user.id !== professionalId) {
+                console.log('❌ Acesso negado - verificação de permissão falhou');
                 return res.status(403).json({ message: 'Acesso negado. Você só pode acessar seus próprios dados.' });
             }
+            console.log('✅ Permissão aprovada, buscando dados...');
             console.log('📊 Buscando serviços concluídos para profissional ID:', professionalId);
+            // Buscar o professional_id correspondente ao user_id
+            console.log('🔍 Buscando professional_id para user_id:', professionalId);
+            const professional = await storage.getProfessionalByUserId(professionalId);
+            if (!professional) {
+                console.log('❌ Profissional não encontrado para user_id:', professionalId);
+                return res.status(404).json({ message: 'Profissional não encontrado' });
+            }
+            console.log('✅ Profissional encontrado:', { id: professional.id, userId: professional.userId, name: professional.name });
             // Buscar service requests concluídos do profissional com dados completos
-            const completedServices = await storage.getProfessionalCompletedServices(professionalId);
+            console.log('🔍 Buscando serviços concluídos para professional_id:', professional.id);
+            const completedServices = await storage.getProfessionalCompletedServices(professional.id);
             console.log('✅ Serviços concluídos encontrados:', completedServices.length);
+            console.log('📋 Primeiro serviço:', completedServices[0] || 'Nenhum serviço');
             res.json({ data: completedServices });
         }
         catch (error) {
@@ -1044,6 +2137,75 @@ export function setupRoutes(app, redisClient) {
         }
         catch (error) {
             console.error('❌ Erro ao buscar dados do dashboard:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // ==================== NOTIFICATION ROUTES ====================
+    // Get notifications count
+    app.get('/api/notifications/count', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const count = await storage.getUnreadNotificationCount(user.id);
+            res.json({ count });
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar contador de notificações:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Get all notifications
+    app.get('/api/notifications', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const notifications = await storage.getUserNotifications(user.id);
+            res.json(notifications);
+        }
+        catch (error) {
+            console.error('❌ Erro ao buscar notificações:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Mark notification as read
+    app.post('/api/notifications/:id/read', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const { id } = req.params;
+            await storage.markNotificationAsRead(parseInt(id), user.id);
+            res.json({ success: true });
+        }
+        catch (error) {
+            console.error('❌ Erro ao marcar notificação como lida:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Mark all notifications as read
+    app.post('/api/notifications/mark-all-read', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            await storage.markAllNotificationsAsRead(user.id);
+            res.json({ success: true });
+        }
+        catch (error) {
+            console.error('❌ Erro ao marcar todas as notificações como lidas:', error);
+            res.status(500).json({ message: 'Erro interno do servidor' });
+        }
+    });
+    // Create notification (internal use)
+    app.post('/api/notifications', authenticateToken, async (req, res) => {
+        try {
+            const user = req.user;
+            const { type, title, message, userId, actionUrl } = req.body;
+            const notification = await storage.createNotification({
+                type,
+                title,
+                message,
+                userId: userId || user.id,
+                actionUrl
+            });
+            res.json({ success: true, notification });
+        }
+        catch (error) {
+            console.error('❌ Erro ao criar notificação:', error);
             res.status(500).json({ message: 'Erro interno do servidor' });
         }
     });

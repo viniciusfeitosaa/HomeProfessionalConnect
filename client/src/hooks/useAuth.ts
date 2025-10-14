@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getApiUrl } from '@/lib/api-config';
+import { getAuthToken, setAuthToken, removeAuthToken, getAuthUser, setAuthUser, clearAuth } from '@/lib/auth-storage';
 
 interface User {
   id: number;
@@ -28,11 +29,36 @@ export function useAuth() {
   useEffect(() => {
     const verifyToken = async () => {
     console.log('🔐 useAuth: Verificando token...');
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
+    
+    // Migrar de localStorage para sessionStorage se necessário
+    const localToken = localStorage.getItem('token');
+    const localUser = localStorage.getItem('user');
+    if (localToken && !getAuthToken()) {
+      console.log('📦 Migrando token de localStorage para sessionStorage...');
+      setAuthToken(localToken);
+      if (localUser) setAuthUser(localUser);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+    
+    const token = getAuthToken();
+    const userData = getAuthUser();
     
     console.log('🔐 useAuth: Token presente:', !!token);
     console.log('🔐 useAuth: UserData presente:', !!userData);
+    
+    // Validar formato básico do token JWT (deve ter 3 partes separadas por ponto)
+    if (token && (!token.includes('.') || token.split('.').length !== 3 || token.length < 50)) {
+      console.error('❌ useAuth: Token corrompido detectado! Limpando...');
+      console.log('Token length:', token.length);
+      clearAuth();
+      setAuthState({
+        user: null,
+        isLoading: false,
+        isAuthenticated: false,
+      });
+      return;
+    }
     
     if (token && userData) {
         try {
@@ -55,9 +81,9 @@ export function useAuth() {
               isAuthenticated: true,
             });
           } else {
+            console.error('❌ useAuth: Token inválido no backend (status:', response.status, ')');
             // Token is invalid, clear storage
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
+            clearAuth();
             setAuthState({
               user: null,
               isLoading: false,
@@ -65,26 +91,15 @@ export function useAuth() {
             });
           }
         } catch (error) {
-          console.error('Error verifying token:', error);
-          console.log('🔐 useAuth: Usando fallback com dados armazenados...');
-          // Fallback to stored user data if network error
-      try {
-        const user = JSON.parse(userData);
-        console.log('🔐 useAuth: Usuário carregado do localStorage:', user);
-        setAuthState({
-          user,
-          isLoading: false,
-          isAuthenticated: true,
-        });
-          } catch (parseError) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setAuthState({
-          user: null,
-          isLoading: false,
-          isAuthenticated: false,
-        });
-          }
+          console.error('❌ useAuth: Erro ao verificar token:', error);
+          console.log('🔐 useAuth: Limpando dados corrompidos...');
+          // Em caso de erro de rede ou token inválido, limpar tudo
+          clearAuth();
+          setAuthState({
+            user: null,
+            isLoading: false,
+            isAuthenticated: false,
+          });
       }
     } else {
       setAuthState({
@@ -99,8 +114,8 @@ export function useAuth() {
   }, []);
 
   const login = (token: string, user: User) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
+    setAuthToken(token);
+    setAuthUser(JSON.stringify(user));
     setAuthState({
       user,
       isLoading: false,
@@ -109,8 +124,7 @@ export function useAuth() {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearAuth();
     setAuthState({
       user: null,
       isLoading: false,

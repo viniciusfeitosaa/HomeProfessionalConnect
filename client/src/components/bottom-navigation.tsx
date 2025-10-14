@@ -3,12 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 export function BottomNavigation() {
   const [location] = useLocation();
   const [, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { data: unreadData } = useUnreadMessages();
+  const unreadCount = unreadData?.unreadCount || 0;
 
   const isActive = (path: string) => {
     if (path === "/" && location === "/") return true;
@@ -31,23 +34,8 @@ export function BottomNavigation() {
                   : "text-gray-500 dark:text-gray-400 hover:text-yellow-500 hover:bg-gray-50 dark:hover:bg-gray-800"
               }`}
             >
-              <Home className="h-5 w-5 mb-0.5" />
-              <span className="text-xs font-medium">Início</span>
-            </Button>
-          </Link>
-          
-          <Link href="/agenda">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`flex flex-col items-center h-12 w-12 p-0 rounded-xl transition-all duration-200 ${
-                isActive("/agenda") 
-                  ? "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20" 
-                  : "text-gray-500 dark:text-gray-400 hover:text-yellow-500 hover:bg-gray-50 dark:hover:bg-gray-800"
-              }`}
-            >
-              <Calendar className="h-5 w-5 mb-0.5" />
-              <span className="text-xs font-medium">Agenda</span>
+              <Home className="h-4 w-4 mb-0" />
+              <span className="text-[10px] font-medium">Início</span>
             </Button>
           </Link>
 
@@ -100,14 +88,19 @@ export function BottomNavigation() {
             <Button
               variant="ghost"
               size="sm"
-              className={`flex flex-col items-center h-12 w-12 p-0 rounded-xl transition-all duration-200 ${
+              className={`flex flex-col items-center h-12 w-12 p-0 rounded-xl transition-all duration-200 relative ${
                 isActive("/messages") 
                   ? "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20" 
                   : "text-gray-500 dark:text-gray-400 hover:text-yellow-500 hover:bg-gray-50 dark:hover:bg-gray-800"
               }`}
             >
-              <MessageCircle className="h-5 w-5 mb-0.5" />
-              <span className="text-xs font-medium">Chat</span>
+              <MessageCircle className="h-4 w-4 mb-0" />
+              <span className="text-[10px] font-medium">Chat</span>
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 bg-red-500 text-white text-[9px] font-bold rounded-full h-4 w-4 flex items-center justify-center animate-pulse">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
             </Button>
           </Link>
 
@@ -121,8 +114,8 @@ export function BottomNavigation() {
                   : "text-gray-500 dark:text-gray-400 hover:text-yellow-500 hover:bg-gray-50 dark:hover:bg-gray-800"
               }`}
             >
-              <User className="h-5 w-5 mb-0.5" />
-              <span className="text-xs font-medium">Perfil</span>
+              <User className="h-4 w-4 mb-0" />
+              <span className="text-[10px] font-medium">Perfil</span>
             </Button>
           </Link>
         </div>

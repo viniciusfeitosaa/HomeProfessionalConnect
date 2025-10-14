@@ -64,7 +64,7 @@ export default function MyRequests() {
     
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       // Token found
       console.log('👤 Usuário:', user);
       
@@ -121,7 +121,7 @@ export default function MyRequests() {
   const deleteRequest = async (requestId: number) => {
     setDeletingId(requestId);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) {
         toast({
           title: "Erro de Autenticação",

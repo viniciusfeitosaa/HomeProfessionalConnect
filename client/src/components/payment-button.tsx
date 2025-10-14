@@ -70,7 +70,8 @@ function PaymentForm({
   amount,
   serviceName,
   professionalName,
-  clientSecret
+  clientSecret,
+  onPaymentSuccess
 }: PaymentButtonProps) {
   const stripe = useStripe();
   const elements = useElements();
@@ -91,7 +92,7 @@ function PaymentForm({
         const response = await fetch(`${apiUrl}/api/payment/status/${serviceOfferId}`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+            'Authorization': `Bearer ${sessionStorage.getItem('token') || ''}`
           }
         });
 
@@ -154,12 +155,23 @@ function PaymentForm({
     console.log('🔑 Client Secret:', clientSecret.substring(0, 20) + '...');
     setIsLoading(true);
 
-    const { error, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: `${window.location.origin}/payment-success`,
+    const cardElement = elements.getElement(CardElement);
+    
+    if (!cardElement) {
+      console.error('❌ CardElement não encontrado');
+      toast({
+        title: "Erro",
+        description: "Formulário de cartão não carregado",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: {
+        card: cardElement,
       },
-      redirect: 'if_required',
     });
 
     if (error) {
@@ -176,21 +188,46 @@ function PaymentForm({
       return;
     }
 
-    if (!paymentIntent || paymentIntent.status !== 'succeeded') {
-      console.error('❌ PaymentIntent não aprovado:', paymentIntent);
+    // ✨ ESCROW: Aceitar status 'requires_capture' (pagamento autorizado/retido)
+    const validStatuses = ['succeeded', 'requires_capture'];
+    
+    if (!paymentIntent || !validStatuses.includes(paymentIntent.status)) {
+      console.error('❌ PaymentIntent com status inválido:', paymentIntent);
+      console.error('❌ Status recebido:', paymentIntent?.status);
+      console.error('❌ Status esperados:', validStatuses);
       toast({
         title: "Erro no Pagamento",
-        description: "Não foi possível confirmar o pagamento.",
+        description: `Status do pagamento: ${paymentIntent?.status || 'desconhecido'}. Tente novamente.`,
         variant: "destructive",
       });
       setIsLoading(false);
       return;
     }
+    
+    // Log do status para debug
+    if (paymentIntent.status === 'requires_capture') {
+      console.log('🔒 ESCROW: Pagamento AUTORIZADO (retido) - Status: requires_capture');
+    } else {
+      console.log('✅ Pagamento capturado - Status: succeeded');
+    }
 
     console.log('✅ Pagamento aprovado:', paymentIntent.id);
-
+    
+    console.log('🔍 Verificando token JWT...');
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
+    console.log('🔑 Token encontrado no sessionStorage?', !!token);
+    console.log('🆕🆕🆕 NOVO CÓDIGO CARREGADO - VERSÃO ATUALIZADA 2025 🆕🆕🆕');
+    console.log('🔑 Tipo do token:', typeof token);
+    console.log('🔑 Token length:', token?.length);
+    
+    if (token && token.length > 0) {
+      console.log('🔑 Token (primeiros 20 chars):', token.substring(0, 20) + '...');
+    } else {
+      console.error('❌ Token é null, undefined ou vazio!');
+    }
+
+    console.log('✅ Passou da verificação do token');
 
     if (!token) {
       console.error('❌ Token JWT não encontrado');
@@ -203,6 +240,8 @@ function PaymentForm({
       return;
     }
 
+    console.log('✅ Token válido, iniciando requisição...');
+
     try {
       const requestBody = {
         serviceOfferId,
@@ -210,8 +249,14 @@ function PaymentForm({
         amount: paymentIntent.amount,
       };
 
-      console.log('🔄 Enviando requisição para atualizar status...');
+      console.log('');
+      console.log('='.repeat(80));
+      console.log('🔄 FRONTEND: Enviando requisição para atualizar status...');
+      console.log('='.repeat(80));
       console.log('📝 Request body:', JSON.stringify(requestBody, null, 2));
+      console.log('🔑 Token presente:', !!token);
+      console.log('🌐 API URL:', `${apiUrl}/api/payment/update-status`);
+      console.log('📅 Timestamp:', new Date().toISOString());
 
       const response = await fetch(`${apiUrl}/api/payment/update-status`, {
         method: 'POST',
@@ -224,6 +269,19 @@ function PaymentForm({
 
       console.log('📊 Response status:', response.status);
       console.log('📊 Response ok:', response.ok);
+      console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
+      
+      const responseText = await response.text();
+      console.log('📊 Response text:', responseText);
+      
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+        console.log('📊 Response data (parsed):', responseData);
+      } catch (e) {
+        console.error('❌ Erro ao parsear response como JSON:', e);
+        console.error('❌ Response text bruto:', responseText);
+      }
 
       if (response.status === 401) {
         toast({
@@ -236,17 +294,29 @@ function PaymentForm({
       }
 
       if (response.ok) {
-        const responseData = await response.json();
-        console.log('✅ Status atualizado com sucesso:', responseData);
+        console.log('✅ FRONTEND: Status atualizado com sucesso!');
+        console.log('✅ Response data:', responseData);
 
         toast({
-          title: "Serviço Concluído!",
-          description: "Pagamento aprovado! O serviço está concluído e o profissional foi notificado.",
+          title: "Pagamento Autorizado! 🔒",
+          description: "Pagamento retido com sucesso! Aguarde o profissional executar o serviço. Você confirmará a conclusão para liberar o pagamento.",
+          duration: 5000,
         });
 
         setShowDialog(false);
-        setTimeout(() => window.location.reload(), 2000);
+        setIsLoading(false);
+        
+        // Chama callback de sucesso para atualizar estado no componente pai
+        if (onPaymentSuccess) {
+          console.log('🔄 Chamando onPaymentSuccess callback...');
+          onPaymentSuccess();
+        }
+        
         return;
+      } else {
+        console.error('❌ FRONTEND: Erro ao atualizar status');
+        console.error('❌ Status code:', response.status);
+        console.error('❌ Response data:', responseData);
       }
 
       const errorBody = await response.json().catch(() => null);
@@ -345,13 +415,23 @@ function PaymentForm({
                         Método de Pagamento
                       </label>
                       <div className="p-2 border border-gray-300 rounded-md bg-white">
-                        <PaymentElement
+                        <CardElement
                           options={{
-                            layout: 'tabs',
-                            paymentMethodOrder: ['card'],
-                            fields: {
-                              billingDetails: 'auto'
-                            }
+                            style: {
+                              base: {
+                                fontSize: '16px',
+                                color: '#424770',
+                                '::placeholder': {
+                                  color: '#aab7c4',
+                                },
+                              },
+                              invalid: {
+                                color: '#9e2146',
+                              },
+                            },
+                          }}
+                          onReady={() => {
+                            console.log('✅ CardElement - Pronto!');
                           }}
                         />
                       </div>
@@ -407,18 +487,8 @@ export default function PaymentButton(props: PaymentButtonProps) {
   useEffect(() => {
     let mounted = true;
 
-    loadStripeFromServer()
-      .then((promise) => {
-        if (mounted) {
-          setStripePromise(promise);
-        }
-      })
-      .catch((stripeError) => {
-        console.error('❌ Erro ao carregar Stripe:', stripeError);
-        if (mounted) {
-          setStripeLoadError(stripeError instanceof Error ? stripeError.message : 'Erro ao carregar Stripe');
-        }
-      });
+    console.log('🔄 PaymentButton - Carregando Stripe...');
+    setStripePromise(loadStripeFromServer());
 
     return () => {
       mounted = false;
@@ -431,7 +501,7 @@ export default function PaymentButton(props: PaymentButtonProps) {
       setError(null);
       
       try {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         const response = await fetch(`${getApiUrl()}/api/payment/create-intent`, {
         method: 'POST',
         headers: {
@@ -447,10 +517,11 @@ export default function PaymentButton(props: PaymentButtonProps) {
       const data = await response.json();
 
       if (response.ok && data.success) {
-          setClientSecret(data.clientSecret);
+        console.log('✅ Client Secret recebido:', data.clientSecret?.substring(0, 20) + '...');
+        setClientSecret(data.clientSecret);
         toast({
           title: "Pagamento Criado",
-            description: "Escolha seu método de pagamento",
+          description: "Escolha seu método de pagamento",
         });
       } else {
         // ✨ Tratamento específico para erros de Stripe não configurado
@@ -507,7 +578,7 @@ export default function PaymentButton(props: PaymentButtonProps) {
       )}
 
       {clientSecret && stripePromise && !stripeLoadError && (
-        <Elements stripe={stripePromise} options={{ clientSecret }}>
+        <Elements stripe={stripePromise}>
           <PaymentForm {...props} clientSecret={clientSecret} />
         </Elements>
       )}

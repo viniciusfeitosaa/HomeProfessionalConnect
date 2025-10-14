@@ -81,6 +81,7 @@ export default function Services() {
   const [rejectingOfferId, setRejectingOfferId] = useState<number | null>(null);
   const [startingConversationId, setStartingConversationId] = useState<number | null>(null);
   const [confirmingServiceId, setConfirmingServiceId] = useState<number | null>(null);
+  const [paidServiceOffers, setPaidServiceOffers] = useState<Set<number>>(new Set()); // IDs das ofertas que já foram pagas
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [brokenOfferImage, setBrokenOfferImage] = useState<Record<number, boolean>>({});
@@ -144,7 +145,7 @@ export default function Services() {
   // Função para buscar pedidos de serviço
   const fetchServiceRequests = useCallback(async (): Promise<ServiceRequest[]> => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) {
         console.error('❌ Token não encontrado');
         return [];
@@ -186,7 +187,7 @@ export default function Services() {
   // Função para buscar propostas de serviço
   const fetchServiceOffers = useCallback(async (): Promise<ServiceOffer[]> => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) {
         console.error('❌ Token não encontrado');
         return [];
@@ -217,6 +218,30 @@ export default function Services() {
         }));
 
         setServiceOffers(offers);
+        
+        // ✨ Verificar status de pagamento de cada oferta aceita
+        const acceptedOffers = offers.filter((o: any) => o.status === 'accepted');
+        for (const offer of acceptedOffers) {
+          try {
+            const paymentStatusResponse = await fetch(`${getApiUrl()}/api/payment/status/${offer.id}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            if (paymentStatusResponse.ok) {
+              const paymentStatus = await paymentStatusResponse.json();
+              console.log(`💰 Status de pagamento para oferta ${offer.id}:`, paymentStatus);
+              
+              if (paymentStatus.isPaid) {
+                setPaidServiceOffers(prev => new Set(prev).add(offer.id));
+              }
+            }
+          } catch (error) {
+            console.error(`❌ Erro ao verificar pagamento da oferta ${offer.id}:`, error);
+          }
+        }
+        
         return offers;
       } else {
         const errorText = await response.text();
@@ -280,7 +305,7 @@ export default function Services() {
 
   const acceptOffer = async (offerId: number) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await fetch(`${getApiUrl()}/api/service-offers/${offerId}/accept`, {
         method: 'POST',
         headers: {
@@ -291,9 +316,25 @@ export default function Services() {
 
       if (response.ok) {
         toast({
-          title: "Sucesso!",
-          description: "Proposta aceita com sucesso!",
+          title: "Proposta Aceita! 🎉",
+          description: "Aguarde... Você será redirecionado para o pagamento.",
+          duration: 3000,
         });
+        
+        // ✨ REDIRECIONAMENTO PARA PAGAMENTO
+        // Aguardar 1.5s e redirecionar para a aba "Minhas Ofertas" onde o botão de pagar estará disponível
+        setTimeout(() => {
+          setActiveTab('offers');
+          // Scroll até o topo para ver o serviço
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          
+          toast({
+            title: "💳 Efetue o Pagamento",
+            description: "Para garantir o serviço, clique em 'Pagar Agora' no card do serviço aceito.",
+            duration: 8000,
+          });
+        }, 1500);
+        
         await Promise.all([fetchServiceOffers(), fetchServiceRequests()]);
       } else {
         const errorData = await response.json();
@@ -315,7 +356,7 @@ export default function Services() {
 
   const rejectOffer = async (offerId: number) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await fetch(`${getApiUrl()}/api/service-offers/${offerId}/reject`, {
         method: 'PUT',
         headers: {
@@ -353,7 +394,7 @@ export default function Services() {
   const startConversation = async (professionalId: number, offerId: number) => {
     setStartingConversationId(offerId);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const offer = serviceOffers.find(o => o.id === offerId);
       const message = `Olá! Gostaria de conversar sobre sua proposta para "${offer?.serviceTitle}".`;
       
@@ -412,7 +453,7 @@ export default function Services() {
   const confirmServiceCompletion = async (serviceRequestId: number) => {
     try {
       setConfirmingServiceId(serviceRequestId);
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await fetch(`${getApiUrl()}/api/service/${serviceRequestId}/confirm`, {
         method: 'POST',
         headers: {
@@ -438,11 +479,25 @@ export default function Services() {
         }
       } else {
         const errorData = await response.json();
-        toast({
-          title: "Erro",
-          description: errorData.message || "Não foi possível confirmar a conclusão do serviço",
-          variant: "destructive"
-        });
+        
+        // ✨ Se o erro for PAYMENT_NOT_AUTHORIZED, mostrar mensagem específica
+        if (errorData.errorCode === 'PAYMENT_NOT_AUTHORIZED') {
+          toast({
+            title: "⚠️ Pagamento Pendente",
+            description: "Você precisa efetuar o pagamento antes de confirmar a conclusão do serviço. Procure pelo botão 'Pagar Agora' no card do serviço.",
+            variant: "destructive",
+            duration: 8000,
+          });
+          
+          // Rolar até o topo para ver o botão de pagamento
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+          toast({
+            title: "Erro",
+            description: errorData.message || "Não foi possível confirmar a conclusão do serviço",
+            variant: "destructive"
+          });
+        }
       }
     } catch (error) {
       console.error('Erro ao confirmar conclusão do serviço:', error);
@@ -485,7 +540,7 @@ export default function Services() {
   // Função para deletar pedido de serviço
   const deleteServiceRequest = async (requestId: number) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await fetch(`${getApiUrl()}/api/service-requests/${requestId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -600,12 +655,6 @@ export default function Services() {
             </div>
             
             <div className="flex items-center gap-2">
-              <Link href="/agenda">
-                <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 hover:text-yellow-600 transition-colors">
-                  <Calendar className="h-4 w-4" />
-                  <span className="hidden sm:inline">Agenda</span>
-                </button>
-              </Link>
               <button
                 onClick={handleCreateService}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-lg text-sm font-medium hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 shadow-md hover:shadow-lg"
@@ -674,12 +723,12 @@ export default function Services() {
                 </div>
                 
                 {/* Filtros responsivos */}
-                <div className="flex flex-wrap gap-2">
+                <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
                   <button
                     onClick={() => setStatusFilter('all')}
-                    className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                       statusFilter === 'all'
-                        ? 'bg-yellow-500 text-white'
+                        ? 'bg-yellow-500 text-white shadow-sm'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -687,9 +736,9 @@ export default function Services() {
                   </button>
                   <button
                     onClick={() => setStatusFilter('pending')}
-                    className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                       statusFilter === 'pending'
-                        ? 'bg-yellow-500 text-white'
+                        ? 'bg-yellow-500 text-white shadow-sm'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -697,9 +746,9 @@ export default function Services() {
                   </button>
                   <button
                     onClick={() => setStatusFilter('accepted')}
-                    className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                       statusFilter === 'accepted'
-                        ? 'bg-green-500 text-white'
+                        ? 'bg-green-500 text-white shadow-sm'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -707,9 +756,9 @@ export default function Services() {
                   </button>
                   <button
                     onClick={() => setStatusFilter('rejected')}
-                    className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                       statusFilter === 'rejected'
-                        ? 'bg-red-500 text-white'
+                        ? 'bg-red-500 text-white shadow-sm'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -717,9 +766,9 @@ export default function Services() {
                   </button>
                   <button
                     onClick={() => setStatusFilter('completed')}
-                    className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                       statusFilter === 'completed'
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-blue-500 text-white shadow-sm'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -876,7 +925,7 @@ export default function Services() {
                       </div>
                     </div>
 
-                    {/* Preço e Tempo */}
+                    {/* Preço e Dias */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
                       <div className="p-3 bg-green-50 rounded-lg border border-green-100">
                         <div className="flex items-center gap-2">
@@ -892,15 +941,19 @@ export default function Services() {
                         </div>
                       </div>
 
-                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
+                      <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
                         <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0">
-                            <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                          <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs text-blue-700 mb-1">Tempo estimado</p>
-                            <p className="text-sm sm:text-base font-semibold text-blue-800 truncate">
-                              {offer.estimatedTime} horas
+                            <p className="text-xs text-purple-700 mb-1">Duração</p>
+                            <p className="text-sm sm:text-base font-semibold text-purple-800 truncate">
+                              {(() => {
+                                const relatedRequest = serviceRequests.find(r => r.id === offer.serviceRequestId);
+                                const days = (relatedRequest as any)?.numberOfDays || 1;
+                                return `${days} ${days === 1 ? 'dia' : 'dias'}`;
+                              })()}
                             </p>
                           </div>
                         </div>
@@ -998,7 +1051,7 @@ export default function Services() {
                         </AlertDialog>
 
                         <button
-                          onClick={() => startConversation(offer.professionalUserId || offer.professionalId, offer.id)}
+                          onClick={() => startConversation((offer as any).professionalUserId || offer.professionalId, offer.id)}
                           disabled={startingConversationId === offer.id}
                           className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-2.5 sm:py-3 px-4 sm:px-6 rounded-xl font-semibold hover:from-blue-600 hover:to-blue-700 transition-all duration-200 flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm shadow-md hover:shadow-lg transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -1035,37 +1088,95 @@ export default function Services() {
 
                           const requestStatus = linkedRequest.status;
 
+                          // ✨ NOVA LÓGICA: Se está awaiting_confirmation, verificar se já foi pago
+                          // Se NÃO foi pago, mostrar botão de PAGAMENTO ao invés de confirmar conclusão
                           if (requestStatus === 'awaiting_confirmation') {
-                            return (
-                              <div>
-                                <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-4 border border-orange-200 mb-4">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Clock className="h-5 w-5 text-orange-600" />
-                                    <p className="text-sm font-semibold text-orange-800">Serviço Concluído - Aguardando Confirmação</p>
+                            // Verificar se esta oferta já foi paga
+                            const isPaid = paidServiceOffers.has(offer.id);
+                            
+                            if (!isPaid) {
+                              // NÃO FOI PAGO - Mostrar botão de pagamento
+                              return (
+                                <div>
+                                  {/* Aviso que o profissional concluiu */}
+                                  <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-4 border border-orange-200 mb-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Clock className="h-5 w-5 text-orange-600" />
+                                      <p className="text-sm font-semibold text-orange-800">⚠️ Ação Necessária: Pagamento Pendente</p>
+                                    </div>
+                                    <p className="text-sm text-orange-700 mb-2">
+                                      O profissional marcou o serviço como concluído, mas <strong>você ainda não efetuou o pagamento</strong>.
+                                    </p>
+                                    <p className="text-sm text-orange-700">
+                                      <strong>Pague agora</strong> para garantir o serviço. Após o pagamento, você poderá confirmar a conclusão para liberar o valor ao profissional.
+                                    </p>
                                   </div>
-                                  <p className="text-sm text-orange-700">
-                                    O profissional marcou o serviço como concluído. Confirme se tudo está correto para liberar o pagamento.
+
+                                  {/* Botão de PAGAMENTO (não de confirmar conclusão) */}
+                                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200 mb-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <DollarSign className="h-5 w-5 text-green-600" />
+                                      <p className="text-sm font-semibold text-green-800">Efetue o Pagamento</p>
+                                    </div>
+                                    <p className="text-sm text-green-700 mb-4">
+                                      Pague agora para garantir o serviço executado pelo profissional.
+                                    </p>
+
+                                    <PaymentButton
+                                      serviceOfferId={offer.id}
+                                      serviceRequestId={offer.serviceRequestId}
+                                      amount={offer.price}
+                                      serviceName={`${linkedRequest.title || 'Serviço'}`}
+                                      professionalName={offer.professionalName}
+                                      onPaymentSuccess={() => {
+                                        // Marcar oferta como paga
+                                        setPaidServiceOffers(prev => new Set(prev).add(offer.id));
+                                        
+                                        fetchServiceOffers();
+                                        fetchServiceRequests();
+                                        toast({
+                                          title: "Pagamento Autorizado! 🔒",
+                                          description: "Pagamento retido com sucesso! Agora você pode confirmar a conclusão para liberar o pagamento ao profissional.",
+                                          duration: 6000,
+                                        });
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            } else {
+                              // JÁ FOI PAGO - Mostrar botão de confirmar conclusão
+                              return (
+                                <div>
+                                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200 mb-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                                      <p className="text-sm font-semibold text-blue-800">✅ Pagamento Autorizado</p>
+                                    </div>
+                                    <p className="text-sm text-blue-700">
+                                      O profissional marcou o serviço como concluído e seu pagamento está retido. Confirme se tudo está correto para liberar o pagamento ao profissional.
+                                    </p>
+                                  </div>
+
+                                  <button
+                                    onClick={() => confirmServiceCompletion(offer.serviceRequestId)}
+                                    disabled={confirmingServiceId === offer.serviceRequestId}
+                                    className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {confirmingServiceId === offer.serviceRequestId ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="h-4 w-4" />
+                                    )}
+                                    <span>Confirmar Conclusão do Serviço</span>
+                                  </button>
+
+                                  <p className="text-xs text-gray-500 text-center mt-2">
+                                    Confirme para liberar o pagamento ao profissional
                                   </p>
                                 </div>
-
-                                <button
-                                  onClick={() => confirmServiceCompletion(offer.serviceRequestId)}
-                                  disabled={confirmingServiceId === offer.serviceRequestId}
-                                  className="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-emerald-600 hover:to-green-700 transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  {confirmingServiceId === offer.serviceRequestId ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <CheckCircle2 className="h-4 w-4" />
-                                  )}
-                                  <span>Confirmar Conclusão do Serviço</span>
-                                </button>
-
-                                <p className="text-xs text-gray-500 text-center mt-2">
-                                  Confirme para liberar o pagamento ao profissional
-                                </p>
-                              </div>
-                            );
+                              );
+                            }
                           }
 
                           // Proposta concluída (paga e finalizada)
@@ -1121,6 +1232,9 @@ export default function Services() {
                                 serviceName={`${linkedRequest.title || 'Serviço'}`}
                                 professionalName={offer.professionalName}
                                 onPaymentSuccess={() => {
+                                  // Marcar oferta como paga
+                                  setPaidServiceOffers(prev => new Set(prev).add(offer.id));
+                                  
                                   fetchServiceOffers();
                                   fetchServiceRequests();
                                   toast({

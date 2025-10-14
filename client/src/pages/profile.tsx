@@ -70,7 +70,7 @@ export default function Profile() {
   // Mutation for updating profile
   const updateProfileMutation = useMutation({
     mutationFn: async (data: ProfileFormData) => {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) throw new Error('Token não encontrado');
 
       const response = await fetch(`${getApiUrl()}/api/user/profile`, {
@@ -117,7 +117,7 @@ export default function Profile() {
   // Mutation for uploading image
   const uploadImageMutation = useMutation({
     mutationFn: async (file: File) => {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) throw new Error('Token não encontrado');
 
       const formData = new FormData();
@@ -339,21 +339,6 @@ export default function Profile() {
             <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4">
               {user?.createdAt ? `Membro desde ${new Date(user.createdAt).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}` : 'Membro'}
             </p>
-            
-            <div className="flex justify-center space-x-4 sm:space-x-6 mb-4 sm:mb-6">
-              <div className="text-center">
-                <p className="text-xl sm:text-2xl font-bold text-primary">{appointments?.length || 0}</p>
-                <p className="text-xs sm:text-sm text-gray-600">Agendamentos</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xl sm:text-2xl font-bold text-primary">{completedServices}</p>
-                <p className="text-xs sm:text-sm text-gray-600">Concluídos</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xl sm:text-2xl font-bold text-primary">4.8</p>
-                <p className="text-xs sm:text-sm text-gray-600">Avaliação</p>
-              </div>
-            </div>
 
             {!isEditing ? (
               <Button onClick={handleEditProfile} className="w-full mb-4 sm:mb-6 h-10 sm:h-12 text-sm sm:text-base">

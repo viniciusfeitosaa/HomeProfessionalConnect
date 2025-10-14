@@ -30,6 +30,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { NotificationButton } from "@/components/notifications";
 import {
   Dialog,
   DialogContent,
@@ -134,6 +135,31 @@ export default function ProviderDashboard() {
       totalEarnings: totalEarnings
     });
   }, [monthlyCompletedServices, monthlyCompletedEarnings, totalCompletedServices, totalEarnings, completedServices]);
+
+  // Valores derivados pelo período selecionado (para metas e progresso)
+  const periodServicesAndEarnings = (() => {
+    try {
+      if (!Array.isArray(completedServices) || !periodStart || !periodEnd) {
+        return { count: monthlyCompletedServices, earnings: monthlyCompletedEarnings };
+      }
+
+      const startDate = new Date(periodStart);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(periodEnd);
+      endDate.setHours(23, 59, 59, 999);
+
+      const inRange = completedServices.filter((service: any) => {
+        const dt = service?.completedAt ? new Date(service.completedAt) : null;
+        if (!dt) return false;
+        return dt >= startDate && dt <= endDate;
+      });
+
+      const earnings = inRange.reduce((sum: number, s: any) => sum + (Number(s.amount) || 0), 0);
+      return { count: inRange.length, earnings };
+    } catch {
+      return { count: monthlyCompletedServices, earnings: monthlyCompletedEarnings };
+    }
+  })();
   const [monthlyGoalMode, setMonthlyGoalMode] = useState<'services' | 'revenue'>(() => {
     const saved = localStorage.getItem('lb_monthly_goal_mode');
     return (saved === 'revenue' || saved === 'services') ? saved : 'services';
@@ -272,7 +298,7 @@ export default function ProviderDashboard() {
   useEffect(() => {
     const fetchProviderAppointments = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = sessionStorage.getItem('token');
         const resp = await fetch(`${getApiUrl()}/api/appointments/provider`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -319,11 +345,7 @@ export default function ProviderDashboard() {
   useEffect(() => {
     const isSupported = "geolocation" in navigator;
     const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
-    setGeolocationSupported(isSupported);
-    console.log('📍 Geolocalização suportada:', isSupported);
-    console.log('📍 Contexto seguro (HTTPS/localhost):', isSecure);
-    console.log('📍 Protocolo atual:', window.location.protocol);
-    console.log('📍 Hostname atual:', window.location.hostname);
+    setGeolocationSupported(isSupported && isSecure);
   }, []);
 
   // Monitorar mudanças na localização do usuário
@@ -397,7 +419,7 @@ export default function ProviderDashboard() {
 
   const fetchAvailabilityStatus = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) return;
 
       const response = await fetch(`${getApiUrl()}/api/provider/profile`, {
@@ -418,7 +440,7 @@ export default function ProviderDashboard() {
 
   const handleAvailabilityChange = async (available: boolean) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) {
         toast({
           title: "Erro",
@@ -1038,7 +1060,7 @@ export default function ProviderDashboard() {
     if (!user) return;
     
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) return;
 
       console.log('📊 Buscando dados gerais do dashboard...');
@@ -1085,7 +1107,7 @@ export default function ProviderDashboard() {
     }
     
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) {
         console.log('❌ Token não encontrado');
         return;
@@ -1196,7 +1218,7 @@ export default function ProviderDashboard() {
     setServiceLocations({}); // Limpar localizações anteriores
     
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       console.log('🔑 Token encontrado:', !!token);
       
       if (!token) {
@@ -1431,25 +1453,8 @@ export default function ProviderDashboard() {
           }
         },
         (error) => {
-          console.error('📍 Erro na geolocalização:', error);
-          
-          let errorMessage = "Erro desconhecido na geolocalização";
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage = "Permissão negada. Ative a localização nas configurações do navegador.";
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage = "Localização indisponível. Verifique sua conexão de internet.";
-              break;
-            case error.TIMEOUT:
-              errorMessage = "Tempo limite excedido. Tente novamente em alguns segundos.";
-              break;
-          }
-          
-          console.log(`📍 ${errorMessage}`);
+          // Silenciar e encerrar sem flood de logs
           setLocationLoading(false);
-          
-          // Removido popup de erro de localização
         },
         options
       );
@@ -1727,84 +1732,143 @@ export default function ProviderDashboard() {
               {/* Notifications */}
               <Popover open={showNotifications} onOpenChange={setShowNotifications}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="relative h-8 sm:h-9 w-8 sm:w-auto px-2.5 sm:px-3 min-w-0 flex-shrink-0 justify-center aspect-square sm:aspect-auto">
-                    <Bell className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                  <div className="bg-white rounded-full p-2 sm:p-3 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group relative">
+                    <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 group-hover:text-primary transition-colors" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center font-bold">
-                        {unreadCount}
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center font-bold">
+                        {unreadCount > 99 ? '99+' : unreadCount}
                       </span>
                     )}
-                  </Button>
+                  </div>
                 </PopoverTrigger>
-                <PopoverContent className="w-80 p-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl backdrop-blur-sm" align="end">
-                  <div className="p-4 border-b">
+                <PopoverContent className="w-80 sm:w-96 p-0 bg-transparent backdrop-blur-sm rounded-lg shadow-xl border border-gray-200/20 dark:border-gray-700/20 z-50" align="end">
+                  <style>{`
+                    .custom-scrollbar::-webkit-scrollbar {
+                      width: 8px;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-track {
+                      background: rgba(229, 231, 235, 0.5);
+                      border-radius: 10px;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-thumb {
+                      background: linear-gradient(to bottom, #eab308, #fbbf24);
+                      border-radius: 10px;
+                      transition: background 0.3s ease;
+                    }
+                    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                      background: linear-gradient(to bottom, #ca8a04, #eab308);
+                    }
+                    .dark .custom-scrollbar::-webkit-scrollbar-track {
+                      background: rgba(55, 65, 81, 0.5);
+                    }
+                    .custom-scrollbar {
+                      scrollbar-width: thin;
+                      scrollbar-color: #eab308 rgba(229, 231, 235, 0.5);
+                    }
+                    .dark .custom-scrollbar {
+                      scrollbar-color: #eab308 rgba(55, 65, 81, 0.5);
+                    }
+                  `}</style>
+                  <div className="p-4 border-b border-gray-200/20 dark:border-gray-700/20 bg-white/10 dark:bg-gray-800/10 backdrop-blur-sm rounded-t-lg">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">Notificações</h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowNotifications(false)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Notificações
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        {unreadCount > 0 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              // Marcar todas como lidas
+                              notifications?.forEach((notif) => {
+                                if (!notif.read) {
+                                  markNotificationAsRead(notif.id);
+                                }
+                              });
+                            }}
+                            className="text-xs"
+                          >
+                            Marcar todas como lidas
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowNotifications(false)}
+                          className="p-1"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                  <div className="max-h-96 overflow-y-auto">
+                  <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
                     {!notifications || notifications.length === 0 ? (
-                      <div className="p-4 text-center text-gray-500">
-                        Nenhuma notificação
+                      <div className="p-8 text-center bg-white/10 dark:bg-gray-800/10 backdrop-blur-sm rounded-lg m-2">
+                        <Bell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500 text-sm">Nenhuma notificação</p>
                       </div>
                     ) : (
-                      notifications.map((notification) => {
-                        const IconComponent = notification.icon;
-                        return (
-                          <div
-                            key={notification.id}
-                            className={`p-4 border-b hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer ${
-                              !notification.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                            }`}
-                            onClick={() => markNotificationAsRead(notification.id)}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className={`p-2 rounded-full bg-gray-100 dark:bg-gray-700 ${notification.color}`}>
-                                <IconComponent className="h-4 w-4" />
+                      <div className="p-2">
+                        {notifications.map((notification) => {
+                          const IconComponent = notification.icon;
+                          return (
+                            <div
+                              key={notification.id}
+                              className={`p-3 rounded-lg cursor-pointer transition-colors backdrop-blur-sm ${
+                                notification.read 
+                                  ? 'bg-white/20 dark:bg-gray-700/20' 
+                                  : 'bg-yellow-50/30 dark:bg-yellow-900/30 border-l-4 border-yellow-500'
+                              } hover:bg-white/30 dark:hover:bg-gray-600/30 mb-2`}
+                              onClick={() => markNotificationAsRead(notification.id)}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  <IconComponent className="h-4 w-4" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between">
+                                    <h4 className={`text-sm font-medium ${
+                                      notification.read 
+                                        ? 'text-gray-700 dark:text-gray-300' 
+                                        : 'text-gray-900 dark:text-white'
+                                    }`}>
+                                      {notification.title}
+                                    </h4>
+                                  </div>
+                                  <p className={`text-xs mt-1 ${
+                                    notification.read 
+                                      ? 'text-gray-600 dark:text-gray-400' 
+                                      : 'text-gray-700 dark:text-gray-300'
+                                  }`}>
+                                    {notification.message}
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {notification.time}
+                                  </p>
+                                </div>
+                                {!notification.read && (
+                                  <div className="flex-shrink-0">
+                                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                                  </div>
+                                )}
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <h4 className={`text-sm font-medium ${!notification.read ? 'text-blue-900 dark:text-blue-100' : 'text-gray-900 dark:text-white'}`}>
-                                  {notification.title}
-                                </h4>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                  {notification.message}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {notification.time}
-                                </p>
-                              </div>
-                              {!notification.read && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                              )}
                             </div>
-                          </div>
-                        );
-                      })
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                  {notifications && notifications.length > 0 && (
-                    <div className="p-3 border-t">
-                      <Button variant="ghost" size="sm" className="w-full">
-                        Ver todas as notificações
-                      </Button>
-                    </div>
-                  )}
                 </PopoverContent>
               </Popover>
 
               {/* Settings Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-8 sm:h-9 w-8 sm:w-auto px-2 sm:px-3 min-w-0 flex-shrink-0 gap-1 sm:gap-1.5 justify-center aspect-square sm:aspect-auto">
-                    <ChevronDown className="h-2 w-2 sm:h-3 sm:w-3 flex-shrink-0" />
-                  </Button>
+                  <div className="bg-white rounded-full p-2 sm:p-3 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group">
+                    <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 group-hover:text-primary transition-colors" />
+                  </div>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg z-[100]">
                   <DropdownMenuItem asChild>
@@ -1850,9 +1914,6 @@ export default function ProviderDashboard() {
 
         <div className="p-4 sm:p-6 lg:p-8 pb-8 sm:pb-12 lg:pb-16 space-y-6 sm:space-y-8">
           {/* Dashboard Overview - Performance */}
-          {console.log('🎨 Renderizando cards do dashboard')}
-          {console.log('🎨 Valor de monthlyCompletedServices:', monthlyCompletedServices)}
-          {console.log('🎨 Valor de monthlyCompletedEarnings:', monthlyCompletedEarnings)}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Total de Serviços Concluídos */}
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-700">
@@ -1944,32 +2005,36 @@ export default function ProviderDashboard() {
 
             {/* Service Opportunities Tab */}
             <TabsContent value="opportunities" className="space-y-8">
-              <Card>
-                <CardHeader>
+              <Card className="border-2 border-yellow-200 dark:border-yellow-800 bg-gradient-to-br from-white to-yellow-50/30 dark:from-gray-800 dark:to-yellow-900/10 shadow-xl">
+                <CardHeader className="bg-gradient-to-r from-yellow-500/10 to-transparent dark:from-yellow-500/20 border-b border-yellow-200/50 dark:border-yellow-800/50">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                      <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
-                      <span className="text-base sm:text-lg lg:text-xl">Serviços Próximos a Você</span>
+                      <div className="p-2 bg-yellow-500 rounded-full shadow-lg">
+                        <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                      </div>
+                      <span className="text-base sm:text-lg lg:text-xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-700 dark:from-yellow-400 dark:to-yellow-500 bg-clip-text text-transparent">
+                        Serviços Próximos a Você
+                      </span>
                     </CardTitle>
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs sm:text-sm text-gray-600">Raio:</span>
+                      <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg shadow-md border border-yellow-200 dark:border-yellow-800">
+                        <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium">Raio:</span>
                         <Input
                           type="number"
                           value={searchRadius}
                           onChange={(e) => setSearchRadius(Number(e.target.value))}
-                          className="w-12 sm:w-16 h-7 sm:h-8 text-xs sm:text-sm"
+                          className="w-12 sm:w-16 h-7 sm:h-8 text-xs sm:text-sm border-yellow-300 dark:border-yellow-700 focus:border-yellow-500 focus:ring-yellow-500"
                           min="1"
                           max="50"
                         />
-                        <span className="text-xs sm:text-sm text-gray-600">km</span>
+                        <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium">km</span>
                       </div>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   {/* Map Placeholder */}
-                  <div className="bg-gray-100 dark:bg-gray-800 rounded-lg h-48 sm:h-56 md:h-64 mb-4 sm:mb-6 overflow-hidden sticky top-2 sm:top-4 z-10">
+                  <div className="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 rounded-xl h-48 sm:h-56 md:h-64 mb-4 sm:mb-6 overflow-hidden sticky top-2 sm:top-4 z-10 shadow-inner border-2 border-yellow-200/50 dark:border-yellow-800/50">
                     {/* Botão de localização */}
                     <div className="absolute top-2 right-2 z-20">
                       <Button
@@ -1985,20 +2050,20 @@ export default function ProviderDashboard() {
                             getUserLocation();
                           }
                         }}
-                        className="bg-white dark:bg-gray-800 shadow-md hover:shadow-lg"
+                        className="bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl border-2 border-yellow-300 dark:border-yellow-700 hover:border-yellow-500 dark:hover:border-yellow-500 transition-all duration-300"
                         disabled={locationLoading}
                       >
                         {locationLoading ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-500"></div>
                         ) : !locationRequested ? (
                           <div className="flex items-center gap-1">
-                            <MapPin className="h-4 w-4" />
-                            <span className="text-xs hidden sm:inline">Minha Localização</span>
+                            <MapPin className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                            <span className="text-xs hidden sm:inline font-medium text-yellow-700 dark:text-yellow-300">Minha Localização</span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1">
-                            <MapPin className="h-4 w-4" />
-                            <span className="text-xs hidden sm:inline">Centralizar</span>
+                            <MapPin className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                            <span className="text-xs hidden sm:inline font-medium text-yellow-700 dark:text-yellow-300">Centralizar</span>
                           </div>
                         )}
                       </Button>
@@ -2012,15 +2077,17 @@ export default function ProviderDashboard() {
                         </div>
                       </div>
                     ) : !userLocation ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-                        <div className="text-center">
-                          <MapPin className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                          <p className="text-gray-600 dark:text-gray-400 mb-3">Clique para obter sua localização</p>
+                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900">
+                        <div className="text-center p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-2xl border-2 border-yellow-200 dark:border-yellow-800">
+                          <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                            <MapPin className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
+                          </div>
+                          <p className="text-gray-700 dark:text-gray-300 mb-4 font-medium">Clique para obter sua localização</p>
                           <Button 
                             size="sm" 
                             onClick={getUserLocation}
                             disabled={locationLoading}
-                            className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                            className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 font-semibold"
                           >
                             {locationLoading ? (
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -2125,24 +2192,25 @@ export default function ProviderDashboard() {
                         })}
                       </MapContainer>
                     )}
-                    <div className="absolute left-0 right-0 bottom-0 p-2 text-center pointer-events-none">
-                      <div className="bg-white/90 dark:bg-gray-800/90 rounded-lg px-3 py-2 shadow-lg">
-                        <p className="text-sm text-gray-700 dark:text-gray-300 font-medium mb-1">
-                          Mostrando serviços em um raio de {searchRadius}km
+                    <div className="absolute left-0 right-0 bottom-0 p-3 text-center pointer-events-none">
+                      <div className="bg-gradient-to-r from-white/95 to-yellow-50/95 dark:from-gray-800/95 dark:to-yellow-900/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-2xl border-2 border-yellow-200/50 dark:border-yellow-800/50">
+                        <p className="text-sm text-gray-800 dark:text-gray-200 font-bold mb-2 flex items-center justify-center gap-2">
+                          <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
+                          Mostrando serviços em um raio de <span className="text-yellow-600 dark:text-yellow-400 font-extrabold">{searchRadius}km</span>
                         </p>
-                        <div className="flex items-center justify-center gap-4 text-xs text-gray-600 dark:text-gray-400">
-                          <div className="flex items-center gap-1">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                            <span>Sua localização</span>
+                        <div className="flex items-center justify-center gap-4 text-xs font-medium">
+                          <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-full">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full shadow-md"></div>
+                            <span className="text-blue-700 dark:text-blue-300">Sua localização</span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                            <span>Solicitações ({nearbyServices?.length || 0})</span>
+                          <div className="flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-900/30 px-2.5 py-1 rounded-full">
+                            <div className="w-3 h-3 bg-yellow-500 rounded-full shadow-md"></div>
+                            <span className="text-yellow-700 dark:text-yellow-300">Solicitações ({nearbyServices?.length || 0})</span>
                           </div>
                           {selectedMapService && (
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                              <span>Selecionado</span>
+                            <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-900/30 px-2.5 py-1 rounded-full">
+                              <div className="w-3 h-3 bg-red-500 rounded-full shadow-md animate-pulse"></div>
+                              <span className="text-red-700 dark:text-red-300">Selecionado</span>
                             </div>
                           )}
                         </div>
@@ -2166,19 +2234,19 @@ export default function ProviderDashboard() {
                         size="sm" 
                         onClick={fetchServiceRequests}
                         disabled={loadingServices}
-                        className="h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm"
+                        className="h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm border-2 border-yellow-300 dark:border-yellow-700 hover:border-yellow-500 dark:hover:border-yellow-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-all duration-300"
                       >
                         {loadingServices ? (
                           <>
-                            <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-primary mr-1 sm:mr-2"></div>
-                            <span className="hidden sm:inline">Carregando...</span>
-                            <span className="sm:hidden">...</span>
+                            <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-yellow-500 mr-1 sm:mr-2"></div>
+                            <span className="hidden sm:inline font-medium text-yellow-700 dark:text-yellow-300">Carregando...</span>
+                            <span className="sm:hidden font-medium text-yellow-700 dark:text-yellow-300">...</span>
                           </>
                         ) : (
                           <>
-                            <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">Atualizar</span>
-                            <span className="sm:hidden">Atualizar</span>
+                            <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 text-yellow-600 dark:text-yellow-400" />
+                            <span className="hidden sm:inline font-medium text-yellow-700 dark:text-yellow-300">Atualizar</span>
+                            <span className="sm:hidden font-medium text-yellow-700 dark:text-yellow-300">Atualizar</span>
                           </>
                         )}
                       </Button>
@@ -2207,33 +2275,33 @@ export default function ProviderDashboard() {
                         </div>
                       </div>
                     ) : !nearbyServices || nearbyServices.length === 0 ? (
-                      <div className="text-center py-6 sm:py-8">
-                        <div className="bg-gray-100 dark:bg-gray-800 rounded-full w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                          <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
+                      <div className="text-center py-8 sm:py-12 bg-gradient-to-br from-gray-50 to-yellow-50/30 dark:from-gray-800 dark:to-yellow-900/10 rounded-xl border-2 border-dashed border-yellow-300 dark:border-yellow-700">
+                        <div className="bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30 rounded-full w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                          <Bell className="h-8 w-8 sm:h-10 sm:w-10 text-yellow-600 dark:text-yellow-400" />
                         </div>
-                        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-2">Nenhuma solicitação disponível</p>
-                        <p className="text-xs sm:text-sm text-gray-500 mb-4">Novas solicitações aparecerão aqui automaticamente</p>
-                        <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                          <p className="text-xs text-blue-700 dark:text-blue-300">
+                        <p className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">Nenhuma solicitação disponível</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Novas solicitações aparecerão aqui automaticamente</p>
+                        <div className="bg-gradient-to-r from-blue-50 to-yellow-50 dark:from-blue-900/20 dark:to-yellow-900/20 p-4 rounded-xl border border-yellow-200 dark:border-yellow-800 shadow-md max-w-md mx-auto">
+                          <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
                             💡 <strong>Dica:</strong> Clique nos pins amarelos no mapa para ver detalhes dos serviços!
                           </p>
                         </div>
                       </div>
                     ) : (
                       nearbyServices.map((service) => (
-                      <Card key={service.id} id={`service-${service.id}`} className="border-l-4 border-l-primary transition-all duration-300">
+                      <Card key={service.id} id={`service-${service.id}`} className="border-l-4 border-l-yellow-500 transition-all duration-300 hover:shadow-xl bg-gradient-to-r from-white to-yellow-50/30 dark:from-gray-800 dark:to-yellow-900/10">
                         <CardContent className="p-3 sm:p-4">
                           <div className="flex flex-col gap-3 sm:gap-4">
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                                <h4 className="font-semibold text-sm sm:text-base lg:text-lg">Solicitação #{service.id}</h4>
-                                <Badge variant="outline" className="text-xs w-fit">
+                                <h4 className="font-bold text-sm sm:text-base lg:text-lg text-gray-900 dark:text-white">Solicitação #{service.id}</h4>
+                                <Badge variant="outline" className="text-xs w-fit bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700">
                                   {service.category === 'fisioterapeuta' ? 'Fisioterapeuta' :
                                    service.category === 'acompanhante_hospitalar' ? 'Acompanhante' :
                                    service.category === 'tecnico_enfermagem' ? 'Técnico Enfermagem' : service.category}
                                 </Badge>
                               </div>
-                              <p className="font-medium text-primary mb-1 text-sm sm:text-base">{service.serviceType}</p>
+                              <p className="font-bold text-yellow-600 dark:text-yellow-400 mb-1 text-sm sm:text-base">{service.serviceType}</p>
                               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">{service.description}</p>
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500">
                                 <span className="flex items-center gap-1 min-w-0">
@@ -2242,7 +2310,20 @@ export default function ProviderDashboard() {
                                 </span>
                                 <span className="flex items-center gap-1 min-w-0">
                                   <Calendar className="h-3 w-3 flex-shrink-0" />
-                                  <span className="truncate">{new Date(service.scheduledDate).toLocaleDateString('pt-BR')} às {service.scheduledTime}</span>
+                                  <span className="truncate">
+                                    {(() => {
+                                      const startDate = new Date(service.scheduledDate);
+                                      const numberOfDays = (service as any).numberOfDays || 1;
+                                      
+                                      if (numberOfDays > 1) {
+                                        const endDate = new Date(startDate);
+                                        endDate.setDate(startDate.getDate() + (numberOfDays - 1));
+                                        return `${startDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} até ${endDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} • ${numberOfDays} dias • ${service.scheduledTime}`;
+                                      } else {
+                                        return `${startDate.toLocaleDateString('pt-BR')} às ${service.scheduledTime}`;
+                                      }
+                                    })()}
+                                  </span>
                                 </span>
                                 <span className="flex items-center gap-1 min-w-0">
                                   <MessageCircle className="h-3 w-3 flex-shrink-0" />
@@ -2261,13 +2342,31 @@ export default function ProviderDashboard() {
                                 )}
                               </div>
                             </div>
+                            
+                            {/* Informações de Período e Valor (se houver) */}
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
                               {service.budget && (
-                                <p className="text-sm sm:text-base lg:text-lg font-bold text-green-600">R$ {parseFloat(service.budget).toFixed(2)}</p>
+                                <div className="flex flex-col gap-1">
+                                  <p className="text-sm sm:text-base lg:text-lg font-bold text-green-600">
+                                    R$ {parseFloat(service.budget).toFixed(2)}
+                                  </p>
+                                  {(service as any).numberOfDays && (service as any).numberOfDays > 1 && (
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                      <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium">
+                                        {(service as any).numberOfDays} {(service as any).numberOfDays === 1 ? 'dia' : 'dias'}
+                                      </span>
+                                      {(service as any).dailyRate && (
+                                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                          R$ {parseFloat((service as any).dailyRate).toFixed(2)}/dia
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               )}
                               <Button 
                                 size="sm" 
-                                className="w-full sm:w-auto h-9 sm:h-10 text-xs sm:text-sm"
+                                className="w-full sm:w-auto h-9 sm:h-10 text-xs sm:text-sm bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 font-semibold"
                                 onClick={() => handleOfferService(service.id)}
                               >
                                 Ofertar Serviço
@@ -2374,20 +2473,20 @@ export default function ProviderDashboard() {
                         <div>
                           <div className="flex justify-between mb-1">
                             <span className="text-sm font-medium">Serviços concluídos</span>
-                            <span className="text-sm text-gray-600">{monthlyCompletedServices}/{monthlyGoalServices} ({Math.min(100, Math.round((monthlyCompletedServices / (monthlyGoalServices || 1)) * 100))}%)</span>
+                            <span className="text-sm text-gray-600">{periodServicesAndEarnings.count}/{monthlyGoalServices} ({Math.min(100, Math.round((periodServicesAndEarnings.count / (monthlyGoalServices || 1)) * 100))}%)</span>
                           </div>
                           <div className="w-full h-2.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                            <div className="h-2.5 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full transition-all" style={{ width: `${Math.min(100, (monthlyCompletedServices / (monthlyGoalServices || 1)) * 100)}%` }}></div>
+                            <div className="h-2.5 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full transition-all" style={{ width: `${Math.min(100, (periodServicesAndEarnings.count / (monthlyGoalServices || 1)) * 100)}%` }}></div>
                           </div>
                         </div>
 
                         <div>
                           <div className="flex justify-between mb-1">
                             <span className="text-sm font-medium">Receita do mês</span>
-                            <span className="text-sm text-gray-600">R$ {monthlyCompletedEarnings.toLocaleString('pt-BR')} / R$ {monthlyGoalRevenue.toLocaleString('pt-BR')} ({Math.min(100, Math.round((monthlyCompletedEarnings / (monthlyGoalRevenue || 1)) * 100))}%)</span>
+                            <span className="text-sm text-gray-600">R$ {periodServicesAndEarnings.earnings.toLocaleString('pt-BR')} / R$ {monthlyGoalRevenue.toLocaleString('pt-BR')} ({Math.min(100, Math.round((periodServicesAndEarnings.earnings / (monthlyGoalRevenue || 1)) * 100))}%)</span>
                           </div>
                           <div className="w-full h-2.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                            <div className="h-2.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all" style={{ width: `${Math.min(100, (monthlyCompletedEarnings / (monthlyGoalRevenue || 1)) * 100)}%` }}></div>
+                            <div className="h-2.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all" style={{ width: `${Math.min(100, (periodServicesAndEarnings.earnings / (monthlyGoalRevenue || 1)) * 100)}%` }}></div>
                           </div>
                         </div>
                       </div>
@@ -2412,52 +2511,48 @@ export default function ProviderDashboard() {
                       <div className="space-y-3">
                         {(() => {
                           const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-                            const now = new Date();
-                          // Calcular início da semana (domingo)
-                          const weekStart = new Date(now);
-                          weekStart.setDate(now.getDate() - now.getDay());
-                          weekStart.setHours(0, 0, 0, 0);
-                          
-                          // Debug: verificar dados
-                          console.log('🔍 Debug Gráfico Semanal:', {
-                            totalCompletedServices: completedServices.length,
-                            completedServices: completedServices.slice(0, 3),
-                            weekStart: weekStart.toISOString()
-                          });
-                          
-                          const weeklyData = weekDays.map((day, index) => {
-                            const dayStart = new Date(weekStart);
-                            dayStart.setDate(weekStart.getDate() + index);
-                            const dayEnd = new Date(dayStart);
-                            dayEnd.setDate(dayStart.getDate() + 1);
-                            
-                            // Usar dados reais dos serviços concluídos
-                            const servicesCount = completedServices.filter((service: any) => {
-                              const completionDate = service.completedAt ? new Date(service.completedAt) : null;
-                              if (!completionDate) return false;
-                              
-                              // Verificar se a data está dentro do intervalo do dia
-                              const dayStartTime = dayStart.getTime();
-                              const dayEndTime = dayEnd.getTime();
-                              const completionTime = completionDate.getTime();
-                              
-                              return completionTime >= dayStartTime && completionTime < dayEndTime;
-                            }).length;
-                            
-                            // Calcular altura da barra de forma fixa e confiável
-                            let height = 0;
-                            if (servicesCount > 0) {
-                              // Altura mínima de 20% para qualquer serviço
-                              height = Math.max(20, Math.min(100, servicesCount * 20));
+                          // Usar período selecionado; fallback para semana atual
+                          const start = (() => {
+                            if (periodStart) {
+                              const d = new Date(periodStart);
+                              d.setHours(0, 0, 0, 0);
+                              return d;
                             }
-                            
-                            // Debug para cada dia
-                            console.log(`📊 ${day}: ${servicesCount} serviços, altura: ${height}%`);
-                            
-                            return { day, count: servicesCount, height };
+                            const now = new Date();
+                            const d = new Date(now);
+                            d.setDate(now.getDate() - now.getDay());
+                            d.setHours(0, 0, 0, 0);
+                            return d;
+                          })();
+                          const end = (() => {
+                            if (periodEnd) {
+                              const d = new Date(periodEnd);
+                              d.setHours(23, 59, 59, 999);
+                              return d;
+                            }
+                            const d = new Date(start);
+                            d.setDate(start.getDate() + 6);
+                            d.setHours(23, 59, 59, 999);
+                            return d;
+                          })();
+
+                          const counts: number[] = Array(7).fill(0);
+                          (completedServices || []).forEach((service: any) => {
+                            const dt = service?.completedAt ? new Date(service.completedAt) : null;
+                            if (!dt) return;
+                            if (dt >= start && dt <= end) {
+                              counts[dt.getDay()] += 1;
+                            }
                           });
-                          
-                            return (
+
+                          const maxCount = counts.reduce((m, c) => Math.max(m, c), 0);
+                          const weeklyData = weekDays.map((day, idx) => {
+                            const count = counts[idx];
+                            const height = maxCount > 0 ? Math.max(20, Math.round((count / maxCount) * 100)) : 0;
+                            return { day, count, height };
+                          });
+
+                          return (
                             <div className="flex items-end justify-between h-32">
                               {weeklyData.map((data, index) => (
                                 <div key={index} className="flex flex-col items-center">

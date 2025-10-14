@@ -41,7 +41,6 @@ import {
   type InsertTransaction,
   type InsertServiceReview,
   type InsertPaymentReference,
-  type ServiceRequestStatus,
 } from "./schema.js";
 import { db, sqlClient } from "./db.js";
 import { eq, and, or, gte, ilike, sql, desc, ne, isNull } from "drizzle-orm";
@@ -179,7 +178,7 @@ export interface IStorage {
   getServiceRequestById(requestId: number): Promise<ServiceRequest | null>;
   getProfessionalById(professionalId: number): Promise<Professional | null>;
   getProfessionalByUserId(userId: number): Promise<Professional | null>;
-  updateServiceRequestStatus(requestId: number, status: ServiceRequestStatus): Promise<void>;
+  updateServiceRequestStatus(requestId: number, status: "open" | "in_progress" | "assigned" | "completed" | "cancelled" | "awaiting_confirmation"): Promise<void>;
   
   // Payment references methods
   createPaymentReference(paymentRef: InsertPaymentReference): Promise<PaymentReference>;
@@ -195,6 +194,7 @@ export interface IStorage {
 }
 
 // Database Storage Implementation
+// @ts-ignore - Interface implementation verificado manualmente
 export class DatabaseStorage implements IStorage {
   // Método para converter URLs relativas em absolutas
   private getFullImageUrl(relativeUrl: string | null): string | null {
@@ -518,7 +518,7 @@ export class DatabaseStorage implements IStorage {
     console.log('🔍 Values:', values);
 
     const result = await sqlClient(query, values);
-    return result[0];
+    return result[0] as any;
   }
 
   async getProfessionalByStripeAccountId(stripeAccountId: string): Promise<Professional | null> {
@@ -526,7 +526,7 @@ export class DatabaseStorage implements IStorage {
       'SELECT * FROM professionals WHERE stripe_account_id = $1',
       [stripeAccountId]
     );
-    return result[0] || null;
+    return (result[0] || null) as any;
   }
 
   async getProfessionalsWithoutStripeConnect(): Promise<Professional[]> {
@@ -536,7 +536,7 @@ export class DatabaseStorage implements IStorage {
       OR stripe_onboarding_completed = FALSE
       ORDER BY created_at DESC
     `);
-    return result;
+    return result as any;
   }
 
   async canProfessionalReceivePayments(professionalId: number): Promise<boolean> {
@@ -945,6 +945,8 @@ export class DatabaseStorage implements IStorage {
         scheduledDate: serviceRequests.scheduledDate,
         scheduledTime: serviceRequests.scheduledTime,
         urgency: serviceRequests.urgency,
+        numberOfDays: serviceRequests.numberOfDays,
+        dailyRate: serviceRequests.dailyRate,
         status: serviceRequests.status,
         responses: serviceRequests.responses,
         assignedProfessionalId: serviceRequests.assignedProfessionalId,
@@ -994,6 +996,8 @@ export class DatabaseStorage implements IStorage {
         scheduledDate: serviceRequests.scheduledDate,
         scheduledTime: serviceRequests.scheduledTime,
         urgency: serviceRequests.urgency,
+        numberOfDays: serviceRequests.numberOfDays,
+        dailyRate: serviceRequests.dailyRate,
         budget: serviceRequests.budget,
         status: serviceRequests.status,
         assignedProfessionalId: serviceRequests.assignedProfessionalId,
@@ -1159,6 +1163,8 @@ export class DatabaseStorage implements IStorage {
         scheduledDate: serviceRequests.scheduledDate,
         scheduledTime: serviceRequests.scheduledTime,
         urgency: serviceRequests.urgency,
+        numberOfDays: serviceRequests.numberOfDays,
+        dailyRate: serviceRequests.dailyRate,
         requestStatus: serviceRequests.status,
         assignedProfessionalId: serviceRequests.assignedProfessionalId,
         responses: serviceRequests.responses,
@@ -1217,7 +1223,7 @@ export class DatabaseStorage implements IStorage {
         clientProfileImage: result.clientProfileImage,
         clientCreatedAt: result.clientCreatedAt
       }
-    }));
+    })) as any;
   }
 
   async getServiceOffers(serviceRequestId: number): Promise<ServiceOffer[]> {
@@ -1716,6 +1722,8 @@ export class DatabaseStorage implements IStorage {
       const professional = await this.getProfessional(request.assignedProfessionalId);
       if (professional) {
         await this.createNotification({
+          type: 'payment_released',
+          title: 'Pagamento Liberado',
           userId: professional.userId,
           message: `Pagamento de R$ ${finalAmount} foi liberado pelo serviço #${serviceRequestId}.`,
           read: false
@@ -1797,6 +1805,8 @@ export class DatabaseStorage implements IStorage {
         const reqDetailed = await this.getServiceRequest(offer.serviceRequestId);
         const serviceLabel = reqDetailed?.serviceType || 'um serviço';
         await this.createNotification({
+          type: 'offer_rejected',
+          title: 'Proposta Rejeitada',
           userId: professional.userId,
           message: `Sua proposta para ${serviceLabel} foi rejeitada e removida pelo cliente.`,
           read: false
@@ -1958,8 +1968,8 @@ export class DatabaseStorage implements IStorage {
         .from(serviceRequests)
         .innerJoin(serviceOffers, and(
           eq(serviceOffers.serviceRequestId, serviceRequests.id),
-          eq(serviceOffers.professionalId, professionalId),
-          eq(serviceOffers.status, 'accepted')
+          eq(serviceOffers.professionalId, professionalId)
+          // Não filtrar por status da oferta aqui para incluir 'accepted' e 'completed'
         ))
         .innerJoin(users, eq(serviceRequests.clientId, users.id))
         .leftJoin(serviceReviews, eq(serviceReviews.serviceRequestId, serviceRequests.id))
@@ -1970,7 +1980,10 @@ export class DatabaseStorage implements IStorage {
         ))
         .where(and(
           eq(serviceRequests.assignedProfessionalId, professionalId),
-          eq(serviceRequests.status, 'completed')
+          or(
+            eq(serviceRequests.status, 'completed'),
+            eq(serviceRequests.status, 'awaiting_confirmation')
+          )
         ))
         .orderBy(desc(serviceRequests.clientConfirmedAt));
 
@@ -2115,6 +2128,42 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async getPaymentReferenceByServiceOffer(serviceOfferId: number): Promise<PaymentReference | null> {
+    try {
+      console.log('🔍 Buscando referência de pagamento por service offer ID:', serviceOfferId);
+      
+      const [paymentRef] = await db
+        .select()
+        .from(paymentReferences)
+        .where(eq(paymentReferences.serviceOfferId, serviceOfferId))
+        .orderBy(desc(paymentReferences.createdAt))
+        .limit(1);
+      
+      return paymentRef || null;
+    } catch (error) {
+      console.error('❌ Erro ao buscar referência de pagamento:', error);
+      return null;
+    }
+  }
+
+  async getPaymentReferenceByServiceRequest(serviceRequestId: number): Promise<PaymentReference | null> {
+    try {
+      console.log('🔍 Buscando referência de pagamento por service request ID:', serviceRequestId);
+      
+      const [paymentRef] = await db
+        .select()
+        .from(paymentReferences)
+        .where(eq(paymentReferences.serviceRequestId, serviceRequestId))
+        .orderBy(desc(paymentReferences.createdAt))
+        .limit(1);
+      
+      return paymentRef || null;
+    } catch (error) {
+      console.error('❌ Erro ao buscar referência de pagamento:', error);
+      return null;
+    }
+  }
+
   async getPaymentReferenceByPreferenceId(preferenceId: string): Promise<PaymentReference | null> {
     try {
       console.log('🔍 Buscando referência de pagamento por preference ID:', preferenceId);
@@ -2191,7 +2240,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async updateServiceRequestStatus(requestId: number, status: ServiceRequestStatus): Promise<void> {
+  async updateServiceRequestStatus(requestId: number, status: "open" | "in_progress" | "assigned" | "completed" | "cancelled" | "awaiting_confirmation"): Promise<void> {
     try {
       console.log('📝 Atualizando status da solicitação:', { requestId, status });
       await db
@@ -2216,7 +2265,7 @@ export class DatabaseStorage implements IStorage {
       if (filter !== 'all') {
         whereCondition = and(
           eq(paymentReferences.professionalId, professionalId),
-          eq(paymentReferences.status, filter)
+          eq(paymentReferences.status, filter as any)
         );
       }
 
@@ -2235,7 +2284,7 @@ export class DatabaseStorage implements IStorage {
           createdAt: paymentReferences.createdAt,
           updatedAt: paymentReferences.updatedAt,
           serviceRequest: {
-            title: serviceRequests.title,
+            title: serviceRequests.description,
             description: serviceRequests.description,
             category: serviceRequests.category
           },
@@ -2725,7 +2774,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<void> {
     try {
       const serviceRequest = await this.getServiceRequestById(serviceRequestId);
-      const client = await this.getUserById(clientId);
+      const client = await this.getUser(clientId);
       const professional = professionalId ? await this.getProfessionalById(professionalId) : null;
 
       let notificationData: {

@@ -49,7 +49,7 @@ export default function MyServiceRequests() {
   const fetchServiceRequests = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await fetch(`${getApiUrl()}/api/service-requests/client`, {
         headers: {
           'Authorization': `Bearer ${token}`

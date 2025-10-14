@@ -110,7 +110,15 @@ var professionals = pgTable("professionals", {
   distance: decimal("distance", { precision: 3, scale: 1 }),
   available: boolean("available").notNull().default(true),
   imageUrl: text("image_url"),
-  createdAt: timestamp("created_at").defaultNow()
+  createdAt: timestamp("created_at").defaultNow(),
+  // Stripe Connect fields
+  stripeAccountId: text("stripe_account_id"),
+  stripeAccountStatus: text("stripe_account_status"),
+  // 'pending', 'active', 'inactive'
+  stripeOnboardingCompleted: boolean("stripe_onboarding_completed").default(false),
+  stripeDetailsSubmitted: boolean("stripe_details_submitted").default(false),
+  stripeChargesEnabled: boolean("stripe_charges_enabled").default(false),
+  stripePayoutsEnabled: boolean("stripe_payouts_enabled").default(false)
 });
 var appointments = pgTable("appointments", {
   id: serial("id").primaryKey(),
@@ -192,8 +200,12 @@ var serviceRequests = pgTable("service_requests", {
   scheduledTime: text("scheduled_time").notNull(),
   // Hora no formato HH:MM
   urgency: text("urgency", { enum: ["low", "medium", "high"] }).default("medium"),
+  numberOfDays: integer("number_of_days").default(1),
+  // Quantidade de dias do serviço
+  dailyRate: decimal("daily_rate", { precision: 8, scale: 2 }),
+  // Valor por dia
   budget: decimal("budget", { precision: 8, scale: 2 }),
-  // Orçamento opcional
+  // Orçamento total (dias × diária)
   status: text("status", { enum: ["open", "in_progress", "assigned", "completed", "cancelled", "awaiting_confirmation"] }).default("open"),
   assignedProfessionalId: integer("assigned_professional_id"),
   // Profissional designado
@@ -272,7 +284,7 @@ var paymentReferences = pgTable("payment_references", {
   professionalId: integer("professional_id").notNull(),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   preferenceId: text("preference_id").notNull().unique(),
-  status: text("status", { enum: ["pending", "approved", "rejected", "cancelled"] }).notNull().default("pending"),
+  status: text("status", { enum: ["pending", "authorized", "approved", "rejected", "cancelled"] }).notNull().default("pending"),
   statusDetail: text("status_detail"),
   // Detalhes do status do pagamento
   externalReference: text("external_reference").notNull(),
@@ -824,6 +836,8 @@ var DatabaseStorage = class {
       scheduledDate: serviceRequests.scheduledDate,
       scheduledTime: serviceRequests.scheduledTime,
       urgency: serviceRequests.urgency,
+      numberOfDays: serviceRequests.numberOfDays,
+      dailyRate: serviceRequests.dailyRate,
       status: serviceRequests.status,
       responses: serviceRequests.responses,
       assignedProfessionalId: serviceRequests.assignedProfessionalId,
@@ -856,6 +870,8 @@ var DatabaseStorage = class {
       scheduledDate: serviceRequests.scheduledDate,
       scheduledTime: serviceRequests.scheduledTime,
       urgency: serviceRequests.urgency,
+      numberOfDays: serviceRequests.numberOfDays,
+      dailyRate: serviceRequests.dailyRate,
       budget: serviceRequests.budget,
       status: serviceRequests.status,
       assignedProfessionalId: serviceRequests.assignedProfessionalId,
@@ -960,6 +976,8 @@ var DatabaseStorage = class {
       scheduledDate: serviceRequests.scheduledDate,
       scheduledTime: serviceRequests.scheduledTime,
       urgency: serviceRequests.urgency,
+      numberOfDays: serviceRequests.numberOfDays,
+      dailyRate: serviceRequests.dailyRate,
       requestStatus: serviceRequests.status,
       assignedProfessionalId: serviceRequests.assignedProfessionalId,
       responses: serviceRequests.responses,
@@ -1349,6 +1367,8 @@ var DatabaseStorage = class {
       const professional = await this.getProfessional(request.assignedProfessionalId);
       if (professional) {
         await this.createNotification({
+          type: "payment_released",
+          title: "Pagamento Liberado",
           userId: professional.userId,
           message: `Pagamento de R$ ${finalAmount} foi liberado pelo servi\xE7o #${serviceRequestId}.`,
           read: false
@@ -1404,6 +1424,8 @@ var DatabaseStorage = class {
         const reqDetailed = await this.getServiceRequest(offer.serviceRequestId);
         const serviceLabel = reqDetailed?.serviceType || "um servi\xE7o";
         await this.createNotification({
+          type: "offer_rejected",
+          title: "Proposta Rejeitada",
           userId: professional.userId,
           message: `Sua proposta para ${serviceLabel} foi rejeitada e removida pelo cliente.`,
           read: false
@@ -1517,15 +1539,18 @@ var DatabaseStorage = class {
         transactionCompletedAt: transactions.completedAt
       }).from(serviceRequests).innerJoin(serviceOffers, and(
         eq(serviceOffers.serviceRequestId, serviceRequests.id),
-        eq(serviceOffers.professionalId, professionalId),
-        eq(serviceOffers.status, "accepted")
+        eq(serviceOffers.professionalId, professionalId)
+        // Não filtrar por status da oferta aqui para incluir 'accepted' e 'completed'
       )).innerJoin(users, eq(serviceRequests.clientId, users.id)).leftJoin(serviceReviews, eq(serviceReviews.serviceRequestId, serviceRequests.id)).leftJoin(transactions, and(
         eq(transactions.serviceRequestId, serviceRequests.id),
         eq(transactions.professionalId, professionalId),
         eq(transactions.type, "service_payment")
       )).where(and(
         eq(serviceRequests.assignedProfessionalId, professionalId),
-        eq(serviceRequests.status, "completed")
+        or(
+          eq(serviceRequests.status, "completed"),
+          eq(serviceRequests.status, "awaiting_confirmation")
+        )
       )).orderBy(desc(serviceRequests.clientConfirmedAt));
       console.log("\u2705 Servi\xE7os conclu\xEDdos encontrados:", results.length);
       console.log("\u{1F50D} Dados dos servi\xE7os:", results.map((r) => ({ id: r.serviceRequestId, status: r.status, amount: r.amount })));
@@ -1623,6 +1648,26 @@ var DatabaseStorage = class {
       throw error;
     }
   }
+  async getPaymentReferenceByServiceOffer(serviceOfferId) {
+    try {
+      console.log("\u{1F50D} Buscando refer\xEAncia de pagamento por service offer ID:", serviceOfferId);
+      const [paymentRef] = await db.select().from(paymentReferences).where(eq(paymentReferences.serviceOfferId, serviceOfferId)).orderBy(desc(paymentReferences.createdAt)).limit(1);
+      return paymentRef || null;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar refer\xEAncia de pagamento:", error);
+      return null;
+    }
+  }
+  async getPaymentReferenceByServiceRequest(serviceRequestId) {
+    try {
+      console.log("\u{1F50D} Buscando refer\xEAncia de pagamento por service request ID:", serviceRequestId);
+      const [paymentRef] = await db.select().from(paymentReferences).where(eq(paymentReferences.serviceRequestId, serviceRequestId)).orderBy(desc(paymentReferences.createdAt)).limit(1);
+      return paymentRef || null;
+    } catch (error) {
+      console.error("\u274C Erro ao buscar refer\xEAncia de pagamento:", error);
+      return null;
+    }
+  }
   async getPaymentReferenceByPreferenceId(preferenceId) {
     try {
       console.log("\u{1F50D} Buscando refer\xEAncia de pagamento por preference ID:", preferenceId);
@@ -1708,7 +1753,7 @@ var DatabaseStorage = class {
         createdAt: paymentReferences.createdAt,
         updatedAt: paymentReferences.updatedAt,
         serviceRequest: {
-          title: serviceRequests.title,
+          title: serviceRequests.description,
           description: serviceRequests.description,
           category: serviceRequests.category
         },
@@ -2005,7 +2050,7 @@ var DatabaseStorage = class {
   async createServiceNotification(type, serviceRequestId, clientId, professionalId) {
     try {
       const serviceRequest = await this.getServiceRequestById(serviceRequestId);
-      const client = await this.getUserById(clientId);
+      const client = await this.getUser(clientId);
       const professional = professionalId ? await this.getProfessionalById(professionalId) : null;
       let notificationData;
       switch (type) {
@@ -2309,6 +2354,11 @@ var authenticateToken = async (req, res, next) => {
 
 // server/routes-simple.ts
 import Stripe from "stripe";
+function assertUser(req) {
+  if (!req.user) {
+    throw new Error("Unauthorized: User not found");
+  }
+}
 console.log(`\u{1F527} Inicializando Stripe...`);
 console.log(`\u{1F511} STRIPE_SECRET_KEY presente: ${process.env.STRIPE_SECRET_KEY ? "Sim" : "N\xE3o"}`);
 console.log(`\u{1F511} STRIPE_SECRET_KEY in\xEDcio: ${process.env.STRIPE_SECRET_KEY?.substring(0, 20)}...`);
@@ -2376,6 +2426,7 @@ function setupRoutes(app2, redisClient) {
   });
   app2.get("/api/messages", authenticateToken, async (req, res) => {
     try {
+      assertUser(req);
       const user = req.user;
       console.log("\u{1F50D} GET /api/messages - Usu\xE1rio autenticado:", user.id, user.userType);
       const conversations2 = await storage.getConversationsByUser(user.id);
@@ -2424,6 +2475,22 @@ function setupRoutes(app2, redisClient) {
     } catch (error) {
       console.error("\u274C Erro ao buscar conversas:", error);
       res.status(500).json({ message: "Erro interno ao buscar conversas" });
+    }
+  });
+  app2.get("/api/messages/unread/count", authenticateToken, async (req, res) => {
+    try {
+      assertUser(req);
+      const user = req.user;
+      const conversations2 = await storage.getConversationsByUser(user.id);
+      let totalUnread = 0;
+      for (const conv of conversations2) {
+        const unreadCount = await storage.getUnreadMessageCount(conv.id, user.id);
+        totalUnread += unreadCount;
+      }
+      res.json({ unreadCount: totalUnread });
+    } catch (error) {
+      console.error("\u274C Erro ao buscar contagem de mensagens n\xE3o lidas:", error);
+      res.status(500).json({ message: "Erro interno ao buscar contagem de mensagens n\xE3o lidas" });
     }
   });
   app2.get("/api/messages/:conversationId", authenticateToken, async (req, res) => {
@@ -2514,7 +2581,9 @@ function setupRoutes(app2, redisClient) {
       } else {
         const conversation = await storage.createConversation({
           clientId: user.id,
-          professionalId
+          professionalId,
+          deletedByClient: false,
+          deletedByProfessional: false
         });
         conversationId = conversation.id;
       }
@@ -2576,8 +2645,13 @@ function setupRoutes(app2, redisClient) {
     try {
       console.log("\u{1F537} Criando conta Stripe Connect...");
       const user = req.user;
-      if (user.userType !== "provider") {
-        return res.status(403).json({ error: "Apenas profissionais podem conectar Stripe" });
+      console.log("\u{1F464} Dados do usu\xE1rio:", { id: user?.id, userType: user?.userType, email: user?.email });
+      if (user?.userType !== "provider") {
+        console.log("\u274C UserType inv\xE1lido:", user?.userType, "- Esperado: provider");
+        return res.status(403).json({
+          error: "Apenas profissionais podem conectar Stripe",
+          debug: { userType: user?.userType, expected: "provider" }
+        });
       }
       const professional = await storage.getProfessionalByUserId(user.id);
       if (!professional) {
@@ -2619,8 +2693,8 @@ function setupRoutes(app2, redisClient) {
       });
       const accountLink = await stripe.accountLinks.create({
         account: account.id,
-        refresh_url: `${process.env.FRONTEND_URL}/settings?stripe_setup=refresh`,
-        return_url: `${process.env.FRONTEND_URL}/settings?stripe_setup=success`,
+        refresh_url: `${process.env.FRONTEND_URL}/provider-settings?stripe_setup=refresh`,
+        return_url: `${process.env.FRONTEND_URL}/provider-settings?stripe_setup=success`,
         type: "account_onboarding"
       });
       console.log("\u2705 Link de onboarding criado");
@@ -2702,8 +2776,8 @@ function setupRoutes(app2, redisClient) {
       }
       const accountLink = await stripe.accountLinks.create({
         account: professional.stripeAccountId,
-        refresh_url: `${process.env.FRONTEND_URL}/settings?stripe_setup=refresh`,
-        return_url: `${process.env.FRONTEND_URL}/settings?stripe_setup=success`,
+        refresh_url: `${process.env.FRONTEND_URL}/provider-settings?stripe_setup=refresh`,
+        return_url: `${process.env.FRONTEND_URL}/provider-settings?stripe_setup=success`,
         type: "account_onboarding"
       });
       res.json({
@@ -2753,14 +2827,16 @@ function setupRoutes(app2, redisClient) {
     try {
       event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
     } catch (err) {
-      console.error("\u274C Webhook signature verification failed:", err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+      console.error("\u274C Webhook signature verification failed:", err?.message || err);
+      return res.status(400).send(`Webhook Error: ${err?.message || "Unknown error"}`);
     }
     console.log("\u{1F514} Webhook recebido:", event.type);
     switch (event.type) {
       case "payment_intent.succeeded":
         const paymentIntent = event.data.object;
         console.log("\u2705 Pagamento aprovado:", paymentIntent.id);
+        console.log("\u{1F4B0} Status:", paymentIntent.status);
+        console.log("\u{1F512} Modo escrow:", paymentIntent.metadata.escrowMode);
         try {
           const serviceOfferId = paymentIntent.metadata.serviceOfferId;
           const professionalId = paymentIntent.metadata.professionalId;
@@ -2776,28 +2852,58 @@ function setupRoutes(app2, redisClient) {
               console.log("\u274C Servi\xE7o n\xE3o encontrado:", serviceOffer.serviceRequestId);
               return res.status(404).json({ error: "Servi\xE7o n\xE3o encontrado" });
             }
-            await storage.updateServiceOfferStatus(parseInt(serviceOfferId), "completed");
-            console.log("\u2705 Proposta marcada como conclu\xEDda");
-            if (serviceRequest.status !== "completed") {
-              await storage.updateServiceRequestStatus(serviceRequest.id, "completed");
-              console.log("\u2705 Servi\xE7o marcado como conclu\xEDdo automaticamente");
+            if (paymentIntent.metadata.escrowMode === "true") {
+              console.log("\u{1F4B8} ESCROW: Pagamento foi CAPTURADO e liberado!");
+              await storage.createNotification({
+                userId: parseInt(professionalId),
+                type: "payment_released",
+                title: "Pagamento Liberado! \u{1F4B0}",
+                message: `O cliente confirmou o servi\xE7o. Seu pagamento de R$ ${(paymentIntent.amount / 100).toFixed(2)} foi liberado!`
+              });
+              console.log("\u2705 Notifica\xE7\xE3o de libera\xE7\xE3o enviada ao profissional");
+            } else {
+              console.warn("\u26A0\uFE0F Pagamento SEM escrow detectado - isso n\xE3o deveria acontecer");
             }
-            await storage.createNotification({
-              userId: parseInt(professionalId),
-              type: "payment_received",
-              title: "Pagamento Recebido! \u{1F4B0}",
-              message: `Seu pagamento de R$ ${(paymentIntent.amount / 100).toFixed(2)} foi aprovado. O servi\xE7o est\xE1 conclu\xEDdo!`
-            });
-            await storage.createNotification({
-              userId: parseInt(clientId),
-              type: "payment_success",
-              title: "Servi\xE7o Conclu\xEDdo! \u2705",
-              message: "Seu pagamento foi processado com sucesso. O servi\xE7o est\xE1 conclu\xEDdo e o profissional foi notificado."
-            });
             console.log("\u2705 Status atualizado e notifica\xE7\xF5es enviadas");
           }
         } catch (error) {
           console.error("\u274C Erro ao processar pagamento aprovado:", error);
+        }
+        break;
+      // ✨ ESCROW: Pagamento AUTORIZADO mas ainda NÃO capturado (retido)
+      case "payment_intent.amount_capturable_updated":
+        const authorizedPayment = event.data.object;
+        console.log("\u{1F512} Pagamento AUTORIZADO (retido):", authorizedPayment.id);
+        console.log("\u{1F4B0} Valor retido: R$", authorizedPayment.amount / 100);
+        try {
+          const serviceOfferId = authorizedPayment.metadata.serviceOfferId;
+          const clientId = authorizedPayment.metadata.clientId;
+          const professionalId = authorizedPayment.metadata.professionalId;
+          if (serviceOfferId) {
+            await storage.updatePaymentReferenceStatus(
+              authorizedPayment.id,
+              "authorized",
+              // Status: autorizado/retido
+              "payment_authorized",
+              authorizedPayment.id,
+              /* @__PURE__ */ new Date()
+            );
+            await storage.createNotification({
+              userId: parseInt(clientId),
+              type: "payment_authorized",
+              title: "Pagamento Autorizado! \u{1F512}",
+              message: `Seu pagamento de R$ ${(authorizedPayment.amount / 100).toFixed(2)} foi autorizado e est\xE1 retido. Ser\xE1 liberado quando voc\xEA confirmar a conclus\xE3o do servi\xE7o.`
+            });
+            await storage.createNotification({
+              userId: parseInt(professionalId),
+              type: "payment_guaranteed",
+              title: "Pagamento Garantido! \u2705",
+              message: `O cliente j\xE1 pagou R$ ${(authorizedPayment.amount / 100).toFixed(2)}. O valor est\xE1 retido e ser\xE1 liberado ap\xF3s a conclus\xE3o do servi\xE7o.`
+            });
+            console.log("\u2705 Pagamento autorizado e retido com sucesso");
+          }
+        } catch (error) {
+          console.error("\u274C Erro ao processar pagamento autorizado:", error);
         }
         break;
       case "payment_intent.payment_failed":
@@ -2823,11 +2929,20 @@ function setupRoutes(app2, redisClient) {
     }
     res.json({ received: true });
   });
-  app2.post("/api/payment/update-status", authenticateToken, async (req, res) => {
+  app2.post("/api/payment/update-status", (req, res, next) => {
+    console.log("\u{1F525}\u{1F525}\u{1F525} POST /api/payment/update-status RECEBIDO - ANTES DO MIDDLEWARE \u{1F525}\u{1F525}\u{1F525}");
+    console.log("\u{1F50D} Body:", req.body);
+    console.log("\u{1F50D} Headers:", req.headers);
+    next();
+  }, authenticateToken, async (req, res) => {
     try {
-      console.log("\u{1F504} Atualizando status do pagamento...");
+      console.log("");
+      console.log("=".repeat(80));
+      console.log("\u{1F504} ENDPOINT /api/payment/update-status CHAMADO!");
+      console.log("=".repeat(80));
       console.log("\u{1F4DD} Request body:", JSON.stringify(req.body, null, 2));
       console.log("\u{1F464} User from token:", req.user);
+      console.log("\u{1F4C5} Timestamp:", (/* @__PURE__ */ new Date()).toISOString());
       const { serviceOfferId, paymentIntentId, amount } = req.body;
       if (!serviceOfferId) {
         return res.status(400).json({ error: "serviceOfferId \xE9 obrigat\xF3rio" });
@@ -2849,58 +2964,85 @@ function setupRoutes(app2, redisClient) {
         console.log("\u274C Dados relacionados n\xE3o encontrados");
         return res.status(404).json({ error: "Dados relacionados n\xE3o encontrados" });
       }
-      await storage.updateServiceOfferStatus(parseInt(serviceOfferId), "completed");
-      console.log("\u2705 Status atualizado para conclu\xEDda");
-      if (serviceRequest.status !== "completed") {
-        await storage.updateServiceRequestStatus(serviceRequest.id, "completed");
-        console.log("\u2705 Solicita\xE7\xE3o de servi\xE7o marcada como conclu\xEDda");
+      console.log("\u{1F512} ESCROW: Atualizando status do pagamento para AUTHORIZED...");
+      console.log("\u{1F4CC} Status atual do servi\xE7o:", serviceRequest.status);
+      console.log("\u{1F4CC} Status proposta:", serviceOffer.status);
+      console.log("\u{1F50D} Buscando paymentRef por serviceOfferId:", serviceOffer.id);
+      const paymentRef = await storage.getPaymentReferenceByServiceOffer(serviceOffer.id);
+      if (paymentRef) {
+        console.log("\u{1F4B0} Refer\xEAncia de pagamento encontrada:", {
+          id: paymentRef.id,
+          status: paymentRef.status,
+          preferenceId: paymentRef.preferenceId,
+          serviceOfferId: paymentRef.serviceOfferId
+        });
+        console.log('\u{1F504} Iniciando atualiza\xE7\xE3o do status para "authorized"...');
+        await storage.updatePaymentReferenceStatus(
+          paymentRef.preferenceId,
+          "approved",
+          // usar enum existente; detalhar como autorizado
+          "authorized",
+          paymentIntentId,
+          /* @__PURE__ */ new Date()
+        );
+        console.log("\u2705 Status do pagamento atualizado para: approved (detalhe: authorized)");
+        const updatedPaymentRef = await storage.getPaymentReferenceByServiceOffer(serviceOffer.id);
+        console.log("\u{1F50D} Verifica\xE7\xE3o ap\xF3s update - novo status:", updatedPaymentRef?.status);
+      } else {
+        console.error("\u274C Refer\xEAncia de pagamento N\xC3O encontrada!");
+        console.error("\u274C ServiceOfferId buscado:", serviceOffer.id);
       }
       console.log(`\u{1F514} Criando notifica\xE7\xE3o para profissional ID: ${serviceOffer.professionalId}`);
       await storage.createNotification({
-        userId: serviceOffer.professionalId,
-        type: "payment_received",
-        title: "Pagamento Recebido! \u{1F4B0}",
-        message: `Seu pagamento de R$ ${(amount / 100).toFixed(2)} foi aprovado. O servi\xE7o est\xE1 conclu\xEDdo!`
+        userId: professional.userId,
+        type: "payment_guaranteed",
+        title: "Pagamento Garantido! \u2705",
+        message: `O cliente j\xE1 pagou R$ ${(amount / 100).toFixed(2)}. O valor est\xE1 retido e ser\xE1 liberado ap\xF3s voc\xEA concluir o servi\xE7o!`
       });
       console.log("\u2705 Notifica\xE7\xE3o enviada para o profissional");
-      console.log(`\u{1F514} Criando notifica\xE7\xE3o para cliente ID: ${serviceRequest.clientId}`);
       await storage.createNotification({
         userId: serviceRequest.clientId,
-        type: "payment_success",
-        title: "Servi\xE7o Conclu\xEDdo! \u2705",
-        message: "Seu pagamento foi processado com sucesso. O servi\xE7o est\xE1 conclu\xEDdo e o profissional foi notificado."
+        type: "payment_authorized",
+        title: "Pagamento Autorizado! \u{1F512}",
+        message: `Seu pagamento de R$ ${(amount / 100).toFixed(2)} foi autorizado e est\xE1 retido. Aguarde o profissional executar o servi\xE7o. Voc\xEA confirmar\xE1 a conclus\xE3o para liberar o pagamento.`
       });
       console.log("\u2705 Notifica\xE7\xE3o enviada para o cliente");
-      console.log("\u2705 Processo conclu\xEDdo com sucesso");
       res.json({
         success: true,
-        message: "Status atualizado e notifica\xE7\xF5es enviadas",
-        serviceOfferId: parseInt(serviceOfferId),
-        status: "completed"
+        message: "Pagamento autorizado e retido. Aguardando execu\xE7\xE3o do servi\xE7o.",
+        escrowMode: true,
+        paymentStatus: "authorized"
       });
     } catch (error) {
-      console.error("\u274C Erro ao atualizar status do pagamento:", error);
-      console.error("\u274C Stack trace:", error.stack);
-      console.error("\u274C Error name:", error.name);
-      console.error("\u274C Error message:", error.message);
-      res.status(500).json({
-        error: "Erro interno do servidor",
-        details: error.message,
-        stack: process.env.NODE_ENV === "development" ? error.stack : void 0
-      });
+      console.error("\u274C Erro ao processar status do pagamento:", error);
+      res.status(500).json({ error: "Erro ao atualizar status" });
     }
   });
   app2.get("/api/payment/status/:serviceOfferId", authenticateToken, async (req, res) => {
     try {
       const { serviceOfferId } = req.params;
+      console.log("\u{1F50D} Verificando status de pagamento para oferta ID:", serviceOfferId);
       const serviceOffer = await storage.getServiceOfferById(parseInt(serviceOfferId));
       if (!serviceOffer) {
         return res.status(404).json({ error: "Proposta n\xE3o encontrada" });
       }
+      const paymentRef = await storage.getPaymentReferenceByServiceOffer(parseInt(serviceOfferId));
+      console.log("\u{1F4B0} PaymentRef encontrado:", paymentRef ? {
+        id: paymentRef.id,
+        status: paymentRef.status,
+        paymentId: paymentRef.paymentId
+      } : "Nenhum");
+      const isPaid = paymentRef && (paymentRef.status === "authorized" || paymentRef.status === "approved");
+      console.log("\u2705 Status de pagamento:", {
+        serviceOfferId: serviceOffer.id,
+        offerStatus: serviceOffer.status,
+        paymentStatus: paymentRef?.status || "none",
+        isPaid
+      });
       res.json({
         serviceOfferId: serviceOffer.id,
         status: serviceOffer.status,
-        isPaid: serviceOffer.status === "completed"
+        isPaid: isPaid || false
       });
     } catch (error) {
       console.error("\u274C Erro ao verificar status do pagamento:", error);
@@ -2975,12 +3117,15 @@ function setupRoutes(app2, redisClient) {
           message: "Configure STRIPE_SECRET_KEY para habilitar pagamentos"
         });
       }
-      console.log(`\u{1F680} Criando Payment Intent com Connect...`);
+      console.log(`\u{1F680} Criando Payment Intent com Connect (ESCROW - Reten\xE7\xE3o)...`);
       console.log(`   Conta destino: ${professional.stripeAccountId}`);
+      console.log(`   \u{1F4B0} Pagamento ser\xE1 RETIDO at\xE9 confirma\xE7\xE3o do cliente`);
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(finalAmount * 100),
         currency: "brl",
         payment_method_types: ["card"],
+        capture_method: "manual",
+        // ✨ RETENÇÃO! Autoriza mas não captura automaticamente
         application_fee_amount: lifebeeCommission,
         // ✨ Taxa LifeBee (5%)
         transfer_data: {
@@ -2993,7 +3138,9 @@ function setupRoutes(app2, redisClient) {
           clientId: serviceRequest.clientId.toString(),
           professionalId: serviceOffer.professionalId.toString(),
           lifebeeCommission: (lifebeeCommission / 100).toFixed(2),
-          professionalAmount: (professionalAmount / 100).toFixed(2)
+          professionalAmount: (professionalAmount / 100).toFixed(2),
+          escrowMode: "true"
+          // ✨ Indica que está em modo escrow
         }
       });
       const paymentReference = await storage.createPaymentReference({
@@ -3053,25 +3200,69 @@ function setupRoutes(app2, redisClient) {
         return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
       }
       const offers = await storage.getServiceOffersByRequest(serviceRequestId);
+      console.log("\u{1F4CB} Propostas encontradas:", offers.length);
+      console.log("\u{1F4CB} Propostas:", offers.map((o) => ({
+        id: o.id,
+        professionalId: o.professionalId,
+        status: o.status
+      })));
+      console.log("\u{1F50D} Procurando proposta aceita do profissional ID:", professional.id);
       const acceptedOffer = offers.find(
         (offer) => offer.professionalId === professional.id && offer.status === "accepted"
       );
-      if (!acceptedOffer) {
-        return res.status(403).json({
-          error: "Voc\xEA n\xE3o tem permiss\xE3o para marcar este servi\xE7o como conclu\xEDdo"
+      console.log("\u{1F4CB} Proposta aceita encontrada:", acceptedOffer ? "Sim" : "N\xE3o");
+      if (acceptedOffer) {
+        console.log("\u{1F4CB} Detalhes da proposta:", {
+          id: acceptedOffer.id,
+          professionalId: acceptedOffer.professionalId,
+          status: acceptedOffer.status
         });
+      }
+      if (!acceptedOffer) {
+        console.log("\u274C Nenhuma proposta aceita encontrada");
+        console.log("\u274C Profissional ID buscado:", professional.id);
+        console.log("\u274C Propostas dispon\xEDveis:", offers.map((o) => `ID: ${o.id}, ProfID: ${o.professionalId}, Status: ${o.status}`));
+        return res.status(403).json({
+          error: "Voc\xEA n\xE3o tem permiss\xE3o para marcar este servi\xE7o como conclu\xEDdo",
+          debug: {
+            professionalId: professional.id,
+            offersCount: offers.length,
+            offers: offers.map((o) => ({ id: o.id, profId: o.professionalId, status: o.status }))
+          }
+        });
+      }
+      const paymentRef = await storage.getPaymentReferenceByServiceOffer(acceptedOffer.id);
+      if (paymentRef) {
+        console.log("\u2705 Pagamento encontrado - Status:", paymentRef.status);
+        if (paymentRef.status === "authorized" || paymentRef.status === "approved") {
+          console.log("\u{1F4B0} Pagamento garantido! Profissional pode marcar como conclu\xEDdo com seguran\xE7a.");
+        }
+      } else {
+        console.warn("\u26A0\uFE0F Nenhum pagamento encontrado - profissional est\xE1 assumindo risco");
       }
       await storage.updateServiceRequestStatus(serviceRequestId, "awaiting_confirmation");
       console.log("\u2705 Servi\xE7o marcado como aguardando confirma\xE7\xE3o do cliente");
+      const startDate = serviceRequest.scheduledDate ? new Date(serviceRequest.scheduledDate) : null;
+      const endDate = startDate && serviceRequest.numberOfDays ? new Date(startDate.getTime() + (serviceRequest.numberOfDays - 1) * 24 * 60 * 60 * 1e3) : startDate;
       await storage.createNotification({
         userId: serviceRequest.clientId,
         type: "service_completed",
         title: "Servi\xE7o Conclu\xEDdo! \u{1F389}",
-        message: `O profissional ${professional.name} marcou o servi\xE7o "${serviceRequest.title}" como conclu\xEDdo. Por favor, confirme a conclus\xE3o.`
+        message: `O profissional ${professional.name} marcou o servi\xE7o "${serviceRequest.description}" como conclu\xEDdo. Confirme a conclus\xE3o para liberar o pagamento de R$ ${paymentRef?.amount || "0.00"} ao profissional.`,
+        data: {
+          scheduledDate: serviceRequest.scheduledDate,
+          scheduledTime: serviceRequest.scheduledTime,
+          numberOfDays: serviceRequest.numberOfDays || 1,
+          dailyRate: serviceRequest.dailyRate,
+          startDate: startDate?.toISOString(),
+          endDate: endDate?.toISOString()
+        }
       });
       res.json({
         success: true,
-        message: "Servi\xE7o marcado como conclu\xEDdo. Aguardando confirma\xE7\xE3o do cliente."
+        message: "Servi\xE7o marcado como conclu\xEDdo. Aguardando confirma\xE7\xE3o do cliente para liberar pagamento.",
+        hasPendingPayment: !!paymentRef,
+        paymentStatus: paymentRef?.status
       });
     } catch (error) {
       console.error("\u274C Erro ao marcar servi\xE7o como conclu\xEDdo:", error);
@@ -3112,16 +3303,100 @@ function setupRoutes(app2, redisClient) {
       if (!professional) {
         return res.status(404).json({ error: "Profissional n\xE3o encontrado" });
       }
+      console.log("\u{1F4B0} Buscando pagamento retido para liberar...");
+      console.log("\u{1F50D} Buscando refer\xEAncia de pagamento por service offer ID:", acceptedOffer.id);
+      const paymentRef = await storage.getPaymentReferenceByServiceOffer(acceptedOffer.id);
+      if (!paymentRef) {
+        console.log("\u274C Nenhum pagamento encontrado para esta proposta");
+        return res.status(400).json({
+          error: "Pagamento n\xE3o encontrado",
+          message: "N\xE3o \xE9 poss\xEDvel confirmar conclus\xE3o sem pagamento",
+          errorCode: "NO_PAYMENT"
+        });
+      }
+      console.log("\u{1F4B0} Refer\xEAncia de pagamento encontrada:", {
+        id: paymentRef.id,
+        status: paymentRef.status,
+        serviceOfferId: paymentRef.serviceOfferId,
+        preferenceId: paymentRef.preferenceId,
+        paymentId: paymentRef.paymentId
+      });
+      if (paymentRef.status !== "authorized" && paymentRef.status !== "approved") {
+        console.log("\u274C Pagamento n\xE3o est\xE1 autorizado:", paymentRef.status);
+        return res.status(400).json({
+          error: "Pagamento n\xE3o autorizado",
+          message: `O pagamento est\xE1 com status "${paymentRef.status}". Precisa estar autorizado para confirmar conclus\xE3o.`,
+          errorCode: "PAYMENT_NOT_AUTHORIZED",
+          paymentStatus: paymentRef.status
+        });
+      }
+      if (!paymentRef.externalReference) {
+        return res.status(400).json({ error: "Refer\xEAncia de pagamento sem PaymentIntent ID" });
+      }
+      try {
+        const pi = await stripe?.paymentIntents.retrieve(paymentRef.externalReference);
+        console.log("\u{1F50E} PaymentIntent atual:", {
+          id: pi?.id,
+          status: pi?.status,
+          amount: pi?.amount
+        });
+        if (pi?.status === "requires_capture") {
+          console.log(`\u{1F4B8} Capturando Payment Intent: ${pi.id}`);
+          const captured = await stripe?.paymentIntents.capture(pi.id);
+          console.log("\u2705 Pagamento capturado no Stripe:", captured?.status);
+          await storage.updatePaymentReferenceStatus(
+            paymentRef.preferenceId,
+            "approved",
+            "payment_captured",
+            pi.id,
+            /* @__PURE__ */ new Date()
+          );
+        } else if (pi?.status === "succeeded") {
+          console.log("\u2705 Pagamento j\xE1 estava capturado (succeeded)");
+          if (paymentRef.status !== "approved") {
+            await storage.updatePaymentReferenceStatus(
+              paymentRef.preferenceId,
+              "approved",
+              "already_captured",
+              pi?.id,
+              /* @__PURE__ */ new Date()
+            );
+          }
+        } else if (pi) {
+          console.warn("\u26A0\uFE0F PaymentIntent n\xE3o est\xE1 pronto para captura:", pi.status);
+          return res.status(400).json({
+            error: "Pagamento n\xE3o est\xE1 pronto para captura",
+            stripeStatus: pi.status
+          });
+        }
+      } catch (captureError) {
+        console.error("\u274C Erro ao consultar/capturar PaymentIntent:", captureError);
+        return res.status(500).json({
+          error: "Erro ao processar captura",
+          message: captureError.message
+        });
+      }
       await storage.updateServiceRequestStatus(serviceRequestId, "completed");
       await storage.updateServiceOfferStatus(acceptedOffer.id, "completed");
       console.log("\u2705 Servi\xE7o confirmado como conclu\xEDdo pelo cliente");
+      const startDate2 = serviceRequest.scheduledDate ? new Date(serviceRequest.scheduledDate) : null;
+      const endDate2 = startDate2 && serviceRequest.numberOfDays ? new Date(startDate2.getTime() + (serviceRequest.numberOfDays - 1) * 24 * 60 * 60 * 1e3) : startDate2;
       await storage.createNotification({
         userId: professional.userId,
         type: "service_confirmed",
         title: "Servi\xE7o Confirmado! \u2705",
-        message: `O cliente confirmou a conclus\xE3o do servi\xE7o "${serviceRequest.title}". O pagamento ser\xE1 liberado.`
+        message: `O cliente confirmou a conclus\xE3o do servi\xE7o "${serviceRequest.description}". O pagamento foi liberado!`,
+        data: {
+          scheduledDate: serviceRequest.scheduledDate,
+          scheduledTime: serviceRequest.scheduledTime,
+          numberOfDays: serviceRequest.numberOfDays || 1,
+          dailyRate: serviceRequest.dailyRate,
+          startDate: startDate2?.toISOString(),
+          endDate: endDate2?.toISOString(),
+          paymentAmount: paymentRef?.amount
+        }
       });
-      const existingReview = await storage.getServiceReviewByServiceRequest(serviceRequestId);
+      const existingReview = await storage.getServiceReviewByService(serviceRequestId);
       res.json({
         success: true,
         message: "Servi\xE7o confirmado como conclu\xEDdo.",
@@ -3131,6 +3406,73 @@ function setupRoutes(app2, redisClient) {
     } catch (error) {
       console.error("\u274C Erro ao confirmar conclus\xE3o do servi\xE7o:", error);
       res.status(500).json({ error: "Erro ao confirmar conclus\xE3o do servi\xE7o" });
+    }
+  });
+  app2.post("/api/service/:id/review", authenticateToken, async (req, res) => {
+    try {
+      const user = req.user;
+      const serviceRequestId = parseInt(req.params.id);
+      const { rating, comment } = req.body || {};
+      console.log("\u2B50 Recebendo avalia\xE7\xE3o do servi\xE7o:", {
+        userId: user?.id,
+        serviceRequestId,
+        rating,
+        hasComment: !!comment
+      });
+      if (user.userType !== "client") {
+        return res.status(403).json({ error: "Apenas clientes podem avaliar servi\xE7os" });
+      }
+      if (!Number.isInteger(serviceRequestId) || serviceRequestId <= 0) {
+        return res.status(400).json({ error: "ID de servi\xE7o inv\xE1lido" });
+      }
+      if (!rating || rating < 1 || rating > 5) {
+        return res.status(400).json({ error: "Rating deve ser um n\xFAmero entre 1 e 5" });
+      }
+      const serviceRequest = await storage.getServiceRequestById(serviceRequestId);
+      if (!serviceRequest) {
+        return res.status(404).json({ error: "Servi\xE7o n\xE3o encontrado" });
+      }
+      if (serviceRequest.clientId !== user.id) {
+        return res.status(403).json({ error: "Voc\xEA n\xE3o tem permiss\xE3o para avaliar este servi\xE7o" });
+      }
+      if (serviceRequest.status !== "completed") {
+        return res.status(400).json({ error: "Servi\xE7o ainda n\xE3o foi conclu\xEDdo" });
+      }
+      const offers = await storage.getServiceOffersByRequest(serviceRequestId);
+      const acceptedOffer = offers?.find((o) => o.status === "accepted" || o.status === "completed");
+      if (!acceptedOffer) {
+        return res.status(400).json({ error: "N\xE3o h\xE1 proposta aceita/conclu\xEDda para este servi\xE7o" });
+      }
+      const existingReview = await storage.getServiceReviewByService(serviceRequestId);
+      if (existingReview) {
+        return res.status(400).json({ error: "Este servi\xE7o j\xE1 foi avaliado" });
+      }
+      const newReview = await storage.createServiceReview({
+        serviceRequestId,
+        serviceOfferId: acceptedOffer.id,
+        clientId: user.id,
+        professionalId: acceptedOffer.professionalId,
+        rating: Number(rating),
+        comment: comment ? String(comment).slice(0, 1e3) : null
+      });
+      console.log("\u2705 Avalia\xE7\xE3o criada:", newReview?.id);
+      try {
+        const professional = await storage.getProfessionalById(acceptedOffer.professionalId);
+        if (professional) {
+          await storage.createNotification({
+            userId: professional.userId,
+            type: "review_received",
+            title: "Voc\xEA recebeu uma nova avalia\xE7\xE3o \u2B50",
+            message: `O cliente avaliou o servi\xE7o com ${Number(rating).toFixed(1)}/5${comment ? " e deixou um coment\xE1rio." : "."}`
+          });
+        }
+      } catch (notifErr) {
+        console.warn("\u26A0\uFE0F N\xE3o foi poss\xEDvel notificar profissional sobre a avalia\xE7\xE3o:", notifErr);
+      }
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("\u274C Erro ao criar avalia\xE7\xE3o do servi\xE7o:", error);
+      return res.status(500).json({ error: "Erro ao enviar avalia\xE7\xE3o" });
     }
   });
   app2.get("/api/service-requests/client", authenticateToken, async (req, res) => {
@@ -3231,6 +3573,16 @@ function setupRoutes(app2, redisClient) {
           requestData.scheduledDate = new Date(requestData.scheduledDate);
         }
       }
+      if (requestData.numberOfDays) {
+        requestData.numberOfDays = parseInt(requestData.numberOfDays.toString());
+      }
+      if (requestData.dailyRate) {
+        requestData.dailyRate = parseFloat(requestData.dailyRate.toString());
+      }
+      console.log("\u{1F4DD} Criando solicita\xE7\xE3o com dados:", {
+        ...requestData,
+        clientId: user.id
+      });
       const serviceRequest = await storage.createServiceRequest({
         ...requestData,
         clientId: user.id
@@ -3292,12 +3644,22 @@ function setupRoutes(app2, redisClient) {
       });
       const serviceRequest = await storage.getServiceRequestById(req.body.serviceRequestId);
       if (serviceRequest) {
+        const startDate3 = serviceRequest.scheduledDate ? new Date(serviceRequest.scheduledDate) : null;
+        const endDate3 = startDate3 && serviceRequest.numberOfDays ? new Date(startDate3.getTime() + (serviceRequest.numberOfDays - 1) * 24 * 60 * 60 * 1e3) : startDate3;
         await storage.createNotification({
           type: "info",
           title: "Nova Proposta Recebida",
           message: `Voc\xEA recebeu uma nova proposta para ${serviceRequest.serviceType}`,
           userId: serviceRequest.clientId,
-          actionUrl: "/service-offer"
+          actionUrl: "/service-offer",
+          data: {
+            scheduledDate: serviceRequest.scheduledDate,
+            scheduledTime: serviceRequest.scheduledTime,
+            numberOfDays: serviceRequest.numberOfDays || 1,
+            dailyRate: serviceRequest.dailyRate,
+            startDate: startDate3?.toISOString(),
+            endDate: endDate3?.toISOString()
+          }
         });
       }
       res.json({ success: true, message: "Proposta criada com sucesso", data: serviceOffer });
@@ -3399,7 +3761,8 @@ function setupRoutes(app2, redisClient) {
   app2.put("/api/notifications/:id/read", authenticateToken, async (req, res) => {
     try {
       const { id } = req.params;
-      await storage.markNotificationRead(parseInt(id));
+      const user = req.user;
+      await storage.markNotificationAsRead(parseInt(id), user.id);
       res.json({ success: true, message: "Notifica\xE7\xE3o marcada como lida" });
     } catch (error) {
       console.error("\u274C Erro ao marcar notifica\xE7\xE3o:", error);
@@ -3524,7 +3887,18 @@ function setupRoutes(app2, redisClient) {
         password: await hashPassword(password),
         name,
         phone: phone || null,
-        userType: userType || "client"
+        userType: userType || "client",
+        googleId: null,
+        appleId: null,
+        phoneVerified: false,
+        address: null,
+        profileImage: null,
+        isVerified: false,
+        isBlocked: false,
+        loginAttempts: 0,
+        resetToken: null,
+        resetTokenExpiry: null,
+        lastLoginAt: null
       });
       const token = generateToken(user);
       res.json({
@@ -3616,6 +3990,8 @@ function setupRoutes(app2, redisClient) {
         serviceRequestId,
         professionalId: professional.id,
         proposedPrice: req.body.proposedPrice,
+        finalPrice: req.body.proposedPrice,
+        // Define finalPrice igual ao proposedPrice inicialmente
         estimatedTime: req.body.estimatedTime,
         message: req.body.message,
         status: "pending"
@@ -3677,7 +4053,7 @@ function setupRoutes(app2, redisClient) {
       }
       console.log("\u{1F4C5} Buscando agendamentos para cliente ID:", user.id);
       const serviceRequests2 = await storage.getServiceRequestsByClient(user.id);
-      const appointments2 = serviceRequests2.filter((sr) => sr.status === "assigned" || sr.status === "accepted" || sr.status === "in_progress" || sr.status === "awaiting_confirmation" || sr.status === "completed").map((sr) => ({
+      const appointments2 = serviceRequests2.filter((sr) => sr.status === "assigned" || sr.status === "in_progress" || sr.status === "awaiting_confirmation" || sr.status === "completed").map((sr) => ({
         id: sr.id,
         clientId: sr.clientId,
         professionalId: sr.assignedProfessionalId,
@@ -3722,7 +4098,7 @@ function setupRoutes(app2, redisClient) {
       console.log("\u{1F50D} Buscando solicita\xE7\xF5es para categoria:", category, "por profissional ID:", user.id);
       const serviceRequests2 = await storage.getServiceRequestsByCategory(category);
       const availableRequests = serviceRequests2.filter(
-        (request) => request.status === "open" || request.status === "pending" || request.status === "assigned" && request.assignedProfessionalId === user.id
+        (request) => request.status === "open" || request.status === "assigned" && request.assignedProfessionalId === user.id
       );
       console.log("\u2705 Solicita\xE7\xF5es encontradas:", availableRequests.length);
       res.json(availableRequests);
@@ -3752,7 +4128,7 @@ function setupRoutes(app2, redisClient) {
       console.log("\u{1F680} Endpoint /api/professional/:id/completed-services chamado");
       const user = req.user;
       const professionalId = parseInt(req.params.id);
-      console.log("\u{1F464} Usu\xE1rio autenticado:", { id: user?.id, userType: user?.userType, name: user?.name });
+      console.log("\u{1F464} Usu\xE1rio autenticado:", { id: user?.id, userType: user?.userType });
       console.log("\u{1F4CB} Professional ID solicitado:", professionalId);
       if (user.userType !== "provider" || user.id !== professionalId) {
         console.log("\u274C Acesso negado - verifica\xE7\xE3o de permiss\xE3o falhou");

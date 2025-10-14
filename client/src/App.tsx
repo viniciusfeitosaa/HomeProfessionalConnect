@@ -20,6 +20,7 @@ import ProviderOrders from "@/pages/provider-orders";
 
 import ProviderProfile from "@/pages/provider-profile";
 import ProviderProposals from "@/pages/provider-proposals";
+import ProviderSettings from "@/pages/provider-settings";
 import ServiceOffer from "@/pages/service-offer";
 import Servico from "@/pages/servico";
 import MyRequests from "@/pages/my-requests";
@@ -35,6 +36,7 @@ import PaymentSuccess from "@/pages/payment-success";
 import PaymentFailure from "@/pages/payment-failure";
 import PaymentPending from "@/pages/payment-pending";
 import StripeOnboardingRequired from "@/pages/stripe-onboarding-required";
+import PrivacySecurity from "@/pages/privacy-security";
 
 function Router() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -87,6 +89,8 @@ function Router() {
         <Route path="/profile" component={Profile} />
         <Route path="/provider-profile" component={ProviderProfile} />
         <Route path="/settings" component={Settings} />
+        <Route path="/privacy-security" component={PrivacySecurity} />
+        <Route path="/provider-settings" component={ProviderSettings} />
         <Route component={NotFound} />
       </Switch>
     );
@@ -103,6 +107,7 @@ function Router() {
       <Route path="/messages" component={MessagesClient} />
       <Route path="/profile" component={Profile} />
       <Route path="/settings" component={Settings} />
+      <Route path="/privacy-security" component={PrivacySecurity} />
       <Route path="/payment" component={Payment} />
       <Route path="/payment/success" component={PaymentSuccess} />
       <Route path="/payment/failure" component={PaymentFailure} />

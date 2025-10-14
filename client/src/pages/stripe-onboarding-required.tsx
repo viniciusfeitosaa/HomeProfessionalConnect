@@ -21,7 +21,7 @@ export default function StripeOnboardingRequired() {
     try {
       const response = await fetch('/api/stripe/connect/account-status', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
         },
       });
 
@@ -54,7 +54,7 @@ export default function StripeOnboardingRequired() {
       const response = await fetch('/api/stripe/connect/create-account', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
           'Content-Type': 'application/json',
         },
       });

@@ -36,22 +36,79 @@ export default function ProfessionalDashboard({ professionalId }: ProfessionalDa
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchCompletedServices();
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [overview, services] = await Promise.all([
+          getDashboardOverviewSafe(),
+          getCompletedServicesSafe()
+        ]);
+
+        // Base pelo histórico real de serviços concluídos
+        const servicesStats = computeStatsFromServices(services);
+
+        // Mesclar com overview quando houver valores não nulos/maiores
+        const merged = {
+          totalEarnings: overview?.totalEarnings && overview.totalEarnings > 0 ? overview.totalEarnings : servicesStats.totalEarnings,
+          totalServices: overview?.totalServices && overview.totalServices > 0 ? overview.totalServices : servicesStats.totalServices,
+          averageRating: overview?.averageRating && overview.averageRating > 0 ? Math.round(overview.averageRating * 10) / 10 : servicesStats.averageRating,
+          totalReviews: overview?.totalReviews && overview.totalReviews > 0 ? overview.totalReviews : servicesStats.totalReviews,
+        };
+
+        setStats(merged);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, [professionalId]);
 
-  const fetchCompletedServices = async () => {
+  const getDashboardOverviewSafe = async (): Promise<{
+    totalEarnings: number;
+    totalServices: number;
+    averageRating: number;
+    totalReviews: number;
+  } | null> => {
     try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        toast({
-          title: "Erro",
-          description: "Token de autenticação não encontrado",
-          variant: "destructive"
-        });
-        return;
-      }
+      const token = sessionStorage.getItem('token');
+      if (!token) return null;
+
+      const response = await fetch(`${getApiUrl()}/api/provider/dashboard`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) return null;
+      const data = await response.json();
+
+      const totalEarnings = Number((data?.totalEarnings?.total ?? data?.totalEarnings ?? 0));
+      const totalServices = Number(data?.completedOffers ?? data?.totalServices ?? 0);
+      const averageRating = Number(
+        data?.avgRating ?? (
+          Array.isArray(data?.reviews) && data.reviews.length > 0
+            ? (data.reviews.reduce((s: number, r: any) => s + (r?.rating ?? 0), 0) / data.reviews.length)
+            : 0
+        )
+      );
+      const totalReviews = Number(Array.isArray(data?.reviews) ? data.reviews.length : (data?.totalReviews ?? 0));
+
+      return {
+        totalEarnings,
+        totalServices,
+        averageRating,
+        totalReviews
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const getCompletedServicesSafe = async (): Promise<CompletedService[]> => {
+    try {
+      const token = sessionStorage.getItem('token');
+      if (!token) return [];
 
       const response = await fetch(`${getApiUrl()}/api/professional/${professionalId}/completed-services`, {
         headers: {
@@ -60,47 +117,37 @@ export default function ProfessionalDashboard({ professionalId }: ProfessionalDa
         }
       });
 
-      if (!response.ok) {
-        throw new Error('Erro ao buscar serviços concluídos');
-      }
-
+      if (!response.ok) return [];
       const data = await response.json();
-      const servicesData = data.data || [];
+      const servicesData = Array.isArray(data?.data) ? data.data : [];
       setCompletedServices(servicesData);
-
-      // Calcular estatísticas
-      const totalEarnings = servicesData.reduce((sum: number, service: CompletedService) => sum + Number(service.amount), 0);
-      const totalServices = servicesData.length;
-      const servicesWithReviews = servicesData.filter((service: CompletedService) => service.hasReview);
-      const totalReviews = servicesWithReviews.length;
-      const averageRating = totalReviews > 0 
-        ? servicesWithReviews.reduce((sum: number, service: CompletedService) => sum + (service.reviewRating || 0), 0) / totalReviews
-        : 0;
-
-      setStats({
-        totalEarnings,
-        totalServices,
-        averageRating: Math.round(averageRating * 10) / 10,
-        totalReviews
-      });
-
+      return servicesData;
     } catch (error) {
       console.error('Erro ao buscar serviços concluídos:', error);
-      setCompletedServices([]); // Garantir que sempre temos um array válido
-      setStats({
-        totalEarnings: 0,
-        totalServices: 0,
-        averageRating: 0,
-        totalReviews: 0
-      });
+      setCompletedServices([]);
       toast({
         title: "Erro",
         description: "Não foi possível carregar os serviços concluídos",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
+      return [];
     }
+  };
+
+  const computeStatsFromServices = (services: CompletedService[]) => {
+    const totalEarnings = services.reduce((sum: number, s: CompletedService) => sum + Number(s.amount), 0);
+    const totalServices = services.length;
+    const withReviews = services.filter((s) => s.hasReview);
+    const totalReviews = withReviews.length;
+    const averageRating = totalReviews > 0
+      ? withReviews.reduce((sum, s) => sum + (s.reviewRating || 0), 0) / totalReviews
+      : 0;
+    return {
+      totalEarnings,
+      totalServices,
+      averageRating: Math.round(averageRating * 10) / 10,
+      totalReviews
+    };
   };
 
   const formatCurrency = (value: number) => {

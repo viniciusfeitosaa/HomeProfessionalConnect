@@ -62,7 +62,7 @@ export default function ProviderProposals() {
         setIsLoading(true);
         const response = await fetch(`${getApiUrl()}/api/professionals/${user.id}/proposals`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
             'Content-Type': 'application/json'
           }
         });
@@ -168,7 +168,7 @@ export default function ProviderProposals() {
       const response = await fetch(`${getApiUrl()}/api/service/${proposal.serviceRequestId}/complete`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${sessionStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -177,9 +177,15 @@ export default function ProviderProposals() {
       });
 
       if (response.ok) {
+        const data = await response.json();
+        const paymentMessage = data.hasPendingPayment 
+          ? ` O pagamento de R$ ${data.paymentStatus === 'authorized' ? 'está retido e ' : ''}será liberado quando o cliente confirmar.`
+          : '';
+          
         toast({
           title: "Sucesso!",
-          description: "Serviço marcado como concluído. Aguardando confirmação do cliente.",
+          description: `Serviço marcado como concluído. Aguardando confirmação do cliente.${paymentMessage}`,
+          duration: 5000,
         });
         
         // Recarregar propostas para atualizar o status
@@ -230,47 +236,67 @@ export default function ProviderProposals() {
 
       <div className="p-4 space-y-6 max-w-6xl mx-auto">
         {/* Filtros e Busca */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar por serviço, cliente ou descrição..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Campo de Busca */}
+            <div className="flex-1">
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Search className="h-5 w-5 text-gray-400 group-focus-within:text-yellow-500 transition-colors duration-200" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Buscar por serviço, cliente ou descrição..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full h-12 pl-12 pr-4 bg-gray-50 dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
+                />
+              </div>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant={statusFilter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("all")}
-            >
-              Todas
-            </Button>
-            <Button
-              variant={statusFilter === "pending" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("pending")}
-            >
-              Pendentes
-            </Button>
-            <Button
-              variant={statusFilter === "accepted" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("accepted")}
-            >
-              Aceitas
-            </Button>
-            <Button
-              variant={statusFilter === "rejected" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setStatusFilter("rejected")}
-            >
-              Rejeitadas
-            </Button>
+
+            {/* Filtros */}
+            <div className="flex items-center gap-2 lg:gap-3 flex-nowrap overflow-x-auto">
+              <button
+                onClick={() => setStatusFilter("all")}
+                className={`px-4 py-2 rounded-xl font-medium text-sm transition-all duration-200 ${
+                  statusFilter === "all"
+                    ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-white shadow-lg shadow-yellow-500/30 scale-105"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                Todas
+              </button>
+              <button
+                onClick={() => setStatusFilter("pending")}
+                className={`px-4 py-2 rounded-xl font-medium text-sm transition-all duration-200 ${
+                  statusFilter === "pending"
+                    ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-white shadow-lg shadow-yellow-500/30 scale-105"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                Pendentes
+              </button>
+              <button
+                onClick={() => setStatusFilter("accepted")}
+                className={`px-4 py-2 rounded-xl font-medium text-sm transition-all duration-200 ${
+                  statusFilter === "accepted"
+                    ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-white shadow-lg shadow-yellow-500/30 scale-105"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                Aceitas
+              </button>
+              <button
+                onClick={() => setStatusFilter("rejected")}
+                className={`px-4 py-2 rounded-xl font-medium text-sm transition-all duration-200 ${
+                  statusFilter === "rejected"
+                    ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-white shadow-lg shadow-yellow-500/30 scale-105"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                }`}
+              >
+                Rejeitadas
+              </button>
+            </div>
           </div>
         </div>
 
@@ -380,33 +406,26 @@ export default function ProviderProposals() {
 
                       {/* Informações do Cliente */}
                       <div className="flex items-center gap-3">
-                        {proposal.serviceRequest.clientProfileImage ? (
-                          <img
-                            src={`${getApiUrl()}${proposal.serviceRequest.clientProfileImage}`}
-                            alt={proposal.serviceRequest.clientName}
-                            className="w-10 h-10 rounded-full object-cover"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const parent = target.parentElement;
-                              if (parent) {
-                                parent.innerHTML = `
-                                  <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
-                                    <span class="text-white text-sm font-bold">
-                                      ${proposal.serviceRequest.clientName.charAt(0).toUpperCase()}
-                                    </span>
-                                  </div>
-                                `;
-                              }
-                            }}
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                        <div className="relative w-10 h-10">
+                          {proposal.serviceRequest.clientProfileImage && (
+                            <img
+                              src={`${getApiUrl()}${proposal.serviceRequest.clientProfileImage}`}
+                              alt={proposal.serviceRequest.clientName}
+                              className="w-10 h-10 rounded-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const fallback = target.nextElementSibling as HTMLElement | null;
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                          )}
+                          <div className="hidden absolute inset-0 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full items-center justify-center">
                             <span className="text-white text-sm font-bold">
                               {proposal.serviceRequest.clientName.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                        )}
+                        </div>
                         <div>
                           <p className="font-medium text-gray-900 dark:text-white">
                             {proposal.serviceRequest.clientName}
@@ -417,41 +436,83 @@ export default function ProviderProposals() {
                         </div>
                       </div>
 
-                      {/* Detalhes da Proposta */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {/* Detalhes da Proposta - ATUALIZADO */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                        {/* Valor Total */}
                         <div className="text-center">
                           <DollarSign className="h-5 w-5 text-green-600 mx-auto mb-1" />
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Sua Proposta</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Valor Total</p>
                           <p className="font-semibold text-green-600">
-                            {formatCurrency(proposal.proposedPrice)}
-                          </p>
-                        </div>
-                        
-                        <div className="text-center">
-                          <DollarSign className="h-5 w-5 text-blue-600 mx-auto mb-1" />
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Orçamento Cliente</p>
-                          <p className="font-semibold text-blue-600">
                             {formatCurrency(proposal.serviceRequest.budget)}
                           </p>
                         </div>
                         
+                        {/* Horário */}
                         <div className="text-center">
                           <Clock className="h-5 w-5 text-purple-600 mx-auto mb-1" />
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Tempo Estimado</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Horário</p>
                           <p className="font-semibold text-purple-600">
-                            {proposal.estimatedTime}
+                            {proposal.serviceRequest.scheduledTime || 'Não definido'}
                           </p>
                         </div>
                         
+                        {/* Data Início */}
                         <div className="text-center">
-                          <Calendar className="h-5 w-5 text-orange-600 mx-auto mb-1" />
-                          <p className="text-sm text-gray-600 dark:text-gray-400">Data Agendada</p>
-                          <p className="font-semibold text-orange-600">
+                          <Calendar className="h-5 w-5 text-blue-600 mx-auto mb-1" />
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Data Início</p>
+                          <p className="font-semibold text-blue-600 text-xs">
                             {proposal.serviceRequest.scheduledDate ? 
-                              new Date(proposal.serviceRequest.scheduledDate).toLocaleDateString('pt-BR') : 
-                              'Não definida'}
+                              new Date(proposal.serviceRequest.scheduledDate).toLocaleDateString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit'
+                              }) : '-'}
                           </p>
                         </div>
+                        
+                        {/* Data Fim */}
+                        <div className="text-center">
+                          <Calendar className="h-5 w-5 text-indigo-600 mx-auto mb-1" />
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Data Fim</p>
+                          <p className="font-semibold text-indigo-600 text-xs">
+                            {proposal.serviceRequest.scheduledDate ? (() => {
+                              const startDate = new Date(proposal.serviceRequest.scheduledDate);
+                              const endDate = new Date(startDate);
+                              const days = (proposal.serviceRequest as any).numberOfDays || 1;
+                              endDate.setDate(startDate.getDate() + (days - 1));
+                              return endDate.toLocaleDateString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit'
+                              });
+                            })() : '-'}
+                          </p>
+                        </div>
+                        
+                        {/* Período */}
+                        <div className="text-center">
+                          <Calendar className="h-5 w-5 text-teal-600 mx-auto mb-1" />
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Período</p>
+                          <p className="font-semibold text-teal-600">
+                            {(proposal.serviceRequest as any).numberOfDays || 1} {((proposal.serviceRequest as any).numberOfDays || 1) === 1 ? 'dia' : 'dias'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Sua Proposta - Destaque (compacto) */}
+                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-md p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <DollarSign className="h-4 w-4 text-green-600" />
+                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Sua Proposta:</span>
+                          </div>
+                          <span className="text-xl font-bold text-green-600">
+                            {formatCurrency(proposal.proposedPrice)}
+                          </span>
+                        </div>
+                        {(proposal.serviceRequest as any).dailyRate && (
+                          <div className="text-[11px] text-gray-500 dark:text-gray-400 text-center mt-1.5">
+                            Valor diário do cliente: {formatCurrency((proposal.serviceRequest as any).dailyRate)}/dia
+                          </div>
+                        )}
                       </div>
 
                       {/* Endereço */}

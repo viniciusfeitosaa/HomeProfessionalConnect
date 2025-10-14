@@ -73,7 +73,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
   const fetchConversations = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) {
         toast({
           title: "Erro de autenticação",
@@ -119,7 +119,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
   // Buscar mensagens ao abrir conversa
   const fetchMessages = async (conversationId: string | number) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) return;
       const response = await fetch(`${getApiUrl()}/api/messages/${conversationId}`, {
         credentials: 'include',
@@ -196,7 +196,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
     if (!selectedConv) return;
     
     setIsUploading(true);
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) {
       toast({
         title: "Erro de autenticação",
@@ -297,7 +297,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedConv) return;
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) {
       toast({
         title: "Erro de autenticação",
@@ -367,7 +367,7 @@ export default function Messages({ params }: { params?: { conversationId?: strin
 
   const deleteConversation = async (conversationId: number) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) return;
       const response = await fetch(`${getApiUrl()}/api/messages/conversation/${conversationId}`, {
         method: 'DELETE',

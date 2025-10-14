@@ -23,3 +23,4 @@ import { drizzle } from 'drizzle-orm/neon-http';
 import { neon } from '@neondatabase/serverless';
 const sql = neon(process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_L9mgJX6UuftC@ep-lingering-pine-a54hc3dj-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require');
 export const db = drizzle(sql);
+export const sqlClient = sql; // Exportar client SQL para queries raw

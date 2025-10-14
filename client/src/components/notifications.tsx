@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, X, CheckCircle, AlertCircle, Info, Clock } from 'lucide-react';
+import { Bell, X, CheckCircle, AlertCircle, Info, Clock, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { getApiUrl } from '@/lib/api-config';
 
 interface Notification {
@@ -13,6 +12,15 @@ interface Notification {
   timestamp: string;
   read: boolean;
   actionUrl?: string;
+  data?: {
+    scheduledDate?: string;
+    scheduledTime?: string;
+    numberOfDays?: number;
+    dailyRate?: string;
+    startDate?: string;
+    endDate?: string;
+    paymentAmount?: string;
+  };
 }
 
 interface NotificationDropdownProps {
@@ -34,7 +42,7 @@ export function NotificationDropdown({ isOpen, onClose, notificationCount }: Not
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await fetch(`${getApiUrl()}/api/notifications`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -55,7 +63,7 @@ export function NotificationDropdown({ isOpen, onClose, notificationCount }: Not
 
   const markAsRead = async (notificationId: number) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       await fetch(`${getApiUrl()}/api/notifications/${notificationId}/read`, {
         method: 'POST',
         headers: {
@@ -76,7 +84,7 @@ export function NotificationDropdown({ isOpen, onClose, notificationCount }: Not
 
   const markAllAsRead = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       await fetch(`${getApiUrl()}/api/notifications/mark-all-read`, {
         method: 'POST',
         headers: {
@@ -123,7 +131,35 @@ export function NotificationDropdown({ isOpen, onClose, notificationCount }: Not
   if (!isOpen) return null;
 
   return (
-    <div className="absolute top-full right-0 mt-2 w-80 sm:w-96 bg-transparent backdrop-blur-sm rounded-lg shadow-xl border border-gray-200/20 dark:border-gray-700/20 z-50">
+    <>
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(229, 231, 235, 0.5);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: linear-gradient(to bottom, #eab308, #fbbf24);
+          border-radius: 10px;
+          transition: background 0.3s ease;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(to bottom, #ca8a04, #eab308);
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(55, 65, 81, 0.5);
+        }
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: #eab308 rgba(229, 231, 235, 0.5);
+        }
+        .dark .custom-scrollbar {
+          scrollbar-color: #eab308 rgba(55, 65, 81, 0.5);
+        }
+      `}</style>
+      <div className="absolute top-full right-0 mt-2 w-80 sm:w-96 bg-transparent backdrop-blur-sm rounded-lg shadow-xl border border-gray-200/20 dark:border-gray-700/20 z-50">
       <div className="p-4 border-b border-gray-200/20 dark:border-gray-700/20 bg-white/10 dark:bg-gray-800/10 backdrop-blur-sm rounded-t-lg">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -152,7 +188,7 @@ export function NotificationDropdown({ isOpen, onClose, notificationCount }: Not
         </div>
       </div>
 
-      <ScrollArea className="max-h-96">
+      <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
         {loading ? (
           <div className="p-4 text-center bg-white/10 dark:bg-gray-800/10 backdrop-blur-sm rounded-lg m-2">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-500 mx-auto"></div>
@@ -193,12 +229,6 @@ export function NotificationDropdown({ isOpen, onClose, notificationCount }: Not
                       }`}>
                         {notification.title}
                       </h4>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-3 w-3 text-gray-400" />
-                        <span className="text-xs text-gray-400">
-                          {formatTimestamp(notification.timestamp)}
-                        </span>
-                      </div>
                     </div>
                     <p className={`text-xs mt-1 ${
                       notification.read 
@@ -207,6 +237,30 @@ export function NotificationDropdown({ isOpen, onClose, notificationCount }: Not
                     }`}>
                       {notification.message}
                     </p>
+                    
+                    {/* Informações de Data (se disponíveis) */}
+                    {notification.data && (notification.data.startDate || notification.data.numberOfDays) && (
+                      <div className="mt-2 p-2 bg-blue-50/50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
+                        <div className="flex items-center gap-2 text-xs">
+                          <Calendar className="h-3 w-3 text-blue-600" />
+                          <div className="flex flex-col gap-0.5">
+                            {notification.data.startDate && notification.data.endDate && (
+                              <span className="text-blue-700 dark:text-blue-300 font-medium">
+                                {new Date(notification.data.startDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} 
+                                {' até '}
+                                {new Date(notification.data.endDate).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                              </span>
+                            )}
+                            {notification.data.numberOfDays && notification.data.numberOfDays > 1 && (
+                              <span className="text-blue-600 dark:text-blue-400 text-[10px]">
+                                {notification.data.numberOfDays} {notification.data.numberOfDays === 1 ? 'dia' : 'dias'}
+                                {notification.data.scheduledTime && ` • ${notification.data.scheduledTime}`}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   {!notification.read && (
                     <div className="flex-shrink-0">
@@ -218,8 +272,9 @@ export function NotificationDropdown({ isOpen, onClose, notificationCount }: Not
             ))}
           </div>
         )}
-      </ScrollArea>
+      </div>
     </div>
+    </>
   );
 }
 
@@ -236,7 +291,7 @@ export function NotificationButton() {
 
   const fetchNotificationCount = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const response = await fetch(`${getApiUrl()}/api/notifications/count`, {
         headers: {
           'Authorization': `Bearer ${token}`,

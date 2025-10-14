@@ -111,7 +111,7 @@ export default function ProviderProfile() {
     try {
       setLoading(true);
       
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
@@ -176,7 +176,7 @@ export default function ProviderProfile() {
     try {
       setSaving(true);
       
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
@@ -301,7 +301,7 @@ export default function ProviderProfile() {
     try {
       setUploadingImage(true);
       
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const formData = new FormData();
       formData.append('profileImage', file);
 

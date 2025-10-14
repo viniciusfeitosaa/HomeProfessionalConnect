@@ -10,7 +10,7 @@ import { BottomNavigation } from "@/components/bottom-navigation";
 import { getApiUrl } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Calendar, MapPin, CheckCircle, Loader2, ArrowLeft } from "lucide-react";
+import { Calendar, MapPin, CheckCircle, Loader2, ArrowLeft, DollarSign } from "lucide-react";
 import ClientNavbar from "../components/client-navbar";
 
 export default function Servico() {
@@ -31,10 +31,55 @@ export default function Servico() {
   const [state, setState] = useState("");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [numberOfDays, setNumberOfDays] = useState("1");
+  const [dailyRate, setDailyRate] = useState("");
   const [budget, setBudget] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
+  
+  // Calcular número de dias entre duas datas
+  const calculateDaysBetweenDates = (start: string, end: string) => {
+    if (!start || !end) return 1;
+    
+    const startD = new Date(start);
+    const endD = new Date(end);
+    
+    const diffTime = endD.getTime() - startD.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 para incluir o último dia
+    
+    return diffDays > 0 ? diffDays : 1;
+  };
+  
+  // Atualizar numberOfDays quando datas mudarem
+  useEffect(() => {
+    if (startDate && endDate) {
+      const days = calculateDaysBetweenDates(startDate, endDate);
+      setNumberOfDays(days.toString());
+      // Atualizar scheduledDate com a data de início
+      setScheduledDate(startDate);
+    } else if (startDate) {
+      setScheduledDate(startDate);
+      setNumberOfDays("1");
+    }
+  }, [startDate, endDate]);
+  
+  // Calcular total automaticamente
+  const calculateTotal = () => {
+    const days = parseInt(numberOfDays) || 0;
+    const rate = parseFloat(dailyRate) || 0;
+    return days * rate;
+  };
+  
+  // Atualizar budget quando dias ou diária mudar
+  useEffect(() => {
+    const total = calculateTotal();
+    if (total > 0) {
+      setBudget(total.toFixed(2));
+    }
+  }, [numberOfDays, dailyRate]);
 
   // Helpers de verificação
   const isValidEmail = (email?: string) => !!(email && /.+@.+\..+/.test(email.trim()));
@@ -116,7 +161,7 @@ export default function Servico() {
     setLoading(true);
     setSuccess(false);
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) {
       toast({
         title: "Erro",
@@ -141,6 +186,8 @@ export default function Servico() {
           address: buildFullAddress(), 
           scheduledDate, 
           scheduledTime,
+          numberOfDays: parseInt(numberOfDays) || 1,
+          dailyRate: parseFloat(dailyRate) || 0,
           budget: budget ? parseFloat(budget) : null
         }),
         credentials: "include"
@@ -279,16 +326,16 @@ export default function Servico() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Categoria */}
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                  <label className="block text-sm font-semibold mb-2 text-gray-800 dark:text-gray-200">
                     Categoria do Serviço
                   </label>
                   <Select value={category} onValueChange={setCategory} required>
-                    <SelectTrigger className="bg-white">
+                    <SelectTrigger className="bg-white border-2 border-gray-200 hover:border-yellow-400 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 rounded-lg h-12 transition-all duration-200">
                       <SelectValue placeholder="Selecione uma categoria" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white">
+                    <SelectContent className="bg-white border-2 border-gray-200 rounded-lg">
                       {categories.map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
+                        <SelectItem key={cat.value} value={cat.value} className="hover:bg-yellow-50 focus:bg-yellow-50 rounded-md">
                           <span className="flex items-center gap-2">
                             <span>{cat.icon}</span>
                             <span>{cat.label}</span>
@@ -301,20 +348,21 @@ export default function Servico() {
 
                 {/* Tipo de Serviço */}
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                  <label className="block text-sm font-semibold mb-2 text-gray-800 dark:text-gray-200">
                     Tipo de Serviço
                   </label>
                   <Input
                     placeholder="Ex: Fisioterapia domiciliar, Acompanhamento hospitalar..."
                     value={serviceType}
                     onChange={e => setServiceType(e.target.value)}
+                    className="border-2 border-gray-200 hover:border-yellow-400 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 rounded-lg h-12 transition-all duration-200"
                     required
                   />
                 </div>
 
                 {/* Descrição */}
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                  <label className="block text-sm font-semibold mb-2 text-gray-800 dark:text-gray-200">
                     Descrição Detalhada
                   </label>
                   <Textarea
@@ -322,13 +370,14 @@ export default function Servico() {
                     value={description}
                     onChange={e => setDescription(e.target.value)}
                     rows={4}
+                    className="border-2 border-gray-200 hover:border-yellow-400 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 rounded-lg min-h-[100px] transition-all duration-200 resize-none"
                     required
                   />
                 </div>
 
                 {/* Endereço */}
                 <div className="space-y-3">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
                     <MapPin className="h-4 w-4 inline mr-1" />
                     Endereço
                   </label>
@@ -346,6 +395,7 @@ export default function Servico() {
                         }
                       }}
                       maxLength={9}
+                      className="border-2 border-gray-200 hover:border-yellow-400 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 rounded-lg h-12 transition-all duration-200"
                       required
                     />
                     {loadingCep && (
@@ -362,6 +412,7 @@ export default function Servico() {
                         placeholder="Rua/Avenida"
                         value={street}
                         onChange={e => setStreet(e.target.value)}
+                        className="border-2 border-gray-200 hover:border-yellow-400 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 rounded-lg h-12 transition-all duration-200"
                         required
                       />
                     </div>
@@ -370,6 +421,7 @@ export default function Servico() {
                         placeholder="Número"
                         value={number}
                         onChange={e => setNumber(e.target.value)}
+                        className="border-2 border-gray-200 hover:border-yellow-400 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 rounded-lg h-12 transition-all duration-200"
                         required
                       />
                     </div>
@@ -379,7 +431,8 @@ export default function Servico() {
                   <Input
                     placeholder="Bairro"
                     value={neighborhood}
-                                            onChange={e => setNeighborhood(e.target.value)}
+                    onChange={e => setNeighborhood(e.target.value)}
+                    className="border-2 border-gray-200 hover:border-yellow-400 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 rounded-lg h-12 transition-all duration-200"
                     required
                   />
 
@@ -388,46 +441,72 @@ export default function Servico() {
                     <Input
                       placeholder="Cidade"
                       value={city}
-                                              onChange={e => setCity(e.target.value)}
+                      onChange={e => setCity(e.target.value)}
+                      className="border-2 border-gray-200 hover:border-yellow-400 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 rounded-lg h-12 transition-all duration-200"
                       required
                     />
                     <Input
                       placeholder="Estado"
                       value={state}
-                                              onChange={e => setState(e.target.value)}
+                      onChange={e => setState(e.target.value)}
                       maxLength={2}
+                      className="border-2 border-gray-200 hover:border-yellow-400 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 rounded-lg h-12 transition-all duration-200"
                       required
                     />
                   </div>
 
                   {/* Endereço Completo (Read-only) */}
-                  <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                  <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-lg">
+                    <label className="block text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1">
                       Endereço Completo
                     </label>
-                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                    <p className="text-sm text-blue-900 dark:text-blue-100 font-medium">
                       {buildFullAddress() || "Preencha os campos acima ou digite o CEP para preenchimento automático"}
                     </p>
                   </div>
                 </div>
 
-                {/* Data e Hora */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                      Data
-                    </label>
-                    <Input
-                      type="date"
-                      value={scheduledDate}
-                      onChange={e => setScheduledDate(e.target.value)}
-                      min={new Date().toISOString().split('T')[0]}
-                      required
-                    />
+                {/* Período do Serviço (Estilo Airbnb) */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-3">
+                  <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Período do Serviço
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Data de Início *
+                      </label>
+                      <Input
+                        type="date"
+                        value={startDate}
+                        onChange={e => setStartDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        required
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Quando começa?</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                        Data de Término *
+                      </label>
+                      <Input
+                        type="date"
+                        value={endDate}
+                        onChange={e => setEndDate(e.target.value)}
+                        min={startDate || new Date().toISOString().split('T')[0]}
+                        disabled={!startDate}
+                        required
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Quando termina?</p>
+                    </div>
                   </div>
+                  
                   <div>
                     <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                      Hora
+                      Horário de Início *
                     </label>
                     <Input
                       type="time"
@@ -435,45 +514,98 @@ export default function Servico() {
                       onChange={e => setScheduledTime(e.target.value)}
                       required
                     />
+                    <p className="text-xs text-gray-500 mt-1">Que horas deve chegar?</p>
                   </div>
+                  
+                  {/* Resumo do Período */}
+                  {startDate && endDate && (
+                    <div className="bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg p-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Duração do serviço:</span>
+                        <span className="font-bold text-blue-600">
+                          {numberOfDays} {parseInt(numberOfDays) === 1 ? 'dia' : 'dias'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        De {new Date(startDate).toLocaleDateString('pt-BR')} até {new Date(endDate).toLocaleDateString('pt-BR')}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-
-
-                {/* Orçamento (Opcional) */}
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                    Orçamento Previsto (Opcional)
-                  </label>
-                  <Input
-                    type="number"
-                    placeholder="R$ 0,00"
-                    value={budget}
-                    onChange={e => setBudget(e.target.value)}
-                    min="0"
-                    step="0.01"
-                  />
+                {/* Valor do Serviço */}
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-4">
+                  <h3 className="text-sm font-semibold text-green-900 dark:text-green-100 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Valor do Serviço
+                  </h3>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      Quanto Pode Pagar por Dia? *
+                    </label>
+                    <Input
+                      type="number"
+                      placeholder="R$ 150,00"
+                      value={dailyRate}
+                      onChange={e => setDailyRate(e.target.value)}
+                      min="1"
+                      step="0.01"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Valor que está disposto a pagar por diária</p>
+                  </div>
+                  
+                  {/* Total Calculado */}
+                  {calculateTotal() > 0 && (
+                    <div className="bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-700 rounded-lg p-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Valor Total do Serviço:
+                        </span>
+                        <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          R$ {calculateTotal().toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                        {numberOfDays} {parseInt(numberOfDays) === 1 ? 'dia' : 'dias'} × R$ {parseFloat(dailyRate || '0').toFixed(2)}/dia
+                      </div>
+                      
+                      {/* Aviso sobre transações fora da plataforma */}
+                      <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-800">
+                        <div className="flex items-start gap-2 text-xs text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 p-2 rounded">
+                          <span className="text-base">⚠️</span>
+                          <div>
+                            <p className="font-semibold mb-1">Importante: Pagamentos pela Plataforma</p>
+                            <p>
+                              Para sua segurança, <strong>todos os pagamentos devem ser feitos pela plataforma</strong>. 
+                              Transações fora da plataforma não são protegidas e não podemos intervir em caso de problemas.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Botão de Envio */}
-                <Button 
+                <button 
                   type="submit" 
-                  className="w-full" 
+                  className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none flex items-center justify-center gap-2"
                   disabled={loading}
-                  size="lg"
                 >
                   {loading ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enviando...
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Enviando...</span>
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Solicitar Serviço
+                      <CheckCircle className="h-5 w-5" />
+                      <span>Solicitar Serviço</span>
                     </>
                   )}
-                </Button>
+                </button>
               </form>
 
               {/* Resumo da Solicitação */}
@@ -492,7 +624,6 @@ export default function Servico() {
           </Card>
         </div>
       </div>
-      <ClientNavbar hidePlus />
     </div>
   );
 } 
