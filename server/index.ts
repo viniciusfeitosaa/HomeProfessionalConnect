@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 config({ path: path.join(__dirname, '.env') });
 import express, { type Request, Response, NextFunction } from "express";
 import { sql } from "drizzle-orm";
-import { setupRoutes } from "./routes-simple";
+import { setupRoutes } from "./routes-simple.js";
 import { seedDatabase } from "./seedData.js";
 import { Server as SocketIOServer } from "socket.io";
 import { createServer } from "http";
