@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 config({ path: path.join(__dirname, '.env') });
 import express from "express";
 import { sql } from "drizzle-orm";
-import { setupRoutes } from "./routes-simple";
+import { setupRoutes } from "./routes-simple.js";
 import { Server as SocketIOServer } from "socket.io";
 import { createServer } from "http";
 import Redis from "redis";

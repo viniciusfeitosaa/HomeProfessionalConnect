@@ -187,53 +187,53 @@ export default function ProfessionalDashboard({ professionalId }: ProfessionalDa
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
           <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <DollarSign className="h-6 w-6 text-green-600" />
+            <div className="p-1.5 bg-green-100 rounded-lg">
+              <DollarSign className="h-5 w-5 text-green-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Ganhos Totais</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalEarnings)}</p>
+            <div className="ml-3">
+              <p className="text-xs font-medium text-gray-600">Ganhos Totais</p>
+              <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.totalEarnings)}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
           <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <CheckCircle className="h-6 w-6 text-blue-600" />
+            <div className="p-1.5 bg-blue-100 rounded-lg">
+              <CheckCircle className="h-5 w-5 text-blue-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Serviços Concluídos</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalServices}</p>
+            <div className="ml-3">
+              <p className="text-xs font-medium text-gray-600">Serviços Concluídos</p>
+              <p className="text-xl font-bold text-gray-900">{stats.totalServices}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
           <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <Star className="h-6 w-6 text-yellow-600" />
+            <div className="p-1.5 bg-yellow-100 rounded-lg">
+              <Star className="h-5 w-5 text-yellow-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Avaliação Média</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.averageRating}</p>
+            <div className="ml-3">
+              <p className="text-xs font-medium text-gray-600">Avaliação Média</p>
+              <p className="text-xl font-bold text-gray-900">{stats.averageRating}</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
+        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
           <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <MessageCircle className="h-6 w-6 text-purple-600" />
+            <div className="p-1.5 bg-purple-100 rounded-lg">
+              <MessageCircle className="h-5 w-5 text-purple-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Avaliações</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalReviews}</p>
+            <div className="ml-3">
+              <p className="text-xs font-medium text-gray-600">Avaliações</p>
+              <p className="text-xl font-bold text-gray-900">{stats.totalReviews}</p>
             </div>
           </div>
         </div>
@@ -241,45 +241,45 @@ export default function ProfessionalDashboard({ professionalId }: ProfessionalDa
 
       {/* Lista de Serviços Concluídos */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Serviços Concluídos</h3>
+        <div className="px-5 py-3.5 border-b border-gray-200">
+          <h3 className="text-base font-semibold text-gray-900">Serviços Concluídos</h3>
         </div>
         
         {!completedServices || completedServices.length === 0 ? (
-          <div className="p-6 text-center text-gray-500">
-            <CheckCircle className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+          <div className="p-5 text-center text-gray-500">
+            <CheckCircle className="h-10 w-10 mx-auto text-gray-300 mb-3" />
             <p>Nenhum serviço concluído ainda</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
             {completedServices?.map((service) => (
-              <div key={service.serviceRequestId} className="p-6">
+              <div key={service.serviceRequestId} className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h4 className="text-lg font-medium text-gray-900">{service.serviceTitle}</h4>
+                      <h4 className="text-base font-medium text-gray-900">{service.serviceTitle}</h4>
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         Concluído
                       </span>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mb-3.5">
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
                         <User className="h-4 w-4" />
                         <span>{service.clientName}</span>
                       </div>
                       
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
                         <Calendar className="h-4 w-4" />
                         <span>Concluído em {formatDate(service.completedAt)}</span>
                       </div>
                       
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
                         <DollarSign className="h-4 w-4" />
                         <span className="font-medium text-green-600">{formatCurrency(service.amount)}</span>
                       </div>
                       
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
                         <CheckCircle className="h-4 w-4" />
                         <span>Transação: {service.transactionStatus}</span>
                       </div>
@@ -287,26 +287,26 @@ export default function ProfessionalDashboard({ professionalId }: ProfessionalDa
 
                     {/* Avaliação do Cliente */}
                     {service.hasReview ? (
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-sm font-medium text-gray-700">Avaliação do Cliente:</span>
+                      <div className="bg-gray-50 rounded-lg p-3.5">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-xs sm:text-sm font-medium text-gray-700">Avaliação do Cliente:</span>
                           <div className="flex items-center gap-1">
                             {renderStars(service.reviewRating || 0)}
-                            <span className="text-sm text-gray-600 ml-1">
+                            <span className="text-xs sm:text-sm text-gray-600 ml-1">
                               ({service.reviewRating}/5)
                             </span>
                           </div>
                         </div>
                         {service.reviewComment && (
-                          <p className="text-sm text-gray-600 italic">"{service.reviewComment}"</p>
+                          <p className="text-xs sm:text-sm text-gray-600 italic">"{service.reviewComment}"</p>
                         )}
-                        <p className="text-xs text-gray-500 mt-2">
+                        <p className="text-[11px] text-gray-500 mt-1.5">
                           Avaliado em {formatDate(service.reviewCreatedAt || '')}
                         </p>
                       </div>
                     ) : (
-                      <div className="bg-yellow-50 rounded-lg p-4">
-                        <p className="text-sm text-yellow-700">
+                      <div className="bg-yellow-50 rounded-lg p-3.5">
+                        <p className="text-xs sm:text-sm text-yellow-700">
                           ⏳ Aguardando avaliação do cliente
                         </p>
                       </div>

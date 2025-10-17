@@ -1914,18 +1914,18 @@ export default function ProviderDashboard() {
 
         <div className="p-4 sm:p-6 lg:p-8 pb-8 sm:pb-12 lg:pb-16 space-y-6 sm:space-y-8">
           {/* Dashboard Overview - Performance */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total de Serviços Concluídos */}
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-700">
-              <CardContent className="p-6">
+              <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total de Serviços</p>
-                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{totalCompletedServices}</p>
+                    <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Total de Serviços</p>
+                    <p className="text-xl font-bold text-blue-900 dark:text-blue-100">{totalCompletedServices}</p>
                     <p className="text-xs text-blue-600 dark:text-blue-400">Total</p>
                   </div>
-                  <div className="p-3 bg-blue-500 rounded-full">
-                    <CheckCircle className="h-6 w-6 text-white" />
+                  <div className="p-2 bg-blue-500 rounded-full">
+                    <CheckCircle className="h-5 w-5 text-white" />
                   </div>
                 </div>
               </CardContent>
@@ -1933,15 +1933,15 @@ export default function ProviderDashboard() {
 
             {/* Receita Total */}
             <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-700">
-              <CardContent className="p-6">
+              <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-green-600 dark:text-green-400">Receita Total</p>
-                    <p className="text-2xl font-bold text-green-900 dark:text-green-100">R$ {totalEarnings.toLocaleString('pt-BR')}</p>
+                    <p className="text-xs font-medium text-green-600 dark:text-green-400">Receita Total</p>
+                    <p className="text-xl font-bold text-green-900 dark:text-green-100">R$ {totalEarnings.toLocaleString('pt-BR')}</p>
                     <p className="text-xs text-green-600 dark:text-green-400">Total</p>
                   </div>
-                  <div className="p-3 bg-green-500 rounded-full">
-                    <DollarSign className="h-6 w-6 text-white" />
+                  <div className="p-2 bg-green-500 rounded-full">
+                    <DollarSign className="h-5 w-5 text-white" />
                   </div>
                 </div>
               </CardContent>
@@ -1949,17 +1949,17 @@ export default function ProviderDashboard() {
 
             {/* Média por Serviço */}
             <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-700">
-              <CardContent className="p-6">
+              <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                    <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Média por Serviço</p>
-                    <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">
+                    <p className="text-xs font-medium text-purple-600 dark:text-purple-400">Média por Serviço</p>
+                    <p className="text-xl font-bold text-purple-900 dark:text-purple-100">
                       R$ {totalCompletedServices > 0 ? (totalEarnings / totalCompletedServices).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
                     </p>
                     <p className="text-xs text-purple-600 dark:text-purple-400">Valor médio</p>
                     </div>
-                  <div className="p-3 bg-purple-500 rounded-full">
-                    <BarChart3 className="h-6 w-6 text-white" />
+                  <div className="p-2 bg-purple-500 rounded-full">
+                    <BarChart3 className="h-5 w-5 text-white" />
                     </div>
                   </div>
                 </CardContent>
@@ -1967,17 +1967,17 @@ export default function ProviderDashboard() {
 
             {/* Taxa de Conclusão */}
             <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border-orange-200 dark:border-orange-700">
-              <CardContent className="p-6">
+              <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Taxa de Conclusão</p>
-                    <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">
+                    <p className="text-xs font-medium text-orange-600 dark:text-orange-400">Taxa de Conclusão</p>
+                    <p className="text-xl font-bold text-orange-900 dark:text-orange-100">
                       {providerAppointments && providerAppointments.length > 0 ? Math.round((totalCompletedServices / providerAppointments.length) * 100) : 100}%
                     </p>
                     <p className="text-xs text-orange-600 dark:text-orange-400">Serviços finalizados</p>
                   </div>
-                  <div className="p-3 bg-orange-500 rounded-full">
-                    <TrendingUp className="h-6 w-6 text-white" />
+                  <div className="p-2 bg-orange-500 rounded-full">
+                    <TrendingUp className="h-5 w-5 text-white" />
                   </div>
                 </div>
               </CardContent>
@@ -1987,242 +1987,46 @@ export default function ProviderDashboard() {
           
 
           {/* Main Content Tabs */}
-          <Tabs defaultValue="opportunities" className="space-y-6 sm:space-y-8">
-            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-3 h-auto min-h-12 p-1.5 gap-1.5 sm:gap-2 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-              <TabsTrigger value="opportunities" className="text-xs sm:text-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 whitespace-nowrap min-h-10 sm:min-h-11 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-md data-[state=active]:font-semibold">
+          <Tabs defaultValue="opportunities" className="space-y-4 sm:space-y-6">
+            <TabsList className="grid w-full grid-cols-3 sm:grid-cols-3 h-auto min-h-10 p-1 gap-1 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+              <TabsTrigger value="opportunities" className="text-[10px] sm:text-xs px-2 sm:px-2.5 lg:px-3 py-2 sm:py-2.5 whitespace-nowrap min-h-8 sm:min-h-9 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-sm data-[state=active]:font-semibold">
                 <span className="hidden xs:inline">Oportunidades</span>
                 <span className="xs:hidden">Oport.</span>
               </TabsTrigger>
-              <TabsTrigger value="performance" className="text-xs sm:text-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 whitespace-nowrap min-h-10 sm:min-h-11 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-md data-[state=active]:font-semibold">
+              <TabsTrigger value="performance" className="text-[10px] sm:text-xs px-2 sm:px-2.5 lg:px-3 py-2 sm:py-2.5 whitespace-nowrap min-h-8 sm:min-h-9 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-sm data-[state=active]:font-semibold">
                 <span className="hidden xs:inline">Performance</span>
                 <span className="xs:hidden">Perf.</span>
               </TabsTrigger>
-              <TabsTrigger value="history" className="text-xs sm:text-sm px-2 sm:px-3 lg:px-4 py-2.5 sm:py-3 whitespace-nowrap min-h-10 sm:min-h-11 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-md data-[state=active]:font-semibold">
+              <TabsTrigger value="history" className="text-[10px] sm:text-xs px-2 sm:px-2.5 lg:px-3 py-2 sm:py-2.5 whitespace-nowrap min-h-8 sm:min-h-9 text-center font-medium transition-all duration-200 hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm data-[state=active]:bg-white dark:data-[state=active]:bg-gray-700 data-[state=active]:text-yellow-600 dark:data-[state=active]:text-yellow-400 data-[state=active]:shadow-sm data-[state=active]:font-semibold">
                 <span className="hidden xs:inline">Histórico</span>
                 <span className="xs:hidden">Hist.</span>
               </TabsTrigger>
             </TabsList>
 
             {/* Service Opportunities Tab */}
-            <TabsContent value="opportunities" className="space-y-8">
+            <TabsContent value="opportunities" className="space-y-6">
               <Card className="border-2 border-yellow-200 dark:border-yellow-800 bg-gradient-to-br from-white to-yellow-50/30 dark:from-gray-800 dark:to-yellow-900/10 shadow-xl">
                 <CardHeader className="bg-gradient-to-r from-yellow-500/10 to-transparent dark:from-yellow-500/20 border-b border-yellow-200/50 dark:border-yellow-800/50">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                      <div className="p-2 bg-yellow-500 rounded-full shadow-lg">
-                        <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <CardTitle className="flex items-center gap-1.5 text-sm sm:text-base">
+                      <div className="p-1 bg-yellow-500 rounded-full shadow-lg">
+                        <MapPin className="h-3.5 w-3.5 text-white" />
                       </div>
-                      <span className="text-base sm:text-lg lg:text-xl font-bold bg-gradient-to-r from-yellow-600 to-yellow-700 dark:from-yellow-400 dark:to-yellow-500 bg-clip-text text-transparent">
-                        Serviços Próximos a Você
-                      </span>
+                      <span className="text-xs sm:text-sm lg:text-base font-bold bg-gradient-to-r from-yellow-600 to-yellow-700 dark:from-yellow-400 dark:to-yellow-500 bg-clip-text text-transparent">
+                         Serviços Próximos a Você
+                       </span>
                     </CardTitle>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
-                      <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg shadow-md border border-yellow-200 dark:border-yellow-800">
-                        <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium">Raio:</span>
-                        <Input
-                          type="number"
-                          value={searchRadius}
-                          onChange={(e) => setSearchRadius(Number(e.target.value))}
-                          className="w-12 sm:w-16 h-7 sm:h-8 text-xs sm:text-sm border-yellow-300 dark:border-yellow-700 focus:border-yellow-500 focus:ring-yellow-500"
-                          min="1"
-                          max="50"
-                        />
-                        <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium">km</span>
-                      </div>
-                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {/* Map Placeholder */}
-                  <div className="bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 rounded-xl h-48 sm:h-56 md:h-64 mb-4 sm:mb-6 overflow-hidden sticky top-2 sm:top-4 z-10 shadow-inner border-2 border-yellow-200/50 dark:border-yellow-800/50">
-                    {/* Botão de localização */}
-                    <div className="absolute top-2 right-2 z-20">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          console.log('🔘 Botão de localização clicado!');
-                          if (locationRequested && userLocation) {
-                            // Se já tem localização, centraliza o mapa
-                            centerMapOnUser();
-                          } else {
-                            // Se não tem localização, obtém a localização
-                            getUserLocation();
-                          }
-                        }}
-                        className="bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl border-2 border-yellow-300 dark:border-yellow-700 hover:border-yellow-500 dark:hover:border-yellow-500 transition-all duration-300"
-                        disabled={locationLoading}
-                      >
-                        {locationLoading ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-500"></div>
-                        ) : !locationRequested ? (
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                            <span className="text-xs hidden sm:inline font-medium text-yellow-700 dark:text-yellow-300">Minha Localização</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1">
-                            <MapPin className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                            <span className="text-xs hidden sm:inline font-medium text-yellow-700 dark:text-yellow-300">Centralizar</span>
-                          </div>
-                        )}
-                      </Button>
-                    </div>
-                    
-                    {locationLoading ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-                        <div className="text-center">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto mb-2"></div>
-                          <p className="text-gray-600 dark:text-gray-400">Obtendo sua localização...</p>
-                        </div>
-                      </div>
-                    ) : !userLocation ? (
-                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900">
-                        <div className="text-center p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-2xl border-2 border-yellow-200 dark:border-yellow-800">
-                          <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                            <MapPin className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
-                          </div>
-                          <p className="text-gray-700 dark:text-gray-300 mb-4 font-medium">Clique para obter sua localização</p>
-                          <Button 
-                            size="sm" 
-                            onClick={getUserLocation}
-                            disabled={locationLoading}
-                            className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 font-semibold"
-                          >
-                            {locationLoading ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            ) : (
-                              <>
-                                <MapPin className="h-4 w-4 mr-1" />
-                                Obter Localização
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <MapContainer 
-                        center={userLocation || [-23.55052, -46.633308]} 
-                        zoom={15} 
-                        style={{ height: '100%', width: '100%' }}
-                        key={`map-${mapKey}-${userLocation ? `${userLocation[0]}-${userLocation[1]}` : 'fallback'}`}
-                      >
-                        {userLocation && <MapController userLocation={userLocation} />}
-                        <LayersControl position="topright">
-                          <LayersControl.BaseLayer checked={theme !== 'dark'} name="OSM Claro">
-                            <TileLayer
-                              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            />
-                          </LayersControl.BaseLayer>
-                          <LayersControl.BaseLayer checked={theme === 'dark'} name="Carto Escuro">
-                            <TileLayer
-                              attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-                              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                            />
-                          </LayersControl.BaseLayer>
-                        </LayersControl>
-                        {/* Marcador da localização atual do usuário */}
-                        {userLocation && (
-                          <Marker 
-                            position={userLocation}
-                            icon={L.divIcon({
-                              className: 'custom-div-icon',
-                              html: `<div style="position: relative; width: 28px; height: 34px;">
-                                <div style=\"position:absolute; left:50%; top:50%; transform: translate(-50%, -55%); background-color: ${locationUpdated ? '#10b981' : '#3b82f6'}; width: 24px; height: 24px; border-radius: 50%; border: 4px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.4); animation: pulse 2s infinite; ${locationUpdated ? 'border-color: #10b981;' : ''}\"></div>
-                                <div style=\"position:absolute; left:50%; bottom:0; transform: translate(-50%, 50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25));\"></div>
-                              </div>`,
-                              iconSize: [28, 34],
-                              iconAnchor: [14, 30]
-                            })}
-                          />
-                        )}
-                        
-                        {/* Marcadores das solicitações de serviço */}
-                        {nearbyServices.map((service) => {
-                          const serviceCoords = serviceLocations[service.id];
-                          if (!serviceCoords) return null;
-                          
-                          const isEditing = editingLocation === service.id;
-                          const isSelected = selectedMapService?.id === service.id;
-                          
-                                                      return (
-                              <Marker 
-                                key={service.id} 
-                                position={serviceCoords}
-                                draggable={isEditing}
-                                icon={L.divIcon({
-                                  className: 'custom-div-icon',
-                                  html: `<div style="position: relative; width: 34px; height: 34px;">
-                                    <div style=\"position:absolute; left:50%; top:50%; transform: translate(-50%, -50%); width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); background-image: url('/service-icon.png'); background-size: cover; background-position: center; background-repeat: no-repeat; ${isSelected ? 'animation: pulse 2s infinite;' : ''}\"></div>
-                                    <div style=\"position:absolute; left:50%; bottom:0; transform: translate(-50%, 50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid #fff; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.25));\"></div>
-                                  </div>`,
-                                  iconSize: [34, 40],
-                                  iconAnchor: [17, 34]
-                                })}
-                              eventHandlers={{
-                                click: () => {
-                                  if (isEditing) {
-                                    // Finalizar edição
-                                    setEditingLocation(null);
-                                  } else {
-                                    // Abrir modal com detalhes do serviço
-                                    handleMapServiceClick(service);
-                                  }
-                                },
-                                dragend: (e) => {
-                                  if (isEditing) {
-                                    const newPos = e.target.getLatLng();
-                                    setServiceLocations(prev => ({
-                                      ...prev,
-                                      [service.id]: [newPos.lat, newPos.lng]
-                                    }));
-                                    setEditingLocation(null);
-                                    toast({
-                                      title: "Posição Atualizada",
-                                      description: "A posição da solicitação foi ajustada manualmente.",
-                                    });
-                                  }
-                                }
-                              }}
-                            >
-                              {/* Popup removido - detalhes aparecem no modal */}
-                            </Marker>
-                          );
-                        })}
-                      </MapContainer>
-                    )}
-                    <div className="absolute left-0 right-0 bottom-0 p-3 text-center pointer-events-none">
-                      <div className="bg-gradient-to-r from-white/95 to-yellow-50/95 dark:from-gray-800/95 dark:to-yellow-900/95 backdrop-blur-md rounded-xl px-4 py-3 shadow-2xl border-2 border-yellow-200/50 dark:border-yellow-800/50">
-                        <p className="text-sm text-gray-800 dark:text-gray-200 font-bold mb-2 flex items-center justify-center gap-2">
-                          <span className="inline-block w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></span>
-                          Mostrando serviços em um raio de <span className="text-yellow-600 dark:text-yellow-400 font-extrabold">{searchRadius}km</span>
-                        </p>
-                        <div className="flex items-center justify-center gap-4 text-xs font-medium">
-                          <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/30 px-2.5 py-1 rounded-full">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full shadow-md"></div>
-                            <span className="text-blue-700 dark:text-blue-300">Sua localização</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 bg-yellow-50 dark:bg-yellow-900/30 px-2.5 py-1 rounded-full">
-                            <div className="w-3 h-3 bg-yellow-500 rounded-full shadow-md"></div>
-                            <span className="text-yellow-700 dark:text-yellow-300">Solicitações ({nearbyServices?.length || 0})</span>
-                          </div>
-                          {selectedMapService && (
-                            <div className="flex items-center gap-1.5 bg-red-50 dark:bg-red-900/30 px-2.5 py-1 rounded-full">
-                              <div className="w-3 h-3 bg-red-500 rounded-full shadow-md animate-pulse"></div>
-                              <span className="text-red-700 dark:text-red-300">Selecionado</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
+                  {/* mapa removido */}
+                  {/* Mapa e controles de localização foram temporariamente desativados */}
+                  
                   {/* Service Requests */}
-                  <div className="space-y-3 sm:space-y-4">
+                  <div className="space-y-2 sm:space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
                       <div>
-                        <h3 className="font-semibold text-base sm:text-lg">Solicitações Disponíveis</h3>
+                        <h3 className="font-semibold text-xs sm:text-sm">Solicitações Disponíveis</h3>
                         {geocodingErrors && geocodingErrors.length > 0 && (
                           <p className="text-xs text-red-600 mt-1">
                             ⚠️ {geocodingErrors.length} endereço(s) não localizados
@@ -2234,30 +2038,30 @@ export default function ProviderDashboard() {
                         size="sm" 
                         onClick={fetchServiceRequests}
                         disabled={loadingServices}
-                        className="h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm border-2 border-yellow-300 dark:border-yellow-700 hover:border-yellow-500 dark:hover:border-yellow-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-all duration-300"
+                        className="h-7 sm:h-8 px-2.5 sm:px-3 text-[11px] sm:text-xs border-2 border-yellow-300 dark:border-yellow-700 hover:border-yellow-500 dark:hover:border-yellow-500 bg-white dark:bg-gray-800 shadow-md hover:shadow-lg transition-all duration-300"
                       >
                         {loadingServices ? (
                           <>
-                            <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-yellow-500 mr-1 sm:mr-2"></div>
-                            <span className="hidden sm:inline font-medium text-yellow-700 dark:text-yellow-300">Carregando...</span>
-                            <span className="sm:hidden font-medium text-yellow-700 dark:text-yellow-300">...</span>
+                            <div className="animate-spin rounded-full h-3 w-3 sm:h-3.5 sm:w-3.5 border-b-2 border-yellow-500 mr-1 sm:mr-1.5"></div>
+                            <span className="hidden sm:inline font-medium text-yellow-700 dark:text-yellow-300 text-[11px]">Carregando...</span>
+                            <span className="sm:hidden font-medium text-yellow-700 dark:text-yellow-300 text-[11px]">...</span>
                           </>
                         ) : (
                           <>
-                            <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 text-yellow-600 dark:text-yellow-400" />
-                            <span className="hidden sm:inline font-medium text-yellow-700 dark:text-yellow-300">Atualizar</span>
-                            <span className="sm:hidden font-medium text-yellow-700 dark:text-yellow-300">Atualizar</span>
+                            <RefreshCw className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5 text-yellow-600 dark:text-yellow-400" />
+                            <span className="hidden sm:inline font-medium text-yellow-700 dark:text-yellow-300 text-[11px]">Atualizar</span>
+                            <span className="sm:hidden font-medium text-yellow-700 dark:text-yellow-300 text-[11px]">Atualizar</span>
                           </>
                         )}
                       </Button>
                     </div>
                     
                     {loadingServices ? (
-                      <div className="text-center py-6 sm:py-8">
+                      <div className="text-center py-5 sm:py-7">
                         <div className="relative mx-auto mb-3 sm:mb-4">
-                          <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-gray-200 rounded-full"></div>
+                          <div className="w-10 h-10 sm:w-14 sm:h-14 border-4 border-gray-200 rounded-full"></div>
                           <div 
-                            className="absolute top-0 left-0 w-12 h-12 sm:w-16 sm:h-16 border-4 border-primary rounded-full"
+                            className="absolute top-0 left-0 w-10 h-10 sm:w-14 sm:h-14 border-4 border-primary rounded-full"
                             style={{
                               clipPath: `polygon(50% 50%, 50% 0%, ${50 + (loadingProgress * 0.36)}% 0%, ${50 + (loadingProgress * 0.36)}% 50%)`
                             }}
@@ -2275,14 +2079,14 @@ export default function ProviderDashboard() {
                         </div>
                       </div>
                     ) : !nearbyServices || nearbyServices.length === 0 ? (
-                      <div className="text-center py-8 sm:py-12 bg-gradient-to-br from-gray-50 to-yellow-50/30 dark:from-gray-800 dark:to-yellow-900/10 rounded-xl border-2 border-dashed border-yellow-300 dark:border-yellow-700">
-                        <div className="bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30 rounded-full w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center mx-auto mb-4 shadow-lg">
-                          <Bell className="h-8 w-8 sm:h-10 sm:w-10 text-yellow-600 dark:text-yellow-400" />
+                      <div className="text-center py-6 sm:py-10 bg-gradient-to-br from-gray-50 to-yellow-50/30 dark:from-gray-800 dark:to-yellow-900/10 rounded-xl border-2 border-dashed border-yellow-300 dark:border-yellow-700">
+                        <div className="bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30 rounded-full w-14 h-14 sm:w-18 sm:h-18 flex items-center justify-center mx-auto mb-4 shadow-lg">
+                          <Bell className="h-7 w-7 sm:h-9 sm:w-9 text-yellow-600 dark:text-yellow-400" />
                         </div>
-                        <p className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">Nenhuma solicitação disponível</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">Novas solicitações aparecerão aqui automaticamente</p>
-                        <div className="bg-gradient-to-r from-blue-50 to-yellow-50 dark:from-blue-900/20 dark:to-yellow-900/20 p-4 rounded-xl border border-yellow-200 dark:border-yellow-800 shadow-md max-w-md mx-auto">
-                          <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+                        <p className="text-sm sm:text-base font-bold text-gray-800 dark:text-gray-200 mb-2">Nenhuma solicitação disponível</p>
+                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-6">Novas solicitações aparecerão aqui automaticamente</p>
+                        <div className="bg-gradient-to-r from-blue-50 to-yellow-50 dark:from-blue-900/20 dark:to-yellow-900/20 p-3.5 rounded-xl border border-yellow-200 dark:border-yellow-800 shadow-md max-w-md mx-auto">
+                          <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">
                             💡 <strong>Dica:</strong> Clique nos pins amarelos no mapa para ver detalhes dos serviços!
                           </p>
                         </div>
@@ -2290,20 +2094,20 @@ export default function ProviderDashboard() {
                     ) : (
                       nearbyServices.map((service) => (
                       <Card key={service.id} id={`service-${service.id}`} className="border-l-4 border-l-yellow-500 transition-all duration-300 hover:shadow-xl bg-gradient-to-r from-white to-yellow-50/30 dark:from-gray-800 dark:to-yellow-900/10">
-                        <CardContent className="p-3 sm:p-4">
-                          <div className="flex flex-col gap-3 sm:gap-4">
+                        <CardContent className="p-2.5 sm:p-3.5">
+                          <div className="flex flex-col gap-2.5 sm:gap-3.5">
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                                <h4 className="font-bold text-sm sm:text-base lg:text-lg text-gray-900 dark:text-white">Solicitação #{service.id}</h4>
+                                <h4 className="font-bold text-xs sm:text-sm lg:text-base text-gray-900 dark:text-white">Solicitação #{service.id}</h4>
                                 <Badge variant="outline" className="text-xs w-fit bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700">
                                   {service.category === 'fisioterapeuta' ? 'Fisioterapeuta' :
                                    service.category === 'acompanhante_hospitalar' ? 'Acompanhante' :
                                    service.category === 'tecnico_enfermagem' ? 'Técnico Enfermagem' : service.category}
                                 </Badge>
                               </div>
-                              <p className="font-bold text-yellow-600 dark:text-yellow-400 mb-1 text-sm sm:text-base">{service.serviceType}</p>
-                              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">{service.description}</p>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500">
+                              <p className="font-bold text-yellow-600 dark:text-yellow-400 mb-1 text-xs sm:text-sm">{service.serviceType}</p>
+                              <p className="text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 mb-2 line-clamp-2">{service.description}</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1 sm:gap-1.5 text-[11px] sm:text-xs text-gray-500">
                                 <span className="flex items-center gap-1 min-w-0">
                                   <MapPin className="h-3 w-3 flex-shrink-0" />
                                   <span className="truncate">{(service as any).address || (service as any).location || 'Não informado'}</span>
@@ -2344,19 +2148,19 @@ export default function ProviderDashboard() {
                             </div>
                             
                             {/* Informações de Período e Valor (se houver) */}
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
                               {service.budget && (
                                 <div className="flex flex-col gap-1">
-                                  <p className="text-sm sm:text-base lg:text-lg font-bold text-green-600">
+                                  <p className="text-xs sm:text-sm lg:text-base font-bold text-green-600">
                                     R$ {parseFloat(service.budget).toFixed(2)}
                                   </p>
                                   {(service as any).numberOfDays && (service as any).numberOfDays > 1 && (
-                                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                                      <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium">
+                                    <div className="flex items-center gap-2 text-[11px] sm:text-xs text-gray-500">
+                                      <span className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium text-[11px]">
                                         {(service as any).numberOfDays} {(service as any).numberOfDays === 1 ? 'dia' : 'dias'}
                                       </span>
                                       {(service as any).dailyRate && (
-                                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                                        <span className="text-emerald-600 dark:text-emerald-400 font-medium text-[11px] sm:text-xs">
                                           R$ {parseFloat((service as any).dailyRate).toFixed(2)}/dia
                                         </span>
                                       )}
@@ -2366,7 +2170,7 @@ export default function ProviderDashboard() {
                               )}
                               <Button 
                                 size="sm" 
-                                className="w-full sm:w-auto h-9 sm:h-10 text-xs sm:text-sm bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 font-semibold"
+                                className="w-full sm:w-auto h-8 sm:h-9 text-[11px] sm:text-xs px-2.5 sm:px-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 font-semibold"
                                 onClick={() => handleOfferService(service.id)}
                               >
                                 Ofertar Serviço
@@ -2383,30 +2187,30 @@ export default function ProviderDashboard() {
             </TabsContent>
 
             {/* Performance Tab */}
-            <TabsContent value="performance" className="space-y-8">
+            <TabsContent value="performance" className="space-y-6">
               {/* Header com botão de atualização */}
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Performance e Estatísticas</h2>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Performance e Estatísticas</h2>
                 <Button 
                   onClick={fetchPerformanceStats}
                   variant="outline"
                   size="sm"
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-1.5 h-8 px-2.5 text-xs"
                 >
-                  <RefreshCw className="h-4 w-4" />
+                  <RefreshCw className="h-3.5 w-3.5" />
                   Atualizar Dados
                 </Button>
               </div>
               
               {/* Mensagem informativa */}
               <Card className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-700">
-                <CardContent className="p-6">
+                <CardContent className="p-4">
                   <div className="text-center">
-                    <Info className="h-12 w-12 text-blue-600 dark:text-blue-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                    <Info className="h-10 w-10 text-blue-600 dark:text-blue-400 mx-auto mb-3" />
+                    <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100 mb-1.5">
                       Dados de Performance
                     </h3>
-                    <p className="text-blue-700 dark:text-blue-300">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
                       Os dados de performance e estatísticas estão sendo exibidos na área principal do dashboard acima.
                     </p>
                   </div>
@@ -2417,165 +2221,165 @@ export default function ProviderDashboard() {
                 {/* Metas e progresso do mês */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Target className="h-5 w-5" />
+                    <CardTitle className="text-base flex items-center gap-1.5">
+                      <Target className="h-4 w-4" />
                       Metas do Mês
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {/* Seletor de modo de meta */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <button onClick={() => setMonthlyGoalMode('services')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${monthlyGoalMode === 'services' ? 'bg-yellow-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>Meta por Serviços</button>
-                        <button onClick={() => setMonthlyGoalMode('revenue')} className={`px-3 py-1.5 rounded-md text-sm font-medium ${monthlyGoalMode === 'revenue' ? 'bg-yellow-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>Meta por Receita</button>
-                        <button onClick={handleGenerateMonthlyReport} className="ml-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium bg-white dark:bg-gray-900 border hover:bg-gray-50 dark:hover:bg-gray-800">
-                          <FileText className="h-4 w-4" />
-                          Gerar Relatório (PDF)
-                        </button>
-                        <div className="flex items-center gap-2 ml-auto w-full sm:w-auto sm:flex-nowrap flex-wrap">
-                          <input
-                            type="date"
-                            value={periodStart}
-                            onChange={(e) => setPeriodStart(e.target.value)}
-                            className="px-3 py-1.5 rounded-md border bg-white dark:bg-gray-900 text-sm w-[140px]"
-                          />
-                          <span className="text-sm text-gray-500">a</span>
-                          <input
-                            type="date"
-                            value={periodEnd}
-                            onChange={(e) => setPeriodEnd(e.target.value)}
-                            className="px-3 py-1.5 rounded-md border bg-white dark:bg-gray-900 text-sm w-[140px]"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Inputs de meta */}
-                      {monthlyGoalMode === 'services' ? (
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-600 dark:text-gray-400">Defina sua meta de serviços no mês</label>
-                          <div className="flex gap-2">
-                            <input type="number" min={1} value={monthlyGoalServices} onChange={(e) => setMonthlyGoalServices(Math.max(1, parseInt(e.target.value || '0')))} className="w-28 px-3 py-2 rounded-md border bg-white dark:bg-gray-900" />
-                            <span className="self-center text-sm text-gray-500">serviços</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <label className="text-sm text-gray-600 dark:text-gray-400">Defina sua meta de receita no mês</label>
-                          <div className="flex gap-2">
-                            <span className="self-center text-sm text-gray-500">R$</span>
-                            <input type="number" min={100} step={50} value={monthlyGoalRevenue} onChange={(e) => setMonthlyGoalRevenue(Math.max(100, parseFloat(e.target.value || '0')))} className="w-32 px-3 py-2 rounded-md border bg-white dark:bg-gray-900" />
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Barras de progresso bonitas */}
-                      <div className="space-y-4">
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <span className="text-sm font-medium">Serviços concluídos</span>
-                            <span className="text-sm text-gray-600">{periodServicesAndEarnings.count}/{monthlyGoalServices} ({Math.min(100, Math.round((periodServicesAndEarnings.count / (monthlyGoalServices || 1)) * 100))}%)</span>
-                          </div>
-                          <div className="w-full h-2.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                            <div className="h-2.5 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full transition-all" style={{ width: `${Math.min(100, (periodServicesAndEarnings.count / (monthlyGoalServices || 1)) * 100)}%` }}></div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="flex justify-between mb-1">
-                            <span className="text-sm font-medium">Receita do mês</span>
-                            <span className="text-sm text-gray-600">R$ {periodServicesAndEarnings.earnings.toLocaleString('pt-BR')} / R$ {monthlyGoalRevenue.toLocaleString('pt-BR')} ({Math.min(100, Math.round((periodServicesAndEarnings.earnings / (monthlyGoalRevenue || 1)) * 100))}%)</span>
-                          </div>
-                          <div className="w-full h-2.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
-                            <div className="h-2.5 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all" style={{ width: `${Math.min(100, (periodServicesAndEarnings.earnings / (monthlyGoalRevenue || 1)) * 100)}%` }}></div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Dicas rápidas */}
-                      <div className="text-xs text-gray-500">Dica: aumente sua disponibilidade e responda rápido para bater a meta!</div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Gráfico de Performance Semanal */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5" />
-                      Performance Semanal
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                    <div className="space-y-4">
-                      {/* Gráfico de barras simples para serviços da semana */}
-                      <div className="space-y-3">
-                        {(() => {
-                          const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-                          // Usar período selecionado; fallback para semana atual
-                          const start = (() => {
-                            if (periodStart) {
-                              const d = new Date(periodStart);
-                              d.setHours(0, 0, 0, 0);
-                              return d;
-                            }
-                            const now = new Date();
-                            const d = new Date(now);
-                            d.setDate(now.getDate() - now.getDay());
-                            d.setHours(0, 0, 0, 0);
-                            return d;
-                          })();
-                          const end = (() => {
-                            if (periodEnd) {
-                              const d = new Date(periodEnd);
-                              d.setHours(23, 59, 59, 999);
-                              return d;
-                            }
-                            const d = new Date(start);
-                            d.setDate(start.getDate() + 6);
-                            d.setHours(23, 59, 59, 999);
-                            return d;
-                          })();
-
-                          const counts: number[] = Array(7).fill(0);
-                          (completedServices || []).forEach((service: any) => {
-                            const dt = service?.completedAt ? new Date(service.completedAt) : null;
-                            if (!dt) return;
-                            if (dt >= start && dt <= end) {
-                              counts[dt.getDay()] += 1;
-                            }
-                          });
-
-                          const maxCount = counts.reduce((m, c) => Math.max(m, c), 0);
-                          const weeklyData = weekDays.map((day, idx) => {
-                            const count = counts[idx];
-                            const height = maxCount > 0 ? Math.max(20, Math.round((count / maxCount) * 100)) : 0;
-                            return { day, count, height };
-                          });
-
-                          return (
-                            <div className="flex items-end justify-between h-32">
-                              {weeklyData.map((data, index) => (
-                                <div key={index} className="flex flex-col items-center">
-                                  <div className="text-xs text-gray-500 mb-1">{data.count}</div>
-                                  <div 
-                                    className="w-8 bg-gradient-to-t from-yellow-500 to-orange-500 rounded-t-sm transition-all duration-300"
-                                    style={{ height: `${data.height}%` }}
-                                  ></div>
-                                  <div className="text-xs text-gray-500 mt-1">{data.day}</div>
-                                </div>
-                              ))}
-                              </div>
-                            );
-                        })()}
-                      </div>
-                      
-                      <div className="text-center text-sm text-gray-600">
-                        Serviços concluídos por dia da semana
-                                </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                  <CardContent className="p-4 pt-0">
+                     <div className="space-y-4">
+                       {/* Seletor de modo de meta */}
+                       <div className="flex items-center gap-2 flex-wrap">
+                         <button onClick={() => setMonthlyGoalMode('services')} className={`px-2.5 py-1.5 rounded-md text-xs font-medium ${monthlyGoalMode === 'services' ? 'bg-yellow-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>Meta por Serviços</button>
+                         <button onClick={() => setMonthlyGoalMode('revenue')} className={`px-2.5 py-1.5 rounded-md text-xs font-medium ${monthlyGoalMode === 'revenue' ? 'bg-yellow-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'}`}>Meta por Receita</button>
+                         <button onClick={handleGenerateMonthlyReport} className="ml-2 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium bg-white dark:bg-gray-900 border hover:bg-gray-50 dark:hover:bg-gray-800">
+                           <FileText className="h-3.5 w-3.5" />
+                           Gerar Relatório (PDF)
+                         </button>
+                         <div className="flex items-center gap-2 ml-auto w-full sm:w-auto sm:flex-nowrap flex-wrap">
+                           <input
+                             type="date"
+                             value={periodStart}
+                             onChange={(e) => setPeriodStart(e.target.value)}
+                             className="px-2.5 py-1.5 rounded-md border bg-white dark:bg-gray-900 text-xs w-[130px]"
+                           />
+                           <span className="text-xs text-gray-500">a</span>
+                           <input
+                             type="date"
+                             value={periodEnd}
+                             onChange={(e) => setPeriodEnd(e.target.value)}
+                             className="px-2.5 py-1.5 rounded-md border bg-white dark:bg-gray-900 text-xs w-[130px]"
+                           />
+                         </div>
+                       </div>
+ 
+                       {/* Inputs de meta */}
+                       {monthlyGoalMode === 'services' ? (
+                         <div className="space-y-2">
+                           <label className="text-xs text-gray-600 dark:text-gray-400">Defina sua meta de serviços no mês</label>
+                           <div className="flex gap-2">
+                             <input type="number" min={1} value={monthlyGoalServices} onChange={(e) => setMonthlyGoalServices(Math.max(1, parseInt(e.target.value || '0')))} className="w-24 px-2.5 py-1.5 rounded-md border bg-white dark:bg-gray-900 text-sm" />
+                             <span className="self-center text-xs text-gray-500">serviços</span>
+                           </div>
+                         </div>
+                       ) : (
+                         <div className="space-y-2">
+                           <label className="text-xs text-gray-600 dark:text-gray-400">Defina sua meta de receita no mês</label>
+                           <div className="flex gap-2">
+                             <span className="self-center text-xs text-gray-500">R$</span>
+                             <input type="number" min={100} step={50} value={monthlyGoalRevenue} onChange={(e) => setMonthlyGoalRevenue(Math.max(100, parseFloat(e.target.value || '0')))} className="w-28 px-2.5 py-1.5 rounded-md border bg-white dark:bg-gray-900 text-sm" />
+                           </div>
+                         </div>
+                       )}
+ 
+                       {/* Barras de progresso bonitas */}
+                       <div className="space-y-3">
+                         <div>
+                           <div className="flex justify-between mb-1">
+                             <span className="text-xs font-medium">Serviços concluídos</span>
+                             <span className="text-xs text-gray-600">{periodServicesAndEarnings.count}/{monthlyGoalServices} ({Math.min(100, Math.round((periodServicesAndEarnings.count / (monthlyGoalServices || 1)) * 100))}%)</span>
+                           </div>
+                           <div className="w-full h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                             <div className="h-2 bg-gradient-to-r from-orange-500 to-yellow-500 rounded-full transition-all" style={{ width: `${Math.min(100, (periodServicesAndEarnings.count / (monthlyGoalServices || 1)) * 100)}%` }}></div>
+                           </div>
+                         </div>
+ 
+                         <div>
+                           <div className="flex justify-between mb-1">
+                             <span className="text-xs font-medium">Receita do mês</span>
+                             <span className="text-xs text-gray-600">R$ {periodServicesAndEarnings.earnings.toLocaleString('pt-BR')} / R$ {monthlyGoalRevenue.toLocaleString('pt-BR')} ({Math.min(100, Math.round((periodServicesAndEarnings.earnings / (monthlyGoalRevenue || 1)) * 100))}%)</span>
+                           </div>
+                           <div className="w-full h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                             <div className="h-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all" style={{ width: `${Math.min(100, (periodServicesAndEarnings.earnings / (monthlyGoalRevenue || 1)) * 100)}%` }}></div>
+                           </div>
+                         </div>
+                       </div>
+ 
+                       {/* Dicas rápidas */}
+                       <div className="text-[11px] text-gray-500">Dica: aumente sua disponibilidade e responda rápido para bater a meta!</div>
+                     </div>
+                   </CardContent>
+                 </Card>
+ 
+                 {/* Gráfico de Performance Semanal */}
+                 <Card>
+                   <CardHeader>
+                     <CardTitle className="flex items-center gap-1.5 text-base">
+                     <TrendingUp className="h-4 w-4" />
+                     Performance Semanal
+                     </CardTitle>
+                   </CardHeader>
+                   <CardContent className="p-4 pt-0">
+                   <div className="space-y-3.5">
+                     {/* Gráfico de barras simples para serviços da semana */}
+                     <div className="space-y-2.5">
+                       {(() => {
+                         const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                         // Usar período selecionado; fallback para semana atual
+                         const start = (() => {
+                           if (periodStart) {
+                             const d = new Date(periodStart);
+                             d.setHours(0, 0, 0, 0);
+                             return d;
+                           }
+                           const now = new Date();
+                           const d = new Date(now);
+                           d.setDate(now.getDate() - now.getDay());
+                           d.setHours(0, 0, 0, 0);
+                           return d;
+                         })();
+                         const end = (() => {
+                           if (periodEnd) {
+                             const d = new Date(periodEnd);
+                             d.setHours(23, 59, 59, 999);
+                             return d;
+                           }
+                           const d = new Date(start);
+                           d.setDate(start.getDate() + 6);
+                           d.setHours(23, 59, 59, 999);
+                           return d;
+                         })();
+ 
+                         const counts: number[] = Array(7).fill(0);
+                         (completedServices || []).forEach((service: any) => {
+                           const dt = service?.completedAt ? new Date(service.completedAt) : null;
+                           if (!dt) return;
+                           if (dt >= start && dt <= end) {
+                             counts[dt.getDay()] += 1;
+                           }
+                         });
+ 
+                         const maxCount = counts.reduce((m, c) => Math.max(m, c), 0);
+                         const weeklyData = weekDays.map((day, idx) => {
+                           const count = counts[idx];
+                           const height = maxCount > 0 ? Math.max(20, Math.round((count / maxCount) * 100)) : 0;
+                           return { day, count, height };
+                         });
+ 
+                         return (
+                           <div className="flex items-end justify-between h-28">
+                             {weeklyData.map((data, index) => (
+                               <div key={index} className="flex flex-col items-center">
+                                 <div className="text-[11px] text-gray-500 mb-1">{data.count}</div>
+                                 <div 
+                                   className="w-7 bg-gradient-to-t from-yellow-500 to-orange-500 rounded-t-sm transition-all duration-300"
+                                   style={{ height: `${data.height}%` }}
+                                 ></div>
+                                 <div className="text-[11px] text-gray-500 mt-1">{data.day}</div>
+                               </div>
+                             ))}
+                             </div>
+                           );
+                       })()}
+                     </div>
+                     
+                     <div className="text-center text-xs text-gray-600">
+                       Serviços concluídos por dia da semana
+                               </div>
+                     </div>
+                   </CardContent>
+                 </Card>
+               </div>
 
               
 
@@ -2583,18 +2387,18 @@ export default function ProviderDashboard() {
             </TabsContent>
 
             {/* History Tab */}
-            <TabsContent value="history" className="space-y-8">
+            <TabsContent value="history" className="space-y-6">
               <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5" />
+                    <CardTitle className="flex items-center gap-1.5 text-base">
+                    <CheckCircle className="h-4 w-4" />
                     Histórico de Serviços Concluídos
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                  <ProfessionalDashboard professionalId={user?.id || 0} />
-                  </CardContent>
-                </Card>
+                   <CardContent>
+                   <ProfessionalDashboard professionalId={user?.id || 0} />
+                   </CardContent>
+                 </Card>
             </TabsContent>
           </Tabs>
         </div>

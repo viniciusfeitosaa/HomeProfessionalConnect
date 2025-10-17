@@ -1020,14 +1020,14 @@ export function setupRoutes(app: Express, redisClient: any) {
       const finalAmount = Math.max(amount, minimumAmount);
       
       // ✨ Calcular taxa LifeBee (5%) em centavos
-      const lifebeeCommissionPercent = 0.05;
+      const lifebeeCommissionPercent = 0.20;
       const lifebeeCommission = Math.round(finalAmount * 100 * lifebeeCommissionPercent); // em centavos
       const professionalAmount = Math.round(finalAmount * 100) - lifebeeCommission;
 
       console.log(`💰 Valor original: R$ ${amount.toFixed(2)}`);
       console.log(`💰 Valor final (mínimo R$ 5,00): R$ ${finalAmount.toFixed(2)}`);
-      console.log(`💰 LifeBee (5%): R$ ${(lifebeeCommission / 100).toFixed(2)}`);
-      console.log(`💰 Profissional (95%): R$ ${(professionalAmount / 100).toFixed(2)}`);
+      console.log(`💰 LifeBee (20%): R$ ${(lifebeeCommission / 100).toFixed(2)}`);
+      console.log(`💰 Profissional (80%): R$ ${(professionalAmount / 100).toFixed(2)}`);
       console.log(`🔑 Stripe Secret Key presente: ${process.env.STRIPE_SECRET_KEY ? 'Sim' : 'Não'}`);
 
       if (!stripe) {

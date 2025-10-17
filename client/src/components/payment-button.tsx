@@ -343,7 +343,7 @@ function PaymentForm({
   // Stripe Brasil: valor mínimo é R$ 5,00
   const minimumAmount = 5.00;
   const finalAmount = Math.max(amount, minimumAmount);
-  const lifebeeCommission = finalAmount * 0.05;
+  const lifebeeCommission = finalAmount * 0.20;
   const professionalAmount = finalAmount - lifebeeCommission;
 
   return (

@@ -3103,7 +3103,7 @@ function setupRoutes(app2, redisClient) {
       const amount = parseFloat(rawPrice);
       const minimumAmount = 5;
       const finalAmount = Math.max(amount, minimumAmount);
-      const lifebeeCommissionPercent = 0.05;
+      const lifebeeCommissionPercent = 0.2;
       const lifebeeCommission = Math.round(finalAmount * 100 * lifebeeCommissionPercent);
       const professionalAmount = Math.round(finalAmount * 100) - lifebeeCommission;
       console.log(`\u{1F4B0} Valor original: R$ ${amount.toFixed(2)}`);
